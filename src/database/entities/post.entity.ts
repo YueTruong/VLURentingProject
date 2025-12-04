@@ -14,6 +14,7 @@ import { UserEntity } from './user.entity';
 import { CategoryEntity } from './category.entity';
 import { AmenityEntity } from './amenity.entity';
 import { PostImageEntity } from './post-image.entity';
+import { ReviewEntity } from './review.entity';
 // Lấy kiểu 'post_status' từ file SQL DDL (hoặc định nghĩa ở đây)
 // Tạm thời dùng string
 type PostStatus = 'pending' | 'approved' | 'rejected' | 'rented' | 'hidden';
@@ -92,4 +93,8 @@ export class PostEntity {
     inverseJoinColumn: { name: 'amenity_id', referencedColumnName: 'id' },
   })
   amenities: AmenityEntity[];
+
+  // Một Post có Nhiều Đánh giá (Review)
+  @OneToMany(() => ReviewEntity, (review) => review.post)
+  reviews: ReviewEntity[];
 }
