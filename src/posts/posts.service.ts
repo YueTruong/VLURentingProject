@@ -152,7 +152,16 @@ export class PostsService {
         status: 'approved', // Chỉ lấy tin đã duyệt
       },
       // Lấy luôn quan hệ liên quan
-      relations: ['category', 'amenities', 'images', 'user', 'user.profile'],
+      relations: [
+        'category',
+        'amenities',
+        'images',
+        'user',
+        'user.profile',
+        'reviews',
+        'reviews.user',
+        'reviews.user.profile',
+      ],
     });
 
     if (!post) {
@@ -167,7 +176,25 @@ export class PostsService {
       delete post.user.password_hash;
     }
 
-    return post;
+    // Tính điểm trung bình từ đánh giá
+    let averageRating = 0;
+    if (post.reviews && post.reviews.length > 0) {
+      const total = post.reviews.reduce((sum, review) => sum + review.rating, 0);
+      averageRating = parseFloat((total / post.reviews.length).toFixed(1)); // Làm tròn 1 chữ số thập phân
+
+      // Xóa hash mật khẩu của người đánh giá
+      post.reviews.forEach((review) => {
+        if (review.user) {
+          delete review.user.password_hash;
+        }
+      });
+    }
+
+    return {
+      ...post,
+      averageRating: averageRating,
+      reviewCount: post.reviews.length,
+    };
   }
 
   // Hàm cập nhật tin đăng theo ID
@@ -191,7 +218,9 @@ export class PostsService {
 
     // Cập nhật Category
     if (categoryId) {
-      const category = await this.categoryRepository.findOneBy({ id: categoryId});
+      const category = await this.categoryRepository.findOneBy({
+        id: categoryId,
+      });
       if (!category) {
         throw new NotFoundException('Không tìm thấy loại phòng');
       }
@@ -200,7 +229,9 @@ export class PostsService {
 
     // Cập nhật tiện ích
     if (amenityIds) {
-      const amenities = await this.amenityRepository.findBy({ id: In(amenityIds) });
+      const amenities = await this.amenityRepository.findBy({
+        id: In(amenityIds),
+      });
       post.amenities = amenities;
     }
 
