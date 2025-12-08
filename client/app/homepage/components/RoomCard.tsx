@@ -57,13 +57,65 @@ export default function RoomCard({ data }: RoomProps) {
 
         {/* Info icons */}
         <div className="flex items-center justify-between mt-2 text-gray-700">
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-1">🛏 {data.beds}</div>
-            <div className="flex items-center gap-1">🚿 {data.baths}</div>
-            <div className="flex items-center gap-1">
-                {data.wifi ? '📶 Free' : '📶 No'}
+          <div className="flex items-center gap-5 text-sm font-medium">
+            
+            {/* 1. GIƯỜNG */}
+            <div className="flex items-center gap-2" title="Số phòng ngủ">
+              <Image 
+                src="/icons/Bed-Icon.svg"
+                alt="Giường"
+                width={20} 
+                height={20}
+                className="text-gray-500"
+              />
+              <span>{data.beds}</span>
             </div>
-            <div>{data.area}</div>
+
+            {/* 2. PHÒNG TẮM */}
+            <div className="flex items-center gap-2" title="Số phòng tắm">
+              <Image 
+                src="/icons/Bath-Icon.svg" 
+                alt="Phòng tắm"
+                width={18}
+                height={18}
+                className="text-gray-500"
+              />
+              <span>{data.baths}</span>
+            </div>
+
+            {/* 3. WIFI */}
+            <div className="flex items-center gap-2" title="Internet">
+              {data.wifi ? (
+                // Trường hợp CÓ Wifi
+                <>
+                  <Image 
+                    src="/icons/Wifi-Icon.svg" 
+                    alt="Wifi Free"
+                    width={18}
+                    height={18}
+                  />
+                  <span className="text-gray-700">Free</span>
+                </>
+              ) : (
+                // Trường hợp KHÔNG CÓ Wifi
+                <>
+                  <Image 
+                    src="/icons/Wifi-Icon.svg" 
+                    alt="No Wifi"
+                    width={18}
+                    height={18}
+                    className="opacity-40 grayscale"
+                  />
+                  <span className="text-gray-700">No</span>
+                </>
+              )}
+            </div>
+
+            {/* 4. DIỆN TÍCH */}
+            <div className="flex items-center gap-2 text-gray-700 ml-auto">
+                <span>{data.area}</span>
+            </div>
+
           </div>
         </div>
 
@@ -77,7 +129,7 @@ export default function RoomCard({ data }: RoomProps) {
           <button className="
             bg-blue-50 text-blue-600 
             px-4 py-1.5 rounded-[10px] text-sm font-medium
-            hover:bg-blue-600 hover:text-white transition-all duration-300
+            hover:bg-blue-600 hover:text-white transition-all duration-300 active:scale-95
           ">
             Xem ngay
           </button>

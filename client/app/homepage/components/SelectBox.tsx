@@ -1,4 +1,3 @@
-// components/SelectBox.tsx
 "use client";
 import React from 'react';
 import * as Select from '@radix-ui/react-select';
@@ -16,7 +15,7 @@ const SelectBox = ({ icon, placeholder, options }: SelectBoxProps) => (
     {/* Cái nút bấm để mở dropdown */}
     <Select.Trigger className="
       flex items-center justify-between 
-      w-[180px] h-12 px-4 
+      w-[250px] h-12 px-4 
       bg-white border-r border-gray-200 
       text-gray-700 text-sm font-medium 
       hover:bg-gray-50 transition outline-none
