@@ -1,5 +1,5 @@
 import Image from 'next/image';
-// import SelectBox from "./SelectBox"
+import SelectBox from "./SelectBox"
 
 export default function Header() {
   return (
@@ -65,9 +65,10 @@ export default function Header() {
         </div>
 
         {/* 3. THANH TÌM KIẾM (SEARCH BAR) */}
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-full max-w-5xl px-4">
-          <div className="bg-white rounded-[10px] shadow-xl p-2 flex flex-col md:flex-row items-center gap-2">
-            {/* Input: Tìm kiếm */}
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 w-full max-w-6xl px-4">
+          <div className="bg-white rounded-[10px] shadow-xl p-2 flex flex-col md:flex-row items-center gap-2 overflow-visible relative z-30">
+
+            {/* 1.INPUT TÌM KIẾM */}
             <div className="
               flex-1 flex items-center px-4 w-full h-12 border-b md:border-b-0 md:border-r border-gray-200
             ">
@@ -85,67 +86,30 @@ export default function Header() {
                   d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
               </svg>
-              <input
-                type="text"
-                placeholder="Tìm kiếm nhà trọ..."
-                className="w-full outline-none text-gray-700 placeholder-gray-500"
-              />
+              <input type="text" placeholder="Tìm kiếm nhà trọ..." className="w-full outline-none text-gray-700 placeholder-gray-500 bg-transparent" />
             </div>
 
-            {/* Dropdown: Chọn cơ sở */}
-            <div className="
-              flex items-center
-              w-[180px] h-12 px-4
-              border-b border-gray-200
-              md:border-b-0 md:border-r
-              cursor-pointer rounded-lg transition hover:bg-gray-50
-            ">
-              <span className="text-[#D51F35] mr-2">📍</span>
-              <select className="w-full bg-transparent outline-none text-gray-700 font-medium cursor-pointer appearance-none">
-                <option value="">Chọn cơ sở</option>
-                <option value="cs1">Cơ sở 1 (Nguyễn Khắc Nhu)</option>
-                <option value="cs2">Cơ sở 2 (Đặng Thùy Trâm)</option>
-                <option value="cs3">Cơ sở 3 (LVL)</option>
-              </select>
-              {/* Mũi tên nhỏ cho đẹp */}
-              <svg
-                className="w-4 h-4 text-gray-400 ml-auto"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M19 9l-7 7-7-7"
-                ></path>
-              </svg>
-            </div>
+            {/* 2. SELECT BOX: CHỌN CƠ SỞ  */}
+            <SelectBox
+              icon="📍"
+              placeholder="Chọn cơ sở"
+              options={[
+                { value: 'cs1', label: 'Cơ sở 1 (Nguyễn Khắc Nhu)'},
+                { value: 'cs2', label: 'Cơ sở 2 (Phan Văn Trị)'},
+                { value: 'cs3', label: 'Cơ sở 3 (Đặng Thuỳ Trâm)'},
+              ]}
+            />
 
-            {/* Dropdown: Chọn giá tiền */}
-            <div className="flex items-center px-4 w-[180px] h-12 border-b md:border-b-0 md:border-r border-gray-200 cursor-pointer hover:bg-gray-50 transition rounded-lg">
-              <span className="text-[#D51F35] mr-2">🏷️</span>
-              <select className="w-full bg-transparent outline-none text-gray-700 font-medium cursor-pointer appearance-none">
-                <option value="">Chọn giá tiền</option>
-                <option value="duoi-3tr">Dưới 3 triệu</option>
-                <option value="3tr-5tr">3 triệu - 5 triệu</option>
-                <option value="tren-5tr">Trên 5 triệu</option>
-              </select>
-              <svg
-                className="w- h-4 text-gray-400 ml-auto"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M19 9l-7 7-7-7"
-                ></path>
-              </svg>
-            </div>
+            {/* 3. SELECT BOX: CHỌN GIÁ TIỀN */}
+            <SelectBox
+              icon="🏷️"
+              placeholder="Chọn giá tiền"
+              options={[
+                { value: 'duoi-3tr', label: 'Dưới 3 triệu' },
+                { value: '3tr-5tr', label: '3 triệu - 5 triệu' },
+                { value: 'tren-5tr', label: 'Trên 5 triệu' },
+              ]}
+            />
 
             {/* Button: Search */}
             <button
@@ -158,7 +122,7 @@ export default function Header() {
             "
             >
               Search
-            </button>
+            </button>            
           </div>
         </div>
       </div>
