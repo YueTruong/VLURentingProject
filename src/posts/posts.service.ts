@@ -84,6 +84,9 @@ export class PostsService {
       area_max,
       category_id,
       amenity_ids,
+      lat,
+      lng,
+      radius,
     } = searchPostDto;
 
     // Xây dựng điều kiện truy vấn
@@ -111,6 +114,23 @@ export class PostsService {
     }
     if (price_max) {
       queryBuilder.andWhere('post.price <= :price_max', { price_max });
+    }
+
+    // Tìm kiếm theo bán kính
+    if (lat && lng && radius) {
+      // Công thức Haversine để tính khoảng cách giữa hai điểm trên bản đồ
+      // 6371 là bán kính Trái Đất tính bằng km
+      const haversineFormula = `(6371 * acos(cos(radians(:lat)) * cos(radians(post.latitude)) * cos(radians(post.longitude) - radians(:lng)) + sin(radians(:lat)) * sin(radians(post.latitude))))`;
+
+      // Thêm điều kiện vào truy vấn
+      queryBuilder.andWhere(`${haversineFormula} <= :radius`, {
+        lat,
+        lng,
+        radius,
+      });
+
+      // Sắp xếp theo khoảng cách gần nhất
+      queryBuilder.orderBy('post.createdAt', 'DESC');
     }
 
     // Lọc theo diện tích
