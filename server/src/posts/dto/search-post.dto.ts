@@ -42,4 +42,20 @@ export class SearchPostDto {
   @IsArray()
   @IsNumber({}, { each: true })
   amenity_ids?: number[];
+
+  // Các trường lọc bản đồ
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  lat?: number; // Vĩ độ
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  lng?: number; // Kinh độ
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  radius?: number; // Bán kính tìm kiếm (tính bằng km)
 }
