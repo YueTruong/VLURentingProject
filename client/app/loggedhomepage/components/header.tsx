@@ -1,6 +1,6 @@
 import Image from "next/image";
-import Link from "next/link";
-import SelectBox from "./SelectBox"
+import SelectBox from "@/app/homepage/components/SelectBox";
+import UserMenu from "@/app/homepage/components/UserMenu";
 
 export default function Header() {
   return (
@@ -30,29 +30,59 @@ export default function Header() {
             </p>
           </div>
 
-          {/* Right: User Button */}
-          <Link href="/login">
+          <div className="flex gap-4">
+            {/* POST */}
             <button
               className="
-              shrink-0 w-[140px] h-10 
-              bg-white text-black rounded-full 
-              flex items-center justify-center gap-2 
-              font-semibold text-sm shadow-md 
-              hover:bg-gray-100 transition-all active:scale-95
-            "
+                shrink-0 w-[100px] h-10 font-bold
+                bg-black rounded-full flex items-center
+                justify-center 
+                transition-all duration-300 active:scale-95
+              "
             >
-              {/* User Icon */}
-              <div className="w-5 h-5 relative">
-                <Image
-                  src="/icons/UserIcon.svg"
-                  alt="user"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-              Thành viên
-            </button>            
-          </Link>
+              Đăng tin
+            </button>
+
+            {/* CHAT */}
+            <button
+              className="
+                shirnk-0 w-[60px] h-10
+                bg-white rounded-full flex items-center
+                justify-center shadow-sm border border-gray-100
+                transistion-all duration-300 active:scale-95
+              "
+            >
+              <Image
+                src="/icons/Chat.svg"
+                alt="Chat"
+                width={24}
+                height={24}
+              />
+            </button>
+
+
+            {/* Notifications */}
+            <button
+              className="
+                shrink-0 w-[60px] h-10
+                bg-white rounded-full flex items-center
+                justify-center hover:bg-gray-100 shadow-sm border border-gray-100
+                transistion-all duration-300 active:scale-95
+              "
+            >
+              <Image
+                src="/icons/Notification.svg"
+                alt="Chat"
+                width={24}
+                height={24}
+              />
+            </button>
+
+            {/* Right: User Button */}
+            <div className="ml-2">
+              <UserMenu />
+            </div>            
+          </div>
         </div>
       </header>
 
