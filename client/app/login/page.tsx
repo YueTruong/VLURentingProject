@@ -13,10 +13,17 @@ export default function LoginPage() {
   const router = useRouter();
   
   {/* Hàm xử lý đăng nhập */}
-  const handleTesterLogin = () => {
-    // Kiểm tra tài khoản và mật khẩu
-    if (username === "admin" && password === "Admin@123") {
-      router.push("/loggedhomepage"); // Chuyển hướng về trang chủ đã đăng nhập
+  const handleTesterLogin = async () => {
+    setError("");
+
+    const res = await signIn("credentials", {
+      redirect: false,
+      username,
+      password,
+    });
+
+    if (res?.ok) {
+      router.push("/loggedhomepage");
     } else {
       setError("Tài khoản hoặc mật khẩu không chính xác!");
     }

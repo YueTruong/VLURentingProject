@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from "react";
 
 export default function UserMenu() {
   const { data: session } = useSession();
+  console.log("CHECK SESSION: ",session);
   const [isOpen, setIsOpen] = useState(false);
   
   // 1. Thêm Ref để xác định vùng menu
@@ -26,15 +27,13 @@ export default function UserMenu() {
     };
   }, []);
 
-  // TRƯỜNG HỢP 1: CHƯA ĐĂNG NHẬP
   if (!session) {
     return (
       null    
     );
   }
 
-  // TRƯỜNG HỢP 2: ĐÃ ĐĂNG NHẬP
-  const userImage = session.user?.image || "/images/Admin.png";
+  const userImage = session.user?.image || "/images/Admins.png";
 
   return (
     // Gắn ref vào đây để bắt sự kiện click ra ngoài
