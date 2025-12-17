@@ -2,10 +2,10 @@ import {
   Controller,
   Post,
   UseInterceptors,
-  UploadedFile,
+  UploadedFiles,
   BadRequestException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { CloudinaryService } from './cloudinary.service';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
 
@@ -14,33 +14,36 @@ import { ApiTags, ApiOperation, ApiConsumes, ApiBody } from '@nestjs/swagger';
 export class CloudinaryController {
   constructor(private readonly cloudinaryService: CloudinaryService) {}
 
-  @Post()
-  @ApiOperation({ summary: 'Upload 1 file ảnh' })
+  @Post('multiple')
+  @ApiOperation({ summary: 'Upload nhiều file ảnh (tối đa 5 ảnh)' })
   @ApiConsumes('multipart/form-data') // Báo cho Swagger biết đây là upload file
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        file: {
-          type: 'string',
-          format: 'binary',
+        files: {
+          type: 'array',
+          items: {
+            type: 'string',
+            format: 'binary',
+          },
         },
       },
     },
   })
-  @UseInterceptors(FileInterceptor('file')) // 'file' là tên key trong form-data
-  async uploadImage(@UploadedFile() file: Express.Multer.File) {
-    if (!file) {
+  @UseInterceptors(FilesInterceptor('files', 5)) // 'files' là tên key trong form-data, nhận tối đa 5 file
+  async uploadMultipleImages(@UploadedFiles() files: Express.Multer.File[]) {
+    if (!files || files.length === 0) {
       throw new BadRequestException('Không có file nào được tải lên');
     }
 
     // Gọi service để upload
-    const result = await this.cloudinaryService.uploadFile(file);
+    const results = await this.cloudinaryService.uploadMultipleFiles(files);
 
     // Trả về URL của ảnh
-    return {
+    return results.map((result) => ({
       url: result.secure_url,
       public_id: result.public_id,
-    };
+    }));
   }
 }

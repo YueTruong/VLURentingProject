@@ -20,4 +20,11 @@ export class CloudinaryService {
       streamifier.createReadStream(file.buffer).pipe(uploadStream);
     });
   }
+
+  // Hàm upload nhiều file
+  async uploadMultipleFiles(files: Express.Multer.File[]) {
+    // Sử dụng Promise.all để upload đồng thời nhiều file
+    const uploadPromises = files.map((file) => this.uploadFile(file));
+    return Promise.all(uploadPromises);
+  }
 }
