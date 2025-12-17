@@ -11,6 +11,6 @@ async function bootstrap() {
   // Kích hoạt Validation tự động
   app.useGlobalPipes(new ValidationPipe({ transform: true }));
 
-  await app.listen(3000);
+  await app.listen(3001);
 }
 bootstrap();

@@ -7,7 +7,6 @@ import { useState, useRef, useEffect } from "react";
 
 export default function UserMenu() {
   const { data: session } = useSession();
-  console.log("CHECK SESSION: ",session);
   const [isOpen, setIsOpen] = useState(false);
   
   // 1. Thêm Ref để xác định vùng menu
