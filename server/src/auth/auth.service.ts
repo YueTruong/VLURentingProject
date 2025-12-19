@@ -107,13 +107,22 @@ export class AuthService {
   }
 
   // Hàm xác thực người dùng trong LocalStrategy
-  async validateUser(email: string, pass: string): Promise<any> {
-    // Tìm user theo email
-    const user = await this.userRepository.findOne({
-      where: { email },
-      relations: ['role'],
-      select: ['id', 'email', 'password_hash', 'role', 'is_active'], // Chỉ lấy các trường cần thiết
-    });
+  async validateUser(username: string, pass: string): Promise<any> {
+    // Tìm user theo username
+    const user = await this.userRepository
+      .createQueryBuilder("u")
+      .leftJoinAndSelect("u.role", "role")
+      .where("u.username = :username", { username })
+      .select([
+        "u.id",
+        "u.email",
+        "u.username",
+        "u.password_hash",
+        "u.is_active",
+        "role.id",
+        "role.name",
+      ])
+      .getOne();
 
     // Kiểm tra tài khoản có bị khoá không
     if (!user || user.is_active === false) {
@@ -136,13 +145,22 @@ export class AuthService {
   async login(user: any) {
     // Tạo payload cho JWT để lưu thông tin cần thiết
     const payload = {
-      userId: user.id,
+      sub: user.id,
+      username: user.username,
       email: user.email,
-      role: user.role.name,
+      roles: user.role?.name ?? null,
     };
 
+    const access_token = this.jwtService.sign(payload);
+
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token,
+      user: {
+        id: user.id,
+        email: user.email ?? null,
+        username: user.username ?? null,
+        roles: user.role?.name ?? null,
+      },
     };
   }
 

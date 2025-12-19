@@ -13,6 +13,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('auth') // Tiền tố chung cho tất cả API trong file này là /auth
 export class AuthController {
@@ -36,8 +37,9 @@ export class AuthController {
 
   // API Endpoint cho chức năng Đăng nhập
   // POST /auth/login
-  @UseGuards(LocalAuthGuard) // Kích hoạt LocalAuthGuard cho route này
   @Post('login')
+  @UseGuards(JwtAuthGuard)
+  // @UseGuards(AuthGuard('local'))
   @HttpCode(HttpStatus.OK) // Trả về mã 200 OK khi thành công
   async login(@Request() req: any, @Body() loginDto: LoginDto) {
     // Nếu đến được đây, tức là LocalAuthGuard đã xác thực thành công

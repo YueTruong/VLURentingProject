@@ -1,17 +1,26 @@
-import NextAuth, { DefaultSession } from "next-auth";
+import "next-auth";
+import "next-auth/jwt";
+
+type Role = "STUDENT" | "LANDLORD" | "ADMIN";
+
 declare module "next-auth" {
   interface Session {
-    provider?: string;
-    user: {
-      id?: string;
-      role?: "STUDENT" | "LANDLORD" | "ADMIN";
-    } & DefaultSession["user"];
+    backendToken?: string;
+    username?: string;
+    role?: Role;
+  }
+
+  interface User {
+    backendToken?: string;
+    username?: string;
+    role?: Role;
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
-    provider?: string;
-    role?: "STUDENT" | "LANDLORD" | "ADMIN";
+    backendToken?: string;
+    username?: string;
+    role?: Role;
   }
 }
