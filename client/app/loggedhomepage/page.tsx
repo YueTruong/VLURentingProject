@@ -5,6 +5,8 @@ import RoomList from "@/app/homepage/components/RoomList";
 import Footer from "@/app/homepage/components/footer";
 import { useEffect } from "react";
 import api from "@/app/services/api";
+import MapSection from "../homepage/components/Mapsection";
+import ReviewsSection from "../homepage/components/ReviewSection";
 
 export default function LoggedHomePage() {
   useEffect(() => {
@@ -22,13 +24,16 @@ export default function LoggedHomePage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Header nằm trên cùng */}
+      {/* <Header /> */}
       <Header />
 
       <main className="grow">
         <RoomList /> 
+        <MapSection />
+        <ReviewsSection />
       </main>
-
+      
+      {/* <Footer /> */}
       <Footer />
     </div>
   );
