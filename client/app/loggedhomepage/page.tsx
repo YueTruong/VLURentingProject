@@ -1,5 +1,5 @@
 // app/page.tsx (hoặc pages/index.tsx)
-import Header from "./components/header";
+import Header from "./components/HeaderUser";
 import RoomList from "@/app/homepage/components/RoomList";
 import Footer from "@/app/homepage/components/footer";
 

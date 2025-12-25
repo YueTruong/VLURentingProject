@@ -23,6 +23,6 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document); // Truy cập tại localhost:3000/api
 
-  await app.listen(3000);
+  await app.listen(3001);
 }
 bootstrap();
