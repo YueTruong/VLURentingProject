@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { PostsModule } from './posts/posts.module';
 import { AdminModule } from './admin/admin.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { UsersModule } from './users/user.module';
 
 @Module({
@@ -45,8 +46,6 @@ import { UsersModule } from './users/user.module';
     AdminModule,
 
     ReviewsModule,
-
-    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
