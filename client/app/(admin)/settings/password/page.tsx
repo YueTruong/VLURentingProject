@@ -39,8 +39,8 @@ export default function SettingsPasswordPage() {
               </label>
               <input
                 type="password"
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 ouline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="••••••••••••"
+                className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Nhập mật khẩu mới"
               />
 
               {/* Strength bar (demo) */}
@@ -65,7 +65,7 @@ export default function SettingsPasswordPage() {
               <input 
                 type="password"
                 className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="••••••••••••"
+                placeholder="Xác nhận mật khẩu mới"
               />
             </div>
           </div>
