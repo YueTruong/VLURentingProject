@@ -41,8 +41,7 @@ export class AuthController {
   // API Endpoint cho chức năng Đăng nhập
   // POST /auth/login
   @Post('login')
-  @UseGuards(JwtAuthGuard)
-  // @UseGuards(AuthGuard('local'))
+  @UseGuards(AuthGuard('local'))
   @HttpCode(HttpStatus.OK) // Trả về mã 200 OK khi thành công
   @ApiOperation({ summary: 'Đăng nhập' })
   async login(@Request() req: any, @Body() loginDto: LoginDto) {
