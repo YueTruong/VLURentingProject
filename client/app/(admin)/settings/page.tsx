@@ -1,5 +1,6 @@
 import SettingsTabs from "./components/settingsTabs";
 import Image from "next/image";
+import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
@@ -99,7 +100,14 @@ export default async function SettingsInfoPage() {
 
           <div className="mt-10 border-t border-gray-200" />
 
-          <div className="mt-10 flex justify-end">
+          <div className="mt-10 flex items-center justify-between">
+            <Link
+              href="/loggedhomepage"
+              className="rounded-xl border border-gray-300 px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 active:scale-[0.99] transition"
+            >
+              Quay lại
+            </Link>
+
             <button className="rounded-xl bg-blue-600 px-10 py-4 text-white font-bold hover:bg-blue-700 active:scale-[0.99] transition">
               Cập nhật
             </button>
