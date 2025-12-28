@@ -57,7 +57,7 @@ export default function Sidebar() {
 
         <div className="mt-auto pt-4">
           <Link
-            href="/loggedhomepage"
+            href="/"
             className="flex items-center rounded-xl px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
           >
             <span className="text-base text-red-600">←</span>
