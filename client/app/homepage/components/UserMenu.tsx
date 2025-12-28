@@ -235,7 +235,7 @@ export default function UserMenu() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 19H6a3 3 0 01-3-3V8a3 3 0 013-3h6" />
                 </svg>
               }
-              onClick={() => signOut({ callbackUrl: "/homepage" })}
+              onClick={() => signOut({ callbackUrl: "/" })}
             />
           </div>
         </div>

@@ -23,7 +23,7 @@ export default function LoginPage() {
     });
 
     if (res?.ok) {
-      router.push("/loggedhomepage");
+      router.push("/");
     } else {
       setError("Tài khoản hoặc mật khẩu không chính xác!");
     }
