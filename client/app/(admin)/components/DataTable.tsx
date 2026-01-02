@@ -1,46 +1,60 @@
-"use client"
+"use client";
 
-import { useMemo, useState } from "react";
+import {
+  CaretSortIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DoubleArrowLeftIcon,
+  DoubleArrowRightIcon,
+} from "@radix-ui/react-icons";
+import { ReactNode, useMemo, useState } from "react";
 
 export type Column<T> = {
   key: string;
   header?: string;
   width?: string;
+  align?: "left" | "center" | "right";
   sortable?: boolean;
-  render?: (row: T) => React.ReactNode;
+  render?: (row: T) => ReactNode;
   sortValue?: (row: T) => string | number;
 };
 
 type SortDir = "asc" | "desc";
 
-export default function DataTable<T>({
-  rows,
-  columns, 
-  pageSize = 8,
-  rowKey,
-  emptyText = "No data",
-}: {
+type DataTableProps<T> = {
   rows: T[];
   columns: Column<T>[];
   pageSize?: number;
   rowKey: (row: T) => string;
   emptyText?: string;
-}) {
+  onRowClick?: (row: T) => void;
+  getRowClassName?: (row: T) => string;
+};
+
+export default function DataTable<T>({
+  rows,
+  columns,
+  pageSize = 8,
+  rowKey,
+  emptyText = "No data",
+  onRowClick,
+  getRowClassName,
+}: DataTableProps<T>) {
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const sorted = useMemo(() => {
     if (!sortKey) return rows;
-    const col = columns.find((c) => c.key === sortKey);
+    const col = columns.find((column) => column.key === sortKey);
     if (!col) return rows;
 
-    const getVal = 
+    const getVal =
       col.sortValue ??
-      ((r: T) => {
-        const x = (r as unknown as Record<string, unknown>)[sortKey];
-        if (typeof x === "number" || typeof x === "string") return x;
-        return String(x ?? "");
+      ((record: T) => {
+        const value = (record as unknown as Record<string, unknown>)[sortKey];
+        if (typeof value === "number" || typeof value === "string") return value;
+        return String(value ?? "");
       });
 
     const copy = [...rows];
@@ -64,44 +78,58 @@ export default function DataTable<T>({
     return sorted.slice(start, start + pageSize);
   }, [sorted, safePage, pageSize]);
 
-  function toggleSort(k: string) {
-    if (sortKey !== k) {
-      setSortKey(k);
+  function toggleSort(key: string) {
+    if (sortKey !== key) {
+      setSortKey(key);
       setSortDir("asc");
-      setPage(1)
+      setPage(1);
       return;
     }
-    setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    setSortDir((dir) => (dir === "asc" ? "desc" : "asc"));
     setPage(1);
   }
 
+  const startRow = sorted.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const endRow = Math.min(sorted.length, safePage * pageSize);
+  const clickable = Boolean(onRowClick);
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200">
-      <div className="overflow-x-auto bg-white">
-        <table className="min-w-full text-left text-sm">
-          <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="min-w-full border-separate border-spacing-0 text-sm">
+          <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
             <tr>
-              {columns.map((c) => {
-                const isActive = sortKey === c.key;
+              {columns.map((column) => {
+                const isActive = sortKey === column.key;
+                const alignClass =
+                  column.align === "center"
+                    ? "text-center"
+                    : column.align === "right"
+                      ? "text-right"
+                      : "text-left";
                 return (
-                  <th 
-                    key={c.key}
-                    style={{ width: c.width }}
-                    className="px-4 py-3 font-semibold"
+                  <th
+                    key={column.key}
+                    style={{ width: column.width }}
+                    className={`px-4 py-3 font-semibold ${alignClass}`}
                   >
-                    {c.sortable ? (
+                    {column.sortable ? (
                       <button
                         type="button"
-                        onClick={() => toggleSort(c.key)}
-                        className="inline-flex items-center gap-2 hover:text-gray-900"
+                        onClick={() => toggleSort(column.key)}
+                        className="inline-flex items-center gap-1.5 text-gray-700 hover:text-gray-900"
                       >
-                        {c.header}
-                        <span className="text-[10px]">
-                          {isActive ? (sortDir === "asc" ? "▲" : "▼"): "↕"}
-                        </span>
+                        <span>{column.header}</span>
+                        {isActive ? (
+                          <span className="text-[11px]">
+                            {sortDir === "asc" ? "↑" : "↓"}
+                          </span>
+                        ) : (
+                          <CaretSortIcon className="h-3.5 w-3.5 text-gray-400" />
+                        )}
                       </button>
                     ) : (
-                      c.header
+                      column.header
                     )}
                   </th>
                 );
@@ -109,64 +137,100 @@ export default function DataTable<T>({
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-gray-100 bg-white">
+          <tbody className="divide-y divide-gray-100">
             {paged.length === 0 ? (
               <tr>
-                <td className="px-4 py-8 text-center text-gray-500" colSpan = {columns.length}>
+                <td className="px-4 py-8 text-center text-gray-500" colSpan={columns.length}>
                   {emptyText}
                 </td>
               </tr>
             ) : (
-              paged.map((row) => (
-                <tr key={rowKey(row)} className="hover:bg-gray-50/60">
-                  {columns.map((c) => (
-                    <td key={c.key} className="px-4 py-3 align-middle">
-                      {c.render ? c.render(row) : String((row as unknown as Record<string, unknown>)[c.key] ?? "")}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              paged.map((row) => {
+                const baseRowClass = clickable
+                  ? "cursor-pointer hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900/10"
+                  : "hover:bg-gray-50/60";
+                const extraClass = getRowClassName ? getRowClassName(row) : "";
+                return (
+                  <tr
+                    key={rowKey(row)}
+                    onClick={() => (onRowClick ? onRowClick(row) : undefined)}
+                    onKeyDown={(event) => {
+                      if (!onRowClick) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onRowClick(row);
+                      }
+                    }}
+                    tabIndex={onRowClick ? 0 : undefined}
+                    className={`${baseRowClass} ${extraClass}`}
+                  >
+                    {columns.map((column) => {
+                      const alignClass =
+                        column.align === "center"
+                          ? "text-center"
+                          : column.align === "right"
+                            ? "text-right"
+                            : "text-left";
+                      return (
+                        <td key={column.key} className={`px-4 py-3 align-middle ${alignClass}`}>
+                          {column.render
+                            ? column.render(row)
+                            : String((row as unknown as Record<string, unknown>)[column.key] ?? "")}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
-      
-      <div className="flex items-center justify-between gap-3 bg-white px-4 py-3">
+
+      <div className="flex flex-col gap-3 border-t border-gray-100 bg-white px-4 py-3 text-sm text-gray-600 md:flex-row md:items-center md:justify-between">
         <div className="text-xs text-gray-500">
-          Page <span className="font-medium text-gray-900">{safePage}</span> / {totalPages} •{" "} {sorted.length} rows
+          Showing{" "}
+          <span className="font-medium text-gray-900">
+            {startRow}-{endRow}
+          </span>{" "}
+          of {sorted.length} rows
         </div>
-      
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => setPage(1)}
             disabled={safePage === 1}
-            className="rounded-xl border border-gray-200 px-3 py-1.5 text-sm disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-xl border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
+            <DoubleArrowLeftIcon className="h-3.5 w-3.5" />
             First
           </button>
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={safePage === 1}
-            className="rounded-xl border border-gray-200 px-3 py-1.5 text-sm disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-xl border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
+            <ChevronLeftIcon className="h-3.5 w-3.5" />
             Prev
           </button>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={safePage === totalPages}
-            className="rounded-xl border border-gray-200 px-3 py-1.5 text-sm disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-xl border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Next
+            <ChevronRightIcon className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={() => setPage(totalPages)}
             disabled={safePage === totalPages}
-            className="rounded-xl border border-gray-200 px-3 py-1.5 text-sm disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-xl border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Last
+            <DoubleArrowRightIcon className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
     </div>
-  )
+  );
 }
