@@ -23,15 +23,25 @@ export default function LineTrend({
     <div className="pb-3">
       <div className="h-60">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart
-            data={data}
-            margin={{ top: 10, right: 10, left: 0, bottom: 18 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
+          <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 18 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis dataKey="label" tickLine={false} axisLine={false} />
             <YAxis tickLine={false} axisLine={false} />
-            <Tooltip />
-            <Line type="monotone" dataKey="value" strokeWidth={2} dot={false} />
+            <Tooltip
+              contentStyle={{
+                borderRadius: 12,
+                borderColor: "#e5e7eb",
+                boxShadow: "0 10px 35px rgba(0,0,0,0.08)",
+              }}
+            />
+            <Line
+              type="monotone"
+              dataKey="value"
+              strokeWidth={3}
+              stroke="#111827"
+              dot={{ strokeWidth: 2, r: 4, stroke: "#111827", fill: "#fff" }}
+              activeDot={{ r: 5, fill: "#111827" }}
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>
