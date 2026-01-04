@@ -27,7 +27,7 @@ export default function LoginPage() {
     
     if (res?.ok) {
       console.log("Login OK -> Chuyển trang!"); // Log xem nó có vào đây không
-      router.push("/loggedhomepage");
+      router.push("/");
     } else {
       // Nếu nhảy vào đây nghĩa là authorize trả về null hoặc throw Error
       setError("Đăng nhập thất bại: " + res?.error);
