@@ -3,7 +3,6 @@ import {
   ConflictException,
   BadRequestException,
   InternalServerErrorException,
-  UnauthorizedException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -107,42 +106,87 @@ export class AuthService {
   }
 
   // Hàm xác thực người dùng trong LocalStrategy
-  async validateUser(email: string, pass: string): Promise<any> {
-    // Tìm user theo email
+  async validateUser(identifier: string, pass: string): Promise<any> {
+    console.log(`🔍 [AuthService] Tìm user với identifier: ${identifier}`);
+
+    // LOGIC TÌM KIẾM KÉP (Username HOẶC Email)
     const user = await this.userRepository.findOne({
-      where: { email },
+      where: [
+        { email: identifier }, // Tìm theo email
+        { username: identifier }, // Tìm theo username
+      ],
       relations: ['role'],
-      select: ['id', 'email', 'password_hash', 'role', 'is_active'], // Chỉ lấy các trường cần thiết
+      select: ['id', 'email', 'username', 'password_hash', 'role', 'is_active'],
     });
 
-    // Kiểm tra tài khoản có bị khoá không
-    if (!user || user.is_active === false) {
-      return null; // Không tìm thấy user hoặc tài khoản bị khoá
+    // TRƯỜNG HỢP 1: Không tìm thấy email hoặc username
+    if (!user) {
+      console.log('❌ Không tìm thấy user nào khớp email hoặc username.');
+      return null;
+    }
+
+    console.log(`✅ [AuthService] 2. Tìm thấy User ID: ${user.id}`);
+    console.log(`Checking Status: is_active = ${user.is_active}`);
+
+    // TRƯỜNG HỢP 2: Tài khoản chưa kích hoạt
+    if (user.is_active === false) {
+      console.log(
+        '❌ [AuthService] -> Lỗi: Tài khoản chưa kích hoạt (is_active = false)',
+      );
+      return null;
     }
 
     // So sánh mật khẩu
+    console.log('🔍 [AuthService] 3. Đang so sánh mật khẩu...');
+    console.log('   - Pass nhập vào:', pass);
+    console.log('   - Hash trong DB:', user.password_hash);
+
     const isPasswordMatching = await bcrypt.compare(pass, user.password_hash);
+    console.log('⚖️ [AuthService] Kết quả so sánh:', isPasswordMatching);
+
+    // TRƯỜNG HỢP 3: Sai mật khẩu
+    if (!isPasswordMatching) {
+      console.log('❌ [AuthService] -> Lỗi: Mật khẩu không khớp!');
+      return null;
+    }
 
     if (user && isPasswordMatching) {
-      // Xóa trường password_hash trước khi trả về
-      const { password_hash, is_active, ...result } = user;
+      console.log('✅ [AuthService] -> Đăng nhập thành công!');
+
+      // 1. Clone object user ra một bản mới (để không ảnh hưởng bản gốc)
+      const result = { ...user };
+
+      // 2. Xóa các trường nhạy cảm
+      delete result.password_hash;
+      delete result.is_active;
+
+      // 3. Trả về kết quả sạch
       return result;
     }
 
-    return null; // Mật khẩu không đúng
+    return null;
   }
 
   // Hàm tạo JWT token sau khi đăng nhập thành công
   async login(user: any) {
     // Tạo payload cho JWT để lưu thông tin cần thiết
     const payload = {
-      userId: user.id,
+      sub: user.id,
+      username: user.username,
       email: user.email,
-      role: user.role.name,
+      roles: user.role?.name ?? null,
     };
 
+    const access_token = this.jwtService.sign(payload);
+
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token,
+      user: {
+        id: user.id,
+        email: user.email ?? null,
+        username: user.username ?? null,
+        roles: user.role?.name ?? null,
+      },
     };
   }
 

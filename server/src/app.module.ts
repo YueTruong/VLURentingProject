@@ -8,6 +8,7 @@ import { PostsModule } from './posts/posts.module';
 import { AdminModule } from './admin/admin.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { UsersModule } from './users/user.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
 
         // Tự động đồng bộ schema (chỉ dùng cho development)
         // Khi ở production, chúng ta sẽ dùng migrations
+        autoLoadEntities: true,
         synchronize: true, // <-- TẠM THỜI ĐỂ LÀ true
       }),
     }),
@@ -44,8 +46,6 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     AdminModule,
 
     ReviewsModule,
-
-    CloudinaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

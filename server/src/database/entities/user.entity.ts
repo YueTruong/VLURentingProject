@@ -21,6 +21,9 @@ export class UserEntity {
   @Column({ type: 'varchar', length: 255, unique: true })
   email: string;
 
+  @Column({ type: 'varchar', length: 255, unique: true, nullable: true })
+  username: string;
+
   @Column({ type: 'varchar', length: 255 })
   password_hash: string;
 
