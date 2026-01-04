@@ -15,17 +15,22 @@ export default function LoginPage() {
   {/* Hàm xử lý đăng nhập */}
   const handleTesterLogin = async () => {
     setError("");
-
+    
     const res = await signIn("credentials", {
       redirect: false,
-      username,
+      username, // hoặc email
       password,
     });
 
+    // 👇 THÊM LOG ĐỂ DEBUG
+    console.log("Kết quả login NextAuth:", res);
+    
     if (res?.ok) {
-      router.push("/");
+      console.log("Login OK -> Chuyển trang!"); // Log xem nó có vào đây không
+      router.push("/loggedhomepage");
     } else {
-      setError("Tài khoản hoặc mật khẩu không chính xác!");
+      // Nếu nhảy vào đây nghĩa là authorize trả về null hoặc throw Error
+      setError("Đăng nhập thất bại: " + res?.error);
     }
   };
 

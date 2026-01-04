@@ -1,88 +1,109 @@
-import NextAuth, { type NextAuthOptions } from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import AzureADProvider from "next-auth/providers/azure-ad";
-import GoogleProvider from "next-auth/providers/google";
+import { jwtDecode } from "jwt-decode";
 
-type BackendUser = {
-  id: number;
+// 1. Định nghĩa khuôn mẫu của dữ liệu bên trong Token (khớp với AuthService Backend)
+interface BackendJwtPayload {
+  userId?: number; // Thêm dấu ?
   email?: string;
-  username: string;
-  role: "STUDENT" | "LANDLORD" | "ADMIN";
-};
-
-type BackendLoginResponse = {
-  access_token: string;
-  user: BackendUser;
-};
+  role?: string;
+  sub?: string;    // Token chuẩn thường có sub
+  iat?: number;
+  exp?: number;
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
-    AzureADProvider({
-      clientId: process.env.AZURE_AD_CLIENT_ID!,
-      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-      tenantId: process.env.AZURE_AD_TENANT_ID!,
-    }),
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      authorization: { params: { prompt: "select_account"} },
-    }),
-
     CredentialsProvider({
-      name: "Tester",
+      name: "Credentials",
       credentials: {
         username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" },
       },
-
       async authorize(credentials) {
+        // Kiểm tra xem user có nhập gì không
         if (!credentials?.username || !credentials?.password) return null;
 
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: credentials.username,
-            password: credentials.password,
-          }),
-        });
+        try {
+          // 2. Gọi API Backend (Nhớ dùng port 3001)
+          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              username: credentials.username, // Gửi key 'username' (chứa email hoặc username)
+              password: credentials.password,
+            }),
+          });
 
-        if (!res.ok) return null;
+          const data = await res.json();
 
-        const data = (await res.json()) as BackendLoginResponse;
-        if (!data?.user?.id) return null;
+          // In ra xem Backend trả về cái gì (để debug nếu lỗi)
+          console.log("📦 Backend Response:", JSON.stringify(data, null, 2));
 
-        return {
-          id: String(data.user.id),
-          name: data.user.username,
-          email: data.user.email ?? null,
-          username: data.user.username,
-          role: data.user.role,
-          backendToken: data.access_token,
-        };
+          if (!res.ok) {
+            throw new Error(data.message || "Đăng nhập thất bại");
+          }
+
+          // 3. LOGIC GIẢI MÃ
+          // Backend trả về: { access_token: "..." }
+          if (data && data.access_token) {
+            
+            // Dùng jwtDecode để mở hộp Token ra
+            const decoded = jwtDecode<BackendJwtPayload>(data.access_token);
+
+            console.log("🔓 [Frontend] Decoded Token:", decoded);
+
+            // Trả về object User đầy đủ để NextAuth lưu lại
+            return {
+              id: (decoded.userId || decoded.sub || "").toString(),
+              
+              email: decoded.email || "",
+              
+              // ⚠️ Fix lỗi: Ép kiểu 'as string' để đảm bảo không bao giờ là undefined
+              role: (decoded.role || "student") as string, 
+              
+              // ⚠️ Fix lỗi: Ép kiểu 'as string'
+              accessToken: data.access_token as string, 
+              
+              name: decoded.email || "", 
+            };
+          }
+
+          return null;
+        } catch (e) {
+          console.error("❌ Login Error:", e);
+          return null;
+        }
       },
     }),
   ],
 
-  session: { strategy: "jwt" },
-
+  // 4. Cấu hình để lưu dữ liệu vào Session
   callbacks: {
     async jwt({ token, user }) {
+      // Lần đầu login thành công, user sẽ có dữ liệu từ hàm authorize ở trên
       if (user) {
-        token.backendToken = user.backendToken;
-        token.username = user.username;
+        token.accessToken = user.accessToken;
         token.role = user.role;
+        token.id = user.id;
       }
       return token;
     },
-
     async session({ session, token }) {
-      session.backendToken = token.backendToken;
-      session.username = token.username;
-      session.role = token.role;
+      // Chuyển dữ liệu từ Token sang Session để Frontend dùng (thông qua useSession)
+      if (session.user) {
+        session.user.accessToken = token.accessToken as string;
+        session.user.role = token.role as "student" | "landlord" | "admin";
+        session.user.id = token.id as string;
+      }
       return session;
     },
   },
+  
+  pages: {
+    signIn: '/login',
+  },
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
 const handler = NextAuth(authOptions);

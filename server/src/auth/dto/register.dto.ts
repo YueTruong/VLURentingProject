@@ -8,9 +8,10 @@ import {
 } from 'class-validator';
 
 // Định nghĩa 2 vai trò mà người dùng có thể đăng ký
-export enum RegisterRole {
+export enum UserRole {
   STUDENT = 'student',
-  OWNER = 'owner',
+  LANDLORD = 'landlord',
+  ADMIN = 'admin',
 }
 
 export class RegisterDto {
@@ -32,7 +33,7 @@ export class RegisterDto {
   phoneNumber: string;
 
   // Vai trò người dùng muốn đăng ký
-  @IsEnum(RegisterRole, { message: 'Vai trò không hợp lệ.' })
+  @IsEnum(UserRole, { message: 'Vai trò phải là student, landlord hoặc admin' })
   @IsNotEmpty({ message: 'Vai trò không được để trống.' })
-  role: RegisterRole; // 'student' hoặc 'owner'
+  role: string;
 }
