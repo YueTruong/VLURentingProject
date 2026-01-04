@@ -263,7 +263,7 @@ export default function AdminDashboardPage() {
           subtitle="How many new users joined in the selected window"
           ranges={rangeOptions}
           activeRange={range}
-          onRangeChange={setRange}
+          onRangeChange={(value) => setRange(value as TrendRange)}
         >
           <LineTrend data={trendSeries.users[range]} yLabel="New users" />
         </ChartCard>
@@ -273,7 +273,7 @@ export default function AdminDashboardPage() {
           subtitle="Creation velocity for new listings"
           ranges={rangeOptions}
           activeRange={range}
-          onRangeChange={setRange}
+          onRangeChange={(value) => setRange(value as TrendRange)}
         >
           <LineTrend data={trendSeries.listings[range]} yLabel="New listings" />
         </ChartCard>
