@@ -17,7 +17,7 @@ type Amenities = {
 type ListingDraft = {
   title: string;
   type: ListingType;
-  priceVnd: string; // giữ string để format dễ, backend parse sau
+  priceVnd: string; // giá string để format dễ đọc, backend parse sau
   areaM2: string;
   maxPeople: string;
 
@@ -229,11 +229,27 @@ function Stepper({ current }: { current: number }) {
   );
 }
 
-function PreviewCard({ data }: { data: ListingDraft }) {
+function PreviewCard({
+  data,
+  activeImageIdx = 0,
+  onPrevImage,
+  onNextImage,
+}: {
+  data: ListingDraft;
+  activeImageIdx?: number;
+  onPrevImage?: () => void;
+  onNextImage?: () => void;
+}) {
   const price = toNumber(data.priceVnd);
   const area = toNumber(data.areaM2);
   const maxPeople = toNumber(data.maxPeople);
-  const firstImg = data.images?.[0];
+  const totalImages = data.images?.length ?? 0;
+  const currentIdx = totalImages > 0 ? Math.min(activeImageIdx, totalImages - 1) : 0;
+  const currentImg = totalImages > 0 ? data.images[currentIdx] : undefined;
+
+  const priceText = price ? data.priceVnd + "đ" : "--";
+  const areaText = area ? area + "m²" : "--";
+  const peopleText = maxPeople ? maxPeople + " người" : "--";
 
   const badges = [
     data.amenities.wifi && "Wifi",
@@ -246,14 +262,37 @@ function PreviewCard({ data }: { data: ListingDraft }) {
 
   return (
     <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
-      <div className="aspect-video w-full bg-gray-100">
-        {firstImg ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            alt="preview"
-            src={URL.createObjectURL(firstImg)}
-            className="h-full w-full object-cover"
-          />
+      <div className="relative aspect-video w-full bg-gray-100">
+        {currentImg ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt={currentImg.name}
+              src={URL.createObjectURL(currentImg)}
+              className="h-full w-full object-cover"
+            />
+            {totalImages > 1 && onPrevImage && onNextImage && (
+              <>
+                <button
+                  type="button"
+                  onClick={onPrevImage}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-gray-200 bg-white/90 p-2 text-sm font-semibold text-gray-700 shadow hover:bg-white"
+                >
+                  &lt;
+                </button>
+                <button
+                  type="button"
+                  onClick={onNextImage}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-gray-200 bg-white/90 p-2 text-sm font-semibold text-gray-700 shadow hover:bg-white"
+                >
+                  &gt;
+                </button>
+                <div className="absolute bottom-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-gray-700 shadow">
+                  {currentIdx + 1}/{totalImages}
+                </div>
+              </>
+            )}
+          </>
         ) : (
           <div className="grid h-full place-items-center text-sm text-gray-500">
             Chưa có ảnh (bạn có thể thêm ở bước 4)
@@ -266,16 +305,15 @@ function PreviewCard({ data }: { data: ListingDraft }) {
           <div className="min-w-0">
             <div className="truncate text-lg font-semibold text-gray-900">{data.title || "Tiêu đề tin..."}</div>
             <div className="mt-1 text-sm text-gray-500">
-              {data.ward || "Phường"} · {data.district || "Quận"} · {data.addressText || "Địa chỉ chi tiết"}
+              {data.ward || "Phường"} - {data.district || "Quận"} - {data.addressText || "Địa chỉ chi tiết"}
             </div>
           </div>
           <div className="shrink-0 text-right">
             <div className="text-lg font-bold text-gray-900">
-              {price ? `${data.priceVnd}đ` : "—"}{" "}
-              <span className="text-sm font-medium text-gray-500">/tháng</span>
+              {priceText} <span className="text-sm font-medium text-gray-500">/tháng</span>
             </div>
             <div className="mt-0.5 text-xs text-gray-500">
-              {area ? `${area}m²` : "—"} · {maxPeople ? `${maxPeople} người` : "—"}
+              {areaText} - {peopleText}
             </div>
           </div>
         </div>
@@ -332,6 +370,8 @@ export default function PostWizard() {
     description: "",
     images: [],
   });
+  const [isDragging, setIsDragging] = useState(false);
+  const [activeImageIdx, setActiveImageIdx] = useState(0);
 
   const canNext = useMemo(() => {
     if (step === 0) {
@@ -346,7 +386,9 @@ export default function PostWizard() {
       return draft.addressText.trim().length >= 6 && draft.district.trim().length > 0;
     }
     if (step === 2) return true;
-    if (step === 3) return draft.description.trim().length >= 20; // tối thiểu mô tả
+    if (step === 3) {
+      return draft.images.length > 0 && draft.description.trim().length >= 20; // tối thiểu mô tả
+    }
     return true;
   }, [draft, step]);
 
@@ -357,10 +399,49 @@ export default function PostWizard() {
     if (step > 0) setStep(step - 1);
   }
 
-  function onPickImages(files: FileList | null) {
+  function onPickImages(files: FileList | File[] | null) {
     if (!files) return;
-    const arr = Array.from(files).slice(0, 10);
+    const arr = Array.from(files)
+      .filter((f) => f.type.startsWith("image/"))
+      .slice(0, 10);
+    if (arr.length === 0) return;
     setDraft((d) => ({ ...d, images: arr }));
+    setActiveImageIdx(0);
+  }
+
+  function prevImage() {
+    setActiveImageIdx((idx) => {
+      const total = draft.images.length;
+      if (total <= 1) return 0;
+      return (idx - 1 + total) % total;
+    });
+  }
+
+  function nextImage() {
+    setActiveImageIdx((idx) => {
+      const total = draft.images.length;
+      if (total <= 1) return 0;
+      return (idx + 1) % total;
+    });
+  }
+
+  function handleDropImages(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    onPickImages(e.dataTransfer?.files || null);
+  }
+
+  function handleDragOverImages(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }
+
+  function handleDragLeaveImages(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
   }
 
   async function submit() {
@@ -373,11 +454,11 @@ export default function PostWizard() {
       images: draft.images.map((f) => ({ name: f.name, size: f.size, type: f.type })),
     };
     console.log("SUBMIT listing payload:", payload);
-    alert("Demo: Đã tạo payload (xem console). Khi có backend, mình sẽ nối API đăng tin.");
+    alert("Demo: đã tạo payload (xem console). Khi có backend, mình sẽ gọi API đăng tin.");
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <div className="mx-auto w-full max-w-none px-4 py-8 sm:px-6 lg:px-12">
       <div className="mb-6">
         <div className="text-2xl font-bold text-gray-900">Đăng tin cho thuê</div>
         <div className="mt-1 text-sm text-gray-500">
@@ -395,7 +476,12 @@ export default function PostWizard() {
               Preview thay đổi theo dữ liệu nhập.
             </div>
             <div className="mt-4">
-              <PreviewCard data={draft} />
+              <PreviewCard
+                data={draft}
+                activeImageIdx={activeImageIdx}
+                onPrevImage={prevImage}
+                onNextImage={nextImage}
+              />
             </div>
           </div>
         </div>
@@ -442,7 +528,7 @@ export default function PostWizard() {
                 </div>
 
                 <div>
-                  <FieldLabel>Giá thuê (VNĐ/tháng)</FieldLabel>
+                  <FieldLabel>Giá thuê (VND/tháng)</FieldLabel>
                   <Input
                     value={draft.priceVnd}
                     onChange={(v) => setDraft((d) => ({ ...d, priceVnd: formatVndInput(v) }))}
@@ -513,24 +599,24 @@ export default function PostWizard() {
 
                 <div className="md:col-span-2">
                   <FieldLabel>Google Map</FieldLabel>
-                  <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5">
-                    <div className="text-sm font-semibold text-gray-900">Map placeholder</div>
-                    <div className="mt-1 text-sm text-gray-600">
-                      Sau này sẽ nhúng Google Maps để pin vị trí (lat/lng). Hiện tại cứ lưu địa chỉ text trước.
-                    </div>
-                    <button
-                      type="button"
-                      className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-black"
-                      onClick={() => setDraft((d) => ({ ...d, lat: 10.8, lng: 106.7 }))}
-                    >
-                      Demo: gán tọa độ mẫu
-                    </button>
-                    {draft.lat && draft.lng && (
-                      <div className="mt-3 text-xs text-gray-500">
-                        lat: {draft.lat} · lng: {draft.lng}
+                    <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5">
+                      <div className="text-sm font-semibold text-gray-900">Map placeholder</div>
+                      <div className="mt-1 text-sm text-gray-600">
+                      Sau này sẽ nhúng Google Maps để pin vị trí (lat/lng). Hiện tại chỉ lưu địa chỉ text trước.
                       </div>
-                    )}
-                  </div>
+                      <button
+                        type="button"
+                        className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-black"
+                        onClick={() => setDraft((d) => ({ ...d, lat: 10.8, lng: 106.7 }))}
+                      >
+                      Demo: gắn tọa độ mẫu
+                      </button>
+                      {draft.lat && draft.lng && (
+                        <div className="mt-3 text-xs text-gray-500">
+                        lat: {draft.lat} - lng: {draft.lng}
+                        </div>
+                      )}
+                    </div>
                 </div>
               </div>
             </StepShell>
@@ -582,30 +668,99 @@ export default function PostWizard() {
 
           {/* STEP 4 */}
           {step === 3 && (
-            <StepShell title="Bước 4: Hình ảnh & mô tả" subtitle="Ảnh rõ + mô tả đủ sẽ tăng tỉ lệ được liên hệ.">
+            <StepShell title="Bước 4: Hình ảnh & mô tả" subtitle="Ảnh rõ + mô tả đủ sẽ tăng tỷ lệ được liên hệ.">
               <div className="grid gap-4">
                 <div>
                   <FieldLabel>Ảnh (tối đa 10)</FieldLabel>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={(e) => onPickImages(e.target.files)}
-                    className="block w-full rounded-xl border border-gray-200 bg-white p-3 text-sm"
-                  />
+                  <label
+                    htmlFor="media-upload"
+                    role="button"
+                    onDrop={handleDropImages}
+                    onDragOver={handleDragOverImages}
+                    onDragEnter={handleDragOverImages}
+                    onDragLeave={handleDragLeaveImages}
+                    className={cn(
+                      "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed bg-white px-4 py-6 text-center transition",
+                      isDragging ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:border-gray-300"
+                    )}
+                  >
+                    <div className="text-sm font-semibold text-gray-900">Kéo thả ảnh vào đây</div>
+                    <div className="text-xs text-gray-500">
+                      Hoặc bấm chọn từ máy (tối đa 10 ảnh, JPEG/PNG...)
+                    </div>
+                    <div className="mt-1 rounded-full bg-gray-900 px-4 py-1 text-xs font-semibold text-white">
+                      Thêm ảnh
+                    </div>
+                    <input
+                      id="media-upload"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => onPickImages(e.target.files)}
+                      className="hidden"
+                    />
+                  </label>
                   {draft.images.length > 0 && (
-                    <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                      {draft.images.map((f, idx) => (
-                        <div key={f.name + idx} className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            alt={f.name}
-                            src={URL.createObjectURL(f)}
-                            className="aspect-square w-full object-cover"
-                          />
-                          <div className="p-2 text-xs text-gray-600 line-clamp-1">{f.name}</div>
-                        </div>
-                      ))}
+                    <div className="mt-3 space-y-3">
+                      {(() => {
+                        const currentImage = draft.images[activeImageIdx] ?? draft.images[0];
+                        return (
+                          <div className="relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              alt={currentImage?.name ?? "preview"}
+                              src={currentImage ? URL.createObjectURL(currentImage) : ""}
+                              className="aspect-video w-full object-contain bg-white"
+                            />
+
+                            {draft.images.length > 1 && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={prevImage}
+                                  className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-gray-200 bg-white/90 p-2 text-sm font-semibold text-gray-700 shadow hover:bg-white"
+                                >
+                                  &lt;
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={nextImage}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-gray-200 bg-white/90 p-2 text-sm font-semibold text-gray-700 shadow hover:bg-white"
+                                >
+                                  &gt;
+                                </button>
+                                <div className="absolute bottom-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-gray-700 shadow">
+                                  {activeImageIdx + 1}/{draft.images.length}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                        {draft.images.map((f, idx) => (
+                          <button
+                            key={f.name + idx}
+                            type="button"
+                            onClick={() => setActiveImageIdx(idx)}
+                            className={cn(
+                              "group overflow-hidden rounded-2xl border bg-white text-left transition",
+                              idx === activeImageIdx
+                                ? "border-gray-900 ring-2 ring-gray-900/15"
+                                : "border-gray-200 hover:border-gray-300"
+                            )}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              alt={f.name}
+                              src={URL.createObjectURL(f)}
+                              className="aspect-square w-full object-cover transition group-hover:scale-[1.02]"
+                            />
+                            <div className="p-2 text-xs text-gray-600 line-clamp-1">{f.name}</div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -618,7 +773,7 @@ export default function PostWizard() {
                     placeholder={`Gợi ý nội dung:
                       - Phòng rộng bao nhiêu, có cửa sổ không?
                       - Nội thất gồm gì?
-                      - Giờ giấc, an ninh, giữ xe?
+                      - Giờ giấc, an ninh, gửi xe?
                       - Tiền cọc, điện nước theo giá nào?
                       - Ưu tiên sinh viên / đi làm?`}
                     rows={7}
@@ -632,13 +787,18 @@ export default function PostWizard() {
           {/* STEP 5 */}
           {step === 4 && (
             <StepShell title="Bước 5: Xem trước & đăng" subtitle="Kiểm tra lại lần cuối trước khi đăng tin.">
-              <PreviewCard data={draft} />
+              <PreviewCard
+                data={draft}
+                activeImageIdx={activeImageIdx}
+                onPrevImage={prevImage}
+                onNextImage={nextImage}
+              />
               <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
                 <div className="text-sm font-semibold text-gray-900">Gợi ý nhanh</div>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
                   <li>Tiêu đề nên có vị trí + điểm mạnh (gần trường, full nội thất...).</li>
                   <li>Ảnh nên có: mặt tiền, phòng ngủ, WC, bếp, lối gửi xe.</li>
-                  <li>Mô tả nhớ ghi rõ điện/nước, cọc, số người tối đa.</li>
+                  <li>Mô tả nên ghi rõ điện/nước, cọc, số người tối đa.</li>
                 </ul>
               </div>
             </StepShell>
@@ -647,23 +807,23 @@ export default function PostWizard() {
           {/* Footer actions */}
           <div className="sticky bottom-4 z-10">
             <div className="rounded-3xl border border-gray-200 bg-white p-4 shadow-lg">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="button"
                   onClick={back}
                   disabled={step === 0}
                   className={cn(
-                    "h-11 rounded-xl px-4 text-sm font-semibold transition",
+                    "inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold transition",
                     step === 0
                       ? "cursor-not-allowed bg-gray-100 text-gray-400"
-                      : "bg-gray-100 text-gray-900 hover:bg-gray-200"
+                      : "border border-gray-200 bg-white text-gray-900 hover:bg-gray-50"
                   )}
                 >
                   Quay lại
                 </button>
 
-                <div className="flex items-center gap-2">
-                  <div className="hidden text-sm text-gray-500 md:block">
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                  <div className="hidden items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-600 md:inline-flex">
                     Bước {step + 1}/{steps.length}
                   </div>
 
@@ -673,7 +833,7 @@ export default function PostWizard() {
                       onClick={next}
                       disabled={!canNext}
                       className={cn(
-                        "h-11 rounded-xl px-5 text-sm font-semibold transition",
+                        "inline-flex h-11 items-center gap-2 rounded-full px-6 text-sm font-semibold transition shadow-sm",
                         canNext
                           ? "bg-gray-900 text-white hover:bg-black"
                           : "cursor-not-allowed bg-gray-100 text-gray-400"
@@ -685,7 +845,7 @@ export default function PostWizard() {
                     <button
                       type="button"
                       onClick={submit}
-                      className="h-11 rounded-xl bg-gray-900 px-5 text-sm font-semibold text-white hover:bg-black"
+                      className="inline-flex h-11 items-center gap-2 rounded-full bg-gray-900 px-6 text-sm font-semibold text-white shadow-sm hover:bg-black"
                     >
                       Đăng tin
                     </button>
