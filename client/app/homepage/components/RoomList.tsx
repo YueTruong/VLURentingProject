@@ -1,11 +1,14 @@
-import RoomCard from "./RoomCard";
+"use client";
 
-// 1. Dữ liệu mẫu (Mock Data)
-const roomsData = [
+import SectionRow from "./SectionRow";
+import { RoomCardData } from "./RoomCard";
+
+// Dữ liệu phòng giữ nguyên như hiện có
+const roomsData: RoomCardData[] = [
   {
     id: 1,
     title: "Căn hộ mini 2 phòng ngủ rộng rãi",
-    image: "/images/House.svg", // Đảm bảo đường dẫn ảnh đúng
+    image: "/images/House.svg",
     location: "Bình Thạnh, TP.HCM",
     beds: 2,
     baths: 1,
@@ -16,7 +19,7 @@ const roomsData = [
   {
     id: 2,
     title: "Phòng trọ cao cấp gần đại học Hutech",
-    image: "/images/House.svg", 
+    image: "/images/House.svg",
     location: "Bình Thạnh, TP.HCM",
     beds: 1,
     baths: 1,
@@ -37,7 +40,7 @@ const roomsData = [
   },
   {
     id: 4,
-    title: "Nhà nguyên căn hẻm xe hơi",
+    title: "Nhà nguyên căn hầm xe hơi",
     image: "/images/House.svg",
     location: "Gò Vấp, TP.HCM",
     beds: 3,
@@ -70,45 +73,46 @@ const roomsData = [
   },
 ];
 
+const sections = [
+  {
+    id: "featured",
+    title: "Khám phá phòng trọ nổi bật",
+    subtitle: "Hơn 10,000 tin uy tín mới được cập nhật mỗi ngày",
+  },
+  {
+    id: "near-campus",
+    title: "Gần trường đại học",
+    subtitle: "Lựa chọn thuận tiện di chuyển tới các cơ sở VLU",
+  },
+  {
+    id: "student",
+    title: "Giá sinh viên",
+    subtitle: "Tối ưu ngân sách, vẫn đủ tiện nghi để học tập",
+  },
+  {
+    id: "luxury",
+    title: "Căn hộ cao cấp",
+    subtitle: "Không gian rộng, tiện ích đầy đủ, bãi xe riêng",
+  },
+  {
+    id: "recent",
+    title: "Mới đăng gần đây",
+    subtitle: "Tin vừa lên, xem sớm để giữ chỗ",
+  },
+];
+
 export default function RoomListBody() {
   return (
-    <section className="py-10 bg-gray-50 min-h-screen">
-      <div className="container mx-auto px-4">
-        
-        {/* Header của phần Body */}
-        <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800">
-              Khám phá phòng trọ nổi bật
-            </h2>
-            <p className="text-gray-500 mt-2">
-              Hơn 10,000 tin đăng mới được cập nhật mỗi ngày
-            </p>
-          </div>
-          
-          <button className="text-blue-600 font-semibold hover:underline flex items-center gap-1">
-            Xem tất cả phòng <span>&rarr;</span>
-          </button>
-        </div>
-
-        {/* Lưới sản phẩm (Grid System) */}
-        {/* - grid-cols-1: Mobile (1 cột)
-            - sm:grid-cols-2: Tablet nhỏ (2 cột)
-            - lg:grid-cols-3: Desktop (3 cột)
-            - xl:grid-cols-4: Màn hình lớn (4 cột)
-        */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 justify-items-center">
-          {roomsData.map((room) => (
-            <RoomCard key={room.id} data={room} />
-          ))}
-        </div>
-
-        {/* Nút 'Xem thêm' ở dưới cùng (nếu cần) */}
-        <div className="mt-12 text-center">
-          <button className="bg-white border border-gray-300 text-gray-700 px-8 py-3 rounded-full font-medium hover:bg-gray-100 transition shadow-sm">
-            Tải thêm tin đăng
-          </button>
-        </div>
+    <section className="py-10 bg-gray-50 min-h-screen w-full">
+      <div className="w-full px-4 md:px-6 space-y-8 overflow-hidden">
+        {sections.map((section) => (
+          <SectionRow
+            key={section.id}
+            title={section.title}
+            subtitle={section.subtitle}
+            items={roomsData}
+          />
+        ))}
 
       </div>
     </section>
