@@ -3,6 +3,19 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import {
+  BellIcon,
+  GearIcon,
+  HamburgerMenuIcon,
+  ImageIcon,
+  InfoCircledIcon,
+  Link2Icon,
+  MagnifyingGlassIcon,
+  MobileIcon,
+  PaperPlaneIcon,
+  Pencil2Icon,
+  VideoIcon,
+} from "@radix-ui/react-icons";
 
 type Conversation = {
   id: string;
@@ -79,10 +92,10 @@ function TopBar() {
       </div>
       <div className="flex items-center gap-3">
         <Link aria-label="Thông báo" href="/notifications" className="rounded-full p-2 text-gray-500 hover:bg-gray-100">
-          🔔
+          <BellIcon className="h-5 w-5" aria-hidden="true" />
         </Link>
         <Link aria-label="Cài đặt" href="/settings" className="rounded-full p-2 text-gray-500 hover:bg-gray-100">
-          ⚙️
+          <GearIcon className="h-5 w-5" aria-hidden="true" />
         </Link>
         <div className="flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1">
           <div className="h-8 w-8 overflow-hidden rounded-full">
@@ -170,13 +183,19 @@ export default function ChatPage() {
           <div className="flex items-center justify-between px-5 pt-4 pb-3">
             <h1 className="text-xl font-bold text-gray-900">Trò chuyện</h1>
             <div className="flex items-center gap-2 text-gray-500">
-              <button className="rounded-full p-2 hover:bg-gray-100" aria-label="Tạo hội thoại">✏️</button>
-              <button className="rounded-full p-2 hover:bg-gray-100" aria-label="Bộ lọc">☰</button>
+              <button className="rounded-full p-2 hover:bg-gray-100" aria-label="Tạo hội thoại">
+                <Pencil2Icon className="h-5 w-5" aria-hidden="true" />
+              </button>
+              <button className="rounded-full p-2 hover:bg-gray-100" aria-label="Bộ lọc">
+                <HamburgerMenuIcon className="h-5 w-5" aria-hidden="true" />
+              </button>
             </div>
           </div>
           <div className="px-5 pb-3">
             <div className="flex items-center rounded-full bg-gray-100 px-3 py-2 gap-2">
-              <span className="text-gray-500">🔍</span>
+              <span className="text-gray-500">
+                <MagnifyingGlassIcon className="h-4 w-4" aria-hidden="true" />
+              </span>
               <input
                 type="text"
                 placeholder="Tìm kiếm hội thoại..."
@@ -210,9 +229,15 @@ export default function ChatPage() {
               </div>
             </div>
             <div className="flex items-center gap-3 text-gray-500">
-              <button className="rounded-full p-2 hover:bg-gray-100" aria-label="Gọi thoại">📞</button>
-              <button className="rounded-full p-2 hover:bg-gray-100" aria-label="Gọi video">🎥</button>
-              <button className="rounded-full p-2 hover:bg-gray-100" aria-label="Thông tin">ℹ️</button>
+              <button className="rounded-full p-2 hover:bg-gray-100" aria-label="Gọi thoại">
+                <MobileIcon className="h-5 w-5" aria-hidden="true" />
+              </button>
+              <button className="rounded-full p-2 hover:bg-gray-100" aria-label="Gọi video">
+                <VideoIcon className="h-5 w-5" aria-hidden="true" />
+              </button>
+              <button className="rounded-full p-2 hover:bg-gray-100" aria-label="Thông tin">
+                <InfoCircledIcon className="h-5 w-5" aria-hidden="true" />
+              </button>
             </div>
           </header>
 
@@ -230,10 +255,10 @@ export default function ChatPage() {
           <div className="border-t border-gray-200 bg-white px-4 py-3">
             <form className="flex items-center gap-3">
               <button type="button" className="rounded-full p-2 text-gray-500 hover:bg-gray-100" aria-label="Đính kèm">
-                📎
+                <Link2Icon className="h-5 w-5" aria-hidden="true" />
               </button>
               <button type="button" className="rounded-full p-2 text-gray-500 hover:bg-gray-100" aria-label="Chèn ảnh">
-                🖼️
+                <ImageIcon className="h-5 w-5" aria-hidden="true" />
               </button>
               <input
                 type="text"
@@ -245,7 +270,7 @@ export default function ChatPage() {
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500 text-white shadow hover:bg-red-600 active:scale-95"
                 aria-label="Gửi"
               >
-                ➤
+                <PaperPlaneIcon className="h-5 w-5" aria-hidden="true" />
               </button>
             </form>
           </div>
