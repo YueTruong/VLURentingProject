@@ -1,3 +1,4 @@
+import Link from "next/link";
 import HorizontalCarousel from "./HorizontalCarousel";
 import { RoomCardData } from "./RoomCard";
 
@@ -17,9 +18,9 @@ export default function SectionRow({ title, subtitle, items }: SectionRowProps) 
               <h3 className="text-2xl font-bold text-gray-800 leading-tight">{title}</h3>
               {subtitle ? <p className="text-sm text-gray-500">{subtitle}</p> : null}
             </div>
-            <button className="text-blue-600 font-semibold hover:underline flex items-center gap-1">
+            <Link href="/listings" className="text-blue-600 font-semibold hover:underline flex items-center gap-1">
               Xem tất cả →
-            </button>
+            </Link>
           </div>
         </div>
 
