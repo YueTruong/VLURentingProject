@@ -14,9 +14,7 @@ function Stars({ rating }: { rating: number }) {
   return (
     <div className="flex items-center gap-1">
       {Array.from({ length: 5 }).map((_, i) => (
-        <span key={i} className={i < full ? "text-yellow-500" : "text-gray-300"}>
-          ★
-        </span>
+        <span key={i} className={i < full ? "text-yellow-500" : "text-gray-300"}>★</span>
       ))}
       <span className="ml-2 text-sm text-gray-600">{rating.toFixed(1)}</span>
     </div>
@@ -59,8 +57,8 @@ export default function ReviewsSection() {
   const avg = reviews.reduce((sum, r) => sum + r.rating, 0) / Math.max(1, reviews.length);
 
   return (
-    <section className="py-10 bg-white">
-      <div className="container mx-auto px-4">
+    <section className="py-10 bg-white w-full">
+      <div className="w-full px-4 md:px-6">
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -93,7 +91,7 @@ export default function ReviewsSection() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="font-semibold text-gray-900">{r.name}</div>
-                    <div className="text-sm text-gray-600">{r.role ? r.role : "Người dùng"} • {r.date}</div>
+                    <div className="text-sm text-gray-600">{r.role ? r.role : "Người dùng"} - {r.date}</div>
                   </div>
                   <Stars rating={r.rating} />
                 </div>

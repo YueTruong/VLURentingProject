@@ -5,8 +5,8 @@ export default function MapSection() {
   const embedSrc = "https://www.google.com/maps?q=V%C4%83n%20Lang%20University%20Ho%20Chi%20Minh&output=embed";
 
   return (
-    <section className="py-10 bg-white">
-      <div className="container mx-auto px-4">
+    <section className="py-10 bg-white w-full">
+      <div className="w-full px-4 md:px-6">
         <div className="flex items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">
@@ -40,7 +40,7 @@ export default function MapSection() {
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-4 py-3">
             <div className="text-sm text-gray-600">
-              After: Có thể lọc theo khoảng cách ở phần Filters (làm sau).
+              Gợi ý: Có thể lọc theo khoảng cách ở phần Filters (làm sau).
             </div>
             
             <div className="flex gap-2">
