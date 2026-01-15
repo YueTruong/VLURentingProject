@@ -32,15 +32,10 @@ type Criteria = {
   campus?: string;
   district?: string;
   type?: string;
+  query?: string;
   tags?: string[];
 };
 
-const quickPrompts = [
-  "Tìm phòng dưới 5 triệu gần cơ sở 3 có Wi-Fi",
-  "Studio có ban công ở Bình Thạnh khoảng 4-6 triệu",
-  "Căn hộ 2PN dưới 10 triệu có bãi xe",
-  "Ở ghép giá rẻ gần cơ sở 1",
-];
 
 const tagMatchers = [
   { keyword: "ban cong", tag: "Ban công" },
@@ -76,10 +71,9 @@ const normalizeText = (input: string) =>
   input
     .toLowerCase()
     .replace(/m²/g, "m2")
+    .replace(/đ/g, "d")
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d");
-
+    .replace(/[\u0300-\u036f]/g, "");
 const parseNumber = (value: string) => {
   const cleaned = value.trim();
   if (!cleaned) return undefined;
@@ -87,6 +81,43 @@ const parseNumber = (value: string) => {
   return Number.isFinite(parsed) ? parsed : undefined;
 };
 
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const extractQuery = (input: string, normalized: string) => {
+  const quotedMatch = input.match(/["“”'‘’]([^"“”'‘’]+)["“”'‘’]/);
+  if (quotedMatch) return quotedMatch[1].trim();
+
+  if (!/(tim|tim kiem|search|ten)/.test(normalized)) return undefined;
+
+  let candidate = normalized;
+
+  candidate = candidate.replace(/(?:co so|cs|campus|c)\s*[:#-]?\s*(1|2|3)/g, " ");
+  candidate = candidate.replace(/\bq\.?\s*\d{1,2}\b/g, " ");
+  candidate = candidate.replace(/\bquan\s*\d{1,2}\b/g, " ");
+
+  for (const district of districtOptions) {
+    candidate = candidate.replace(new RegExp(`\\b${escapeRegExp(normalizeText(district))}\\b`, "g"), " ");
+  }
+
+  for (const matcher of typeMatchers) {
+    candidate = candidate.replace(new RegExp(`\\b${escapeRegExp(matcher.keyword)}\\b`, "g"), " ");
+  }
+
+  for (const matcher of tagMatchers) {
+    candidate = candidate.replace(new RegExp(`\\b${escapeRegExp(matcher.keyword)}\\b`, "g"), " ");
+  }
+
+  candidate = candidate
+    .replace(/\b(wifi|wi-fi|bai xe|giu xe|dau xe|parking|garage|gara|noi that|day du noi that|full noi that|furnished)\b/g, " ")
+    .replace(/\b(tim kiem|tim|search|ten|phong|nha|can ho|studio|o ghep|ky tuc xa|ktx|coliving|co-living|room)\b/g, " ")
+    .replace(/\b(duoi|nho hon|toi da|<=|tren|>=|tu|it nhat|den|khoang|tam)\b/g, " ")
+    .replace(/\b\d+(?:[.,]\d+)?\s*(?:tr|trieu|m2|m)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return candidate.length >= 2 ? candidate : undefined;
+};
 const parseCriteria = (input: string): Criteria => {
   const normalized = normalizeText(input);
   const criteria: Criteria = {};
@@ -161,6 +192,13 @@ const parseCriteria = (input: string): Criteria => {
     }
   }
 
+  if (criteria.priceMin === undefined && criteria.priceMax === undefined) {
+    const singlePriceMatch = normalized.match(/\b(\d+(?:[.,]\d+)?)\s*(?:tr|trieu)\b/);
+    if (singlePriceMatch) {
+      criteria.priceMax = parseNumber(singlePriceMatch[1]);
+    }
+  }
+
   const areaRangeMatch =
     normalized.match(/tu\s*(\d+(?:[.,]\d+)?)\s*(?:m2|m)\s*den\s*(\d+(?:[.,]\d+)?)\s*(?:m2|m)/) ??
     normalized.match(/(\d+(?:[.,]\d+)?)\s*(?:m2|m)\s*-\s*(\d+(?:[.,]\d+)?)\s*(?:m2|m)/);
@@ -180,6 +218,13 @@ const parseCriteria = (input: string): Criteria => {
 
   if (criteria.areaMin && criteria.areaMax && criteria.areaMin > criteria.areaMax) {
     [criteria.areaMin, criteria.areaMax] = [criteria.areaMax, criteria.areaMin];
+  }
+
+  const extractedQuery = extractQuery(input, normalized);
+  if (extractedQuery) {
+    criteria.query = extractedQuery;
+  } else if (Object.keys(criteria).length === 0 && input.trim()) {
+    criteria.query = input.trim();
   }
 
   return criteria;
@@ -212,6 +257,7 @@ const matchesCriteria = (item: Listing, criteria?: Criteria | null) => {
 
 const buildSummary = (criteria: Criteria) => {
   const parts: string[] = [];
+  if (criteria.query) parts.push(`từ khóa ${criteria.query}`);
 
   if (criteria.type) parts.push(`loại ${criteria.type}`);
   if (criteria.campus) parts.push(`cơ sở ${criteria.campus.replace("Cơ sở ", "")}`);
@@ -301,7 +347,7 @@ export default function ListingsPage() {
   }, [messages]);
 
   const applyCriteriaToFilters = (criteria: Criteria) => {
-    setQuery("");
+    setQuery(criteria.query ?? "");
     setCampus(criteria.campus ?? campusOptions[0]);
     setDistrict(criteria.district ?? districtOptions[0]);
     setType(criteria.type ?? typeOptions[0]);
@@ -351,14 +397,14 @@ export default function ListingsPage() {
   }, [assistantCriteria]);
 
   const filtered = useMemo(() => {
-    const queryValue = query.trim().toLowerCase();
+    const queryValue = normalizeText(query.trim());
 
     return listings
       .filter((item) => {
         if (queryValue) {
-          const inTitle = item.title.toLowerCase().includes(queryValue);
-          const inLocation = item.location.toLowerCase().includes(queryValue);
-          const inTags = item.tags.some((tag) => tag.toLowerCase().includes(queryValue));
+          const inTitle = normalizeText(item.title).includes(queryValue);
+          const inLocation = normalizeText(item.location).includes(queryValue);
+          const inTags = item.tags.some((tag) => normalizeText(tag).includes(queryValue));
           if (!inTitle && !inLocation && !inTags) return false;
         }
 
@@ -405,10 +451,6 @@ export default function ListingsPage() {
     return items;
   }, [campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, query, type, wifiOnly]);
 
-  const assistantBadges = useMemo(() => {
-    if (!assistantCriteria) return [];
-    return buildSummary(assistantCriteria);
-  }, [assistantCriteria]);
 
   const assistantExtraBadges = useMemo(() => {
     if (!assistantExtras) return [];
@@ -457,7 +499,7 @@ export default function ListingsPage() {
         assistantText = `Mình đã lọc theo ${summary.join(", ")} và tìm thấy ${matched.length} tin phù hợp. Bạn muốn mình lọc thêm gì nữa không?`;
       }
 
-      assistantText += " Mình đã đồng bộ bộ lọc nâng cao theo tiêu chí này.";
+      assistantText += " Mình đã dùng bộ lọc nâng cao theo tiêu chí này.";
     }
 
     const assistantMessage: Message = {
@@ -538,32 +580,6 @@ export default function ListingsPage() {
                       </button>
                     ) : null}
                   </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {quickPrompts.map((prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      onClick={() => handleSend(prompt)}
-                      className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-100"
-                    >
-                      {prompt}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {assistantBadges.length > 0 ? (
-                    assistantBadges.map((badge) => (
-                      <span
-                        key={badge}
-                        className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700"
-                      >
-                        AI: {badge}
-                      </span>
-                    ))
-                  ) : (
-                    <p className="text-xs text-gray-500">Chưa có tiêu chí AI.</p>
-                  )}
                 </div>
               </div>
 
@@ -724,10 +740,10 @@ export default function ListingsPage() {
                   className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
                 >
                   <option value="Bất kỳ">Bất kỳ</option>
-                  <option value="1">1+</option>
-                  <option value="2">2+</option>
-                  <option value="3">3+</option>
-                  <option value="4">4+</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
                 </select>
               </div>
 
@@ -830,3 +846,5 @@ export default function ListingsPage() {
     </UserPageShell>
   );
 }
+
+
