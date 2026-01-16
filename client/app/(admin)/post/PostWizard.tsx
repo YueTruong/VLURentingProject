@@ -1,6 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import { createPost, uploadImages } from "@/app/services/posts";
 
 type ListingType = "PHONG_TRO" | "CAN_HO" | "NHA_NGUYEN_CAN";
 type Furnishing = "NONE" | "BASIC" | "FULL";
@@ -43,6 +45,23 @@ const steps = [
   { key: "preview", label: "Xem trước" },
 ] as const;
 
+const categoryNameMap: Record<ListingType, string> = {
+  PHONG_TRO: "Phong tro",
+  CAN_HO: "Can ho",
+  NHA_NGUYEN_CAN: "Nha nguyen can",
+};
+
+const amenityNameMap: Record<keyof Amenities, string> = {
+  wifi: "Wifi",
+  aircon: "May lanh",
+  privateWc: "WC rieng",
+  mezzanine: "Gac lung",
+  parking: "Giu xe",
+  freeTime: "Gio giac tu do",
+};
+
+const MapPicker = dynamic(() => import("./MapPicker"), { ssr: false });
+
 function cn(...s: Array<string | false | undefined | null>) {
   return s.filter(Boolean).join(" ");
 }
@@ -58,6 +77,19 @@ function formatVndInput(raw: string) {
 function toNumber(raw: string) {
   const digits = raw.replace(/[^\d]/g, "");
   return digits ? Number(digits) : 0;
+}
+
+function buildAddress(draft: ListingDraft) {
+  return [draft.addressText, draft.ward, draft.district]
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
+function collectAmenityNames(amenities: Amenities) {
+  return (Object.keys(amenityNameMap) as Array<keyof Amenities>)
+    .filter((key) => amenities[key])
+    .map((key) => amenityNameMap[key]);
 }
 
 function StepShell({
@@ -372,6 +404,12 @@ export default function PostWizard() {
   });
   const [isDragging, setIsDragging] = useState(false);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const [mapQuery, setMapQuery] = useState("");
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
 
   const canNext = useMemo(() => {
     if (step === 0) {
@@ -391,6 +429,42 @@ export default function PostWizard() {
     }
     return true;
   }, [draft, step]);
+
+  async function geocodeAddress() {
+    const query = mapQuery.trim() || buildAddress(draft);
+    if (!query) {
+      setGeoError("missing");
+      return;
+    }
+    setGeoLoading(true);
+    setGeoError(null);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        setGeoError("failed");
+        return;
+      }
+      const data = (await res.json()) as Array<{ lat?: string; lon?: string }>;
+      const first = data?.[0];
+      const lat = first?.lat ? Number(first.lat) : NaN;
+      const lng = first?.lon ? Number(first.lon) : NaN;
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        setDraft((d) => ({ ...d, lat, lng }));
+        return;
+      }
+      setGeoError("not_found");
+    } catch (error) {
+      console.error(error);
+      setGeoError("failed");
+    } finally {
+      setGeoLoading(false);
+    }
+  }
+
+  function useAddressAsQuery() {
+    setMapQuery(buildAddress(draft));
+  }
 
   function next() {
     if (step < steps.length - 1) setStep(step + 1);
@@ -445,16 +519,47 @@ export default function PostWizard() {
   }
 
   async function submit() {
-    // FE demo: bạn sẽ thay bằng gọi API backend sau
-    const payload = {
-      ...draft,
-      priceVnd: toNumber(draft.priceVnd),
-      areaM2: toNumber(draft.areaM2),
-      maxPeople: toNumber(draft.maxPeople),
-      images: draft.images.map((f) => ({ name: f.name, size: f.size, type: f.type })),
-    };
-    console.log("SUBMIT listing payload:", payload);
-    alert("Demo: đã tạo payload (xem console). Khi có backend, mình sẽ gọi API đăng tin.");
+    if (isSubmitting) return;
+    setSubmitError(null);
+    setSubmitSuccess(null);
+    setIsSubmitting(true);
+
+    try {
+      const categoryName = categoryNameMap[draft.type];
+      const amenityNames = collectAmenityNames(draft.amenities);
+      const address = buildAddress(draft);
+      const maxOccupancy = toNumber(draft.maxPeople);
+      const imageUrls = await uploadImages(draft.images.slice(0, 10));
+
+      const payload = {
+        title: draft.title.trim(),
+        description: draft.description.trim(),
+        price: toNumber(draft.priceVnd),
+        area: toNumber(draft.areaM2),
+        address: address,
+        latitude: draft.lat,
+        longitude: draft.lng,
+        max_occupancy: maxOccupancy > 0 ? maxOccupancy : undefined,
+        categoryName,
+        amenityNames: amenityNames.length > 0 ? amenityNames : undefined,
+        imageUrls,
+      };
+
+      const result = await createPost(payload);
+      const message =
+        (result as { message?: string })?.message ||
+        "Dang tin thanh cong. Tin dang cho duyet.";
+      setSubmitSuccess(message);
+    } catch (err) {
+      const message =
+        (err as { response?: { data?: { message?: string } }; message?: string })
+          ?.response?.data?.message ||
+        (err as { message?: string })?.message ||
+        "Dang tin that bai.";
+      setSubmitError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -596,27 +701,56 @@ export default function PostWizard() {
                     placeholder="VD: Phường 25"
                   />
                 </div>
-
                 <div className="md:col-span-2">
-                  <FieldLabel>Google Map</FieldLabel>
-                    <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5">
-                      <div className="text-sm font-semibold text-gray-900">Map placeholder</div>
-                      <div className="mt-1 text-sm text-gray-600">
-                      Sau này sẽ nhúng Google Maps để pin vị trí (lat/lng). Hiện tại chỉ lưu địa chỉ text trước.
-                      </div>
+                  <FieldLabel>Map</FieldLabel>
+                  <div className="space-y-3">
+                    <Input
+                      value={mapQuery}
+                      onChange={(v) => {
+                        setMapQuery(v);
+                        setGeoError(null);
+                      }}
+                      placeholder="Search address (optional)"
+                    />
+                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-black"
-                        onClick={() => setDraft((d) => ({ ...d, lat: 10.8, lng: 106.7 }))}
+                        onClick={useAddressAsQuery}
+                        className="inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                       >
-                      Demo: gắn tọa độ mẫu
+                        Use address
                       </button>
-                      {draft.lat && draft.lng && (
-                        <div className="mt-3 text-xs text-gray-500">
-                        lat: {draft.lat} - lng: {draft.lng}
-                        </div>
-                      )}
+                      <button
+                        type="button"
+                        onClick={geocodeAddress}
+                        disabled={geoLoading}
+                        className="inline-flex h-10 items-center justify-center rounded-xl bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-black disabled:opacity-60"
+                      >
+                        {geoLoading ? "Searching..." : "Search on map"}
+                      </button>
                     </div>
+                    {geoError ? (
+                      <div className="text-xs text-red-600">
+                        {geoError === "missing"
+                          ? "Enter an address first."
+                          : geoError === "not_found"
+                            ? "No result found."
+                            : "Search failed."}
+                      </div>
+                    ) : null}
+                    <div className="h-72 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                      <MapPicker
+                        value={draft.lat && draft.lng ? { lat: draft.lat, lng: draft.lng } : null}
+                        onChange={(value) => setDraft((d) => ({ ...d, lat: value.lat, lng: value.lng }))}
+                      />
+                    </div>
+                    <div className="text-xs text-gray-500">Click on the map to set the location.</div>
+                    {draft.lat && draft.lng && (
+                      <div className="text-xs text-gray-600">
+                        lat: {draft.lat} - lng: {draft.lng}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </StepShell>
@@ -841,13 +975,18 @@ export default function PostWizard() {
                     >
                       Tiếp tục
                     </button>
-                  ) : (
-                    <button
+                  ) : (                    <button
                       type="button"
                       onClick={submit}
-                      className="inline-flex h-11 items-center gap-2 rounded-full bg-gray-900 px-6 text-sm font-semibold text-white shadow-sm hover:bg-black"
+                      disabled={isSubmitting}
+                      className={cn(
+                        "inline-flex h-11 items-center gap-2 rounded-full px-6 text-sm font-semibold shadow-sm transition",
+                        isSubmitting
+                          ? "cursor-not-allowed bg-gray-200 text-gray-500"
+                          : "bg-gray-900 text-white hover:bg-black"
+                      )}
                     >
-                      Đăng tin
+                      {isSubmitting ? "Đang gửi..." : "Đăng tin"}
                     </button>
                   )}
                 </div>
@@ -858,6 +997,13 @@ export default function PostWizard() {
                   Vui lòng điền đủ thông tin bắt buộc để tiếp tục.
                 </div>
               )}
+
+              {submitError && (
+                <div className="mt-2 text-xs text-red-600">{submitError}</div>
+              )}
+              {submitSuccess && (
+                <div className="mt-2 text-xs text-green-600">{submitSuccess}</div>
+              )}
             </div>
           </div>
         </div>
@@ -865,3 +1011,13 @@ export default function PostWizard() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
