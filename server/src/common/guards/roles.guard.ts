@@ -1,4 +1,4 @@
-import {
+﻿import {
   Injectable,
   CanActivate,
   ExecutionContext,
@@ -11,26 +11,30 @@ export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    // Lấy danh sách vai trò được phép (ví dụ: ['owner'])
-    // mà chúng ta sẽ đặt ở Controller
+    // Láº¥y danh sÃ¡ch vai trÃ² Ä‘Æ°á»£c phÃ©p (vÃ­ dá»¥: ['owner'])
+    // mÃ  chÃºng ta sáº½ Ä‘áº·t á»Ÿ Controller
     const requiredRoles = this.reflector.getAllAndOverride<string[]>('roles', [
       context.getHandler(),
       context.getClass(),
     ]);
 
-    // Nếu không yêu cầu vai trò nào, cho qua
+    // Náº¿u khÃ´ng yÃªu cáº§u vai trÃ² nÃ o, cho qua
     if (!requiredRoles) {
       return true;
     }
 
-    // Lấy thông tin user từ request (đã được JwtAuthGuard giải mã)
+    // Láº¥y thÃ´ng tin user tá»« request (Ä‘Ã£ Ä‘Æ°á»£c JwtAuthGuard giáº£i mÃ£)
     const { user } = context.switchToHttp().getRequest();
+    const normalizedRole =
+      typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
 
-    // So sánh vai trò của user với các vai trò được phép
-    const hasRole = requiredRoles.some((role) => user.role === role);
+    // So sÃ¡nh vai trÃ² cá»§a user vá»›i cÃ¡c vai trÃ² Ä‘Æ°á»£c phÃ©p
+    const hasRole = requiredRoles.some(
+      (role) => role.toLowerCase() === normalizedRole,
+    );
 
     if (!hasRole) {
-      throw new ForbiddenException('Bạn không có quyền thực hiện hành động này');
+      throw new ForbiddenException('Báº¡n khÃ´ng cÃ³ quyá»n thá»±c hiá»‡n hÃ nh Ä‘á»™ng nÃ y');
     }
 
     return true;

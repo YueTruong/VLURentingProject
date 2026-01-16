@@ -170,24 +170,28 @@ export class AuthService {
   // Hàm tạo JWT token sau khi đăng nhập thành công
   async login(user: any) {
     // Tạo payload cho JWT để lưu thông tin cần thiết
+    const roleName = user.role?.name?.toLowerCase() ?? null;
+
     const payload = {
       sub: user.id,
       username: user.username,
       email: user.email,
-      roles: user.role?.name ?? null,
+      role: roleName,
+      roles: roleName,
     };
 
     const access_token = this.jwtService.sign(payload);
 
-    return {
-      access_token,
-      user: {
-        id: user.id,
-        email: user.email ?? null,
-        username: user.username ?? null,
-        roles: user.role?.name ?? null,
-      },
-    };
+      return {
+        access_token,
+        user: {
+          id: user.id,
+          email: user.email ?? null,
+          username: user.username ?? null,
+          role: roleName,
+          roles: roleName,
+        },
+      };
   }
 
   // Hàm lấy thông tin Profile

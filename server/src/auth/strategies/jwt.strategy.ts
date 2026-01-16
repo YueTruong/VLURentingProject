@@ -23,11 +23,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   // @param payload Payload đã được giải mã (ví dụ: { userId: 1, email: '...' })
   async validate(payload: any) {
     // Bất cứ thứ gì trả về từ đây, Passport sẽ gán nó vào req.user và chỉ cần trả về payload
+    const normalizedRole =
+      typeof payload.role === 'string'
+        ? payload.role.toLowerCase()
+        : typeof payload.roles === 'string'
+        ? payload.roles.toLowerCase()
+        : undefined;
+
     return {
       userId: payload.sub,
       email: payload.email,
       username: payload.username,
-      role: payload.role,
+      role: normalizedRole,
     };
   }
 }

@@ -40,11 +40,9 @@ import { UsersModule } from './users/user.module';
     }),
 
     AuthModule,
-
+    CloudinaryModule,
     PostsModule,
-
     AdminModule,
-
     ReviewsModule,
   ],
   controllers: [AppController],
