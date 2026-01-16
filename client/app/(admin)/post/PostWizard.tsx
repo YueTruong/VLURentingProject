@@ -46,18 +46,18 @@ const steps = [
 ] as const;
 
 const categoryNameMap: Record<ListingType, string> = {
-  PHONG_TRO: "Phong tro",
-  CAN_HO: "Can ho",
-  NHA_NGUYEN_CAN: "Nha nguyen can",
+  PHONG_TRO: "Phòng trọ",
+  CAN_HO: "Căn hộ",
+  NHA_NGUYEN_CAN: "Nhà nguyên căn",
 };
 
 const amenityNameMap: Record<keyof Amenities, string> = {
   wifi: "Wifi",
-  aircon: "May lanh",
-  privateWc: "WC rieng",
-  mezzanine: "Gac lung",
-  parking: "Giu xe",
-  freeTime: "Gio giac tu do",
+  aircon: "Máy lạnh",
+  privateWc: "WC riêng",
+  mezzanine: "Gác lửng",
+  parking: "Giữ xe",
+  freeTime: "Giờ giấc tự do",
 };
 
 const MapPicker = dynamic(() => import("./MapPicker"), { ssr: false });
