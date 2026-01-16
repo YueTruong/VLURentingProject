@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller,
   Post,
   UseInterceptors,
@@ -15,7 +15,7 @@ export class CloudinaryController {
   constructor(private readonly cloudinaryService: CloudinaryService) {}
 
   @Post('multiple')
-  @ApiOperation({ summary: 'Upload nhiều file ảnh (tối đa 5 ảnh)' })
+  @ApiOperation({ summary: 'Upload nhiều file ảnh (tối đa 10 ảnh)' })
   @ApiConsumes('multipart/form-data') // Báo cho Swagger biết đây là upload file
   @ApiBody({
     schema: {
@@ -31,7 +31,7 @@ export class CloudinaryController {
       },
     },
   })
-  @UseInterceptors(FilesInterceptor('files', 5)) // 'files' là tên key trong form-data, nhận tối đa 5 file
+  @UseInterceptors(FilesInterceptor('files', 10)) // 'files' là tên key trong form-data, nhận tối đa 10 file
   async uploadMultipleImages(@UploadedFiles() files: Express.Multer.File[]) {
     if (!files || files.length === 0) {
       throw new BadRequestException('Không có file nào được tải lên');
@@ -47,3 +47,4 @@ export class CloudinaryController {
     }));
   }
 }
+
