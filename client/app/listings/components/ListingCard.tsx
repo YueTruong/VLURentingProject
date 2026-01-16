@@ -45,7 +45,7 @@ export default function ListingCard({ item }: ListingCardProps) {
               <span>{item.baths} phòng tắm</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase text-gray-500">Diện tích</span>
+              <span className="text-xs font-semibold text-gray-500">Diện tích</span>
               <span>{formatArea(item.area)}</span>
             </div>
             <div className="flex items-center gap-2">

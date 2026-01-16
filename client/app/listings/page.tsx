@@ -53,6 +53,28 @@ const tagMatchers = [
   { keyword: "phu hop gia dinh", tag: "Phù hợp gia đình" },
 ];
 
+const formatAmenityLabel = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const normalized = trimmed
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+  const lookup: Record<string, string> = {
+    wifi: "Wi-Fi",
+    "may lanh": "Máy lạnh",
+    "gio giac tu do": "Giờ giấc tự do",
+    "giu xe": "Giữ xe",
+    parking: "Giữ xe",
+    "gac lung": "Gác lửng",
+    "wc rieng": "WC riêng",
+  };
+  return lookup[normalized] ?? trimmed;
+};
+
 const typeMatchers = [
   { keyword: "studio", type: "Studio" },
   { keyword: "can ho", type: "Căn hộ" },
@@ -111,23 +133,23 @@ const matchOption = (value: string, options: string[]) => {
 };
 
 const buildUpdatedLabelFrom = (value?: string | null) => {
-  if (!value) return "Updated";
+  if (!value) return "Vừa cập nhật";
   const timestamp = new Date(value).getTime();
-  if (!Number.isFinite(timestamp)) return "Updated";
+  if (!Number.isFinite(timestamp)) return "Vừa cập nhật";
   const diffMs = Date.now() - timestamp;
-  if (!Number.isFinite(diffMs) || diffMs < 0) return "Updated";
+  if (!Number.isFinite(diffMs) || diffMs < 0) return "Vừa cập nhật";
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  if (diffHours < 1) return "Updated just now";
-  if (diffHours < 24) return `Updated ${diffHours}h ago`;
+  if (diffHours < 1) return "Vừa cập nhật";
+  if (diffHours < 24) return `Cập nhật ${diffHours} giờ trước`;
   const diffDays = Math.floor(diffHours / 24);
-  return `Updated ${diffDays}d ago`;
+  return `Cập nhật ${diffDays} ngày trước`;
 };
 
 const mapPostToListing = (post: Post): Listing => {
   const amenityNames = (post.amenities ?? [])
-    .map((amenity) => (amenity?.name ?? "").trim())
+    .map((amenity) => formatAmenityLabel(amenity?.name ?? ""))
     .filter(Boolean);
-  const amenityText = amenityNames.join(" ").toLowerCase();
+  const amenityText = normalizeText(amenityNames.join(" "));
   const price = toPriceMillionValue(post.price);
   const area = toNumberValue(post.area);
   const campusFallback = campusOptions[1] ?? campusOptions[0] ?? "Campus";
@@ -404,7 +426,7 @@ export default function ListingsPage() {
   const [wifiOnly, setWifiOnly] = useState(false);
   const [parkingOnly, setParkingOnly] = useState(false);
   const [furnishedOnly, setFurnishedOnly] = useState(false);
-  const [sortBy, setSortBy] = useState("latest");
+  const [sortBy, setSortBy] = useState("oldest");
 
   const [assistantInput, setAssistantInput] = useState("");
   const [assistantCriteria, setAssistantCriteria] = useState<Criteria | null>(null);
@@ -421,7 +443,6 @@ export default function ListingsPage() {
 
   useEffect(() => {
     let active = true;
-    setRemoteError(null);
     getApprovedPosts()
       .then((posts) => {
         if (!active) return;
@@ -523,6 +544,7 @@ export default function ListingsPage() {
         if (sortBy === "price-desc") return b.price - a.price;
         if (sortBy === "area-desc") return b.area - a.area;
         if (sortBy === "rating-desc") return b.rating - a.rating;
+        if (sortBy === "oldest") return a.updatedAt - b.updatedAt;
         return b.updatedAt - a.updatedAt;
       });
   }, [assistantExtras, manualCriteria, query, sortBy, sourceListings]);
@@ -634,7 +656,7 @@ export default function ListingsPage() {
     setWifiOnly(false);
     setParkingOnly(false);
     setFurnishedOnly(false);
-    setSortBy("latest");
+    setSortBy("oldest");
     setAssistantCriteria(null);
   };
 
@@ -923,6 +945,7 @@ export default function ListingsPage() {
                     onChange={(event) => setSortBy(event.target.value)}
                     className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
                   >
+                    <option value="oldest">Cũ nhất</option>
                     <option value="latest">Mới cập nhật</option>
                     <option value="price-asc">Giá tăng dần</option>
                     <option value="price-desc">Giá giảm dần</option>
