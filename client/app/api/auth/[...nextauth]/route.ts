@@ -7,6 +7,7 @@ interface BackendJwtPayload {
   userId?: number; // Thêm dấu ?
   email?: string;
   role?: string;
+  roles?: string;
   sub?: string;    // Token chuẩn thường có sub
   iat?: number;
   exp?: number;
@@ -26,7 +27,14 @@ export const authOptions: NextAuthOptions = {
 
         try {
           // 2. Gọi API Backend (Nhớ dùng port 3001)
-          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/auth/login`, {
+          const backendUrl =
+            process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
+
+          if (!backendUrl) {
+            throw new Error("Missing backend URL");
+          }
+
+          const res = await fetch(`${backendUrl}/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -60,7 +68,7 @@ export const authOptions: NextAuthOptions = {
               email: decoded.email || "",
               
               // ⚠️ Fix lỗi: Ép kiểu 'as string' để đảm bảo không bao giờ là undefined
-              role: (decoded.role || "student") as string, 
+              role: (decoded.role ?? decoded.roles ?? "student") as string, 
               
               // ⚠️ Fix lỗi: Ép kiểu 'as string'
               accessToken: data.access_token as string, 
