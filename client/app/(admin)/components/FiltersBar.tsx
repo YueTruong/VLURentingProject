@@ -22,7 +22,7 @@ export default function FiltersBar({
   onStatus,
   statusOptions,
   right,
-  placeholder = "Search...",
+  placeholder = "Tìm kiếm...",
 }: FiltersBarProps) {
   function handleStatusChange(event: ChangeEvent<HTMLSelectElement>) {
     onStatus(event.target.value);
@@ -45,9 +45,9 @@ export default function FiltersBar({
           />
         </div>
 
-        <div className="flex w-full items-center gap-2 md:w-[240px]">
+        <div className="flex w-full items-center gap-2 md:w-60">
           <label className="text-sm text-gray-600" htmlFor="status-filter">
-            Status
+            Trạng thái
           </label>
           <select
             id="status-filter"

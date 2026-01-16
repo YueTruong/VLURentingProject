@@ -22,7 +22,7 @@ export class AdminService {
     // Thiết lập tùy chọn truy vấn
     const options: FindManyOptions<PostEntity> = {
       order: { createdAt: 'DESC' },
-      relations: ['user', 'user.profile', 'category'],
+      relations: ['user', 'user.profile', 'category', 'images', 'amenities'],
     };
 
     // Nếu có lọc trạng thái, thêm vào điều kiện where
