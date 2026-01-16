@@ -1,7 +1,8 @@
-import {
+﻿import {
   IsString,
   IsNotEmpty,
   IsNumber,
+  Max,
   Min,
   IsOptional,
   IsArray,
@@ -21,6 +22,7 @@ export class CreatePostDto {
 
   @IsNumber()
   @Min(0)
+  @Max(9999999999.99)
   price: number;
 
   @IsNumber()
@@ -47,15 +49,23 @@ export class CreatePostDto {
 
   @IsNumber()
   @IsInt()
-  categoryId: number; // ID của Loại phòng
+  @IsOptional()
+  categoryId?: number;
 
-  // Mảng các ID của Tiện ích, ví dụ: [1, 3, 5]
+  @IsString()
+  @IsOptional()
+  categoryName?: string;
+
   @IsArray()
   @IsInt({ each: true })
   @IsOptional()
   amenityIds?: number[];
 
-  // Mảng các URL của ảnh
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  amenityNames?: string[];
+
   @IsArray()
   @IsString({ each: true })
   @IsOptional()

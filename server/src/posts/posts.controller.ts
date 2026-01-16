@@ -33,7 +33,7 @@ export class PostsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Tạo tin đăng mới (Chủ trọ)' })
   @HttpCode(HttpStatus.CREATED)
-  @Roles('owner') // Chỉ định vai trò được phép
+  @Roles('owner', 'admin') // Chỉ định vai trò được phép
   @UseGuards(JwtAuthGuard, RolesGuard) // Kích hoạt cả 2 Bảo vệ
   async create(@Body() createPostDto: CreatePostDto, @Request() req: any) {
     // req.user được gán từ JwtAuthGuard
@@ -70,7 +70,7 @@ export class PostsController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Cập nhật tin đăng theo ID (Chủ trọ)' })
-  @Roles('owner') // Chỉ định vai trò được phép
+  @Roles('owner', 'admin') // Chỉ định vai trò được phép
   @UseGuards(JwtAuthGuard, RolesGuard) // Kích hoạt cả 2 Bảo vệ
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -89,7 +89,7 @@ export class PostsController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Xoá tin đăng theo ID (Chủ trọ)' })
-  @Roles('owner') // Chỉ định vai trò được phép
+  @Roles('owner', 'admin') // Chỉ định vai trò được phép
   @UseGuards(JwtAuthGuard, RolesGuard) // Kích hoạt cả 2 Bảo vệ
   async delete(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
     const user = req.user;

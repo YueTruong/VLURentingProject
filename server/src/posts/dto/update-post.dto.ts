@@ -2,6 +2,7 @@ import {
   IsString,
   IsNotEmpty,
   IsNumber,
+  Max,
   Min,
   IsOptional,
   IsArray,
@@ -21,6 +22,7 @@ export class UpdatePostDto {
 
   @IsNumber()
   @Min(0)
+  @Max(9999999999.99)
   @IsOptional()
   price?: number;
 

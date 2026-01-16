@@ -1,4 +1,4 @@
-import {
+﻿import {
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -29,25 +29,82 @@ export class PostsService {
   // @param createPostDto Dữ liệu từ client
   // @param user Thông tin user (từ JWT)
   async create(createPostDto: CreatePostDto, user: any) {
-    const { categoryId, amenityIds, imageUrls, ...postData } = createPostDto;
+    const {
+      categoryId,
+      categoryName,
+      amenityIds,
+      amenityNames,
+      imageUrls,
+      ...postData
+    } = createPostDto;
 
-    // Kiểm tra Category
-    const category = await this.categoryRepository.findOne({
-      where: { id: categoryId },
-    });
-    if (!category) {
-      throw new NotFoundException('Không tìm thấy loại phòng (Category)');
+    let category: CategoryEntity | null = null;
+    const normalizedCategoryName = categoryName?.trim();
+
+    if (typeof categoryId === 'number') {
+      category = await this.categoryRepository.findOne({
+        where: { id: categoryId },
+      });
+      if (!category) {
+        throw new NotFoundException('Khong tim thay loai phong (Category)');
+      }
+    } else if (normalizedCategoryName) {
+      category = await this.categoryRepository.findOne({
+        where: { name: normalizedCategoryName },
+      });
+      if (!category) {
+        category = await this.categoryRepository.save(
+          this.categoryRepository.create({
+            name: normalizedCategoryName,
+            description: 'Auto created category',
+          }),
+        );
+      }
+    } else {
+      const [fallbackCategory] = await this.categoryRepository.find({
+        order: { id: 'ASC' },
+        take: 1,
+      });
+      if (fallbackCategory) {
+        category = fallbackCategory;
+      } else {
+        category = await this.categoryRepository.save(
+          this.categoryRepository.create({
+            name: 'Uncategorized',
+            description: 'Auto created category',
+          }),
+        );
+      }
     }
 
-    // Kiểm tra Amenities (Tiện ích)
     let amenities: AmenityEntity[] = [];
     if (amenityIds && amenityIds.length > 0) {
       amenities = await this.amenityRepository.findBy({
-        id: In(amenityIds), // Dùng 'In' để tìm nhiều ID
+        id: In(amenityIds),
       });
+    } else if (amenityNames && amenityNames.length > 0) {
+      const normalizedNames = Array.from(
+        new Set(amenityNames.map((name) => name.trim()).filter(Boolean)),
+      );
+
+      if (normalizedNames.length > 0) {
+        const existingAmenities = await this.amenityRepository.findBy({
+          name: In(normalizedNames),
+        });
+        const existingNameSet = new Set(
+          existingAmenities.map((amenity) => amenity.name),
+        );
+        const newAmenities = normalizedNames
+          .filter((name) => !existingNameSet.has(name))
+          .map((name) => this.amenityRepository.create({ name }));
+        const createdAmenities =
+          newAmenities.length > 0
+            ? await this.amenityRepository.save(newAmenities)
+            : [];
+        amenities = [...existingAmenities, ...createdAmenities];
+      }
     }
 
-    // Tạo các đối tượng ảnh
     let images: PostImageEntity[] = [];
     if (imageUrls && imageUrls.length > 0) {
       images = imageUrls.map((url) => {
@@ -57,20 +114,15 @@ export class PostsService {
       });
     }
 
-    // Tạo đối tượng Post chính
     const newPost = this.postRepository.create({
       ...postData,
       category: category,
       amenities: amenities,
       images: images,
-      // Gán tin đăng này cho user (Chủ trọ) đã đăng nhập
       userId: user.userId,
-      status: 'pending', // Mặc định là 'chờ duyệt'
+      status: 'pending',
     });
 
-    // Lưu vào database
-    // Nhờ 'cascade: true' (trong PostEntity),
-    // TypeORM sẽ tự động lưu 'images' và bảng 'post_amenities'
     return this.postRepository.save(newPost);
   }
 
@@ -98,7 +150,8 @@ export class PostsService {
     // Thêm các điều kiện lọc nếu có
     queryBuilder
       .leftJoinAndSelect('post.category', 'category')
-      .leftJoinAndSelect('post.images', 'images');
+      .leftJoinAndSelect('post.images', 'images')
+      .leftJoinAndSelect('post.amenities', 'amenities');
 
     // Lọc theo từ khoá
     if (keyword) {
@@ -154,7 +207,7 @@ export class PostsService {
       queryBuilder
         .innerJoin('post.amenities', 'amenity')
         .andWhere('amenity.id IN (:...ids)', { ids })
-        .groupBy('post.id, category.id, images.id')
+        .groupBy('post.id, category.id, images.id, amenities.id')
         .having('COUNT(DISTINCT amenity.id) = :count', { count: ids.length });
     }
 
@@ -288,3 +341,4 @@ export class PostsService {
     return { message: 'Xóa tin đăng thành công' };
   }
 }
+
