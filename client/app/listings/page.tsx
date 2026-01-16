@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import UserPageShell from "@/app/homepage/components/UserPageShell";
 import ListingCard from "./components/ListingCard";
+import { getApprovedPosts, type Post } from "@/app/services/posts";
 import {
   listings,
   Listing,
@@ -79,6 +80,83 @@ const parseNumber = (value: string) => {
   if (!cleaned) return undefined;
   const parsed = Number(cleaned.replace(",", "."));
   return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const toNumberValue = (value: number | string | undefined | null) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+};
+
+const toPriceMillionValue = (value: number | string | undefined | null) => {
+  const raw = toNumberValue(value);
+  return raw >= 100000 ? raw / 1_000_000 : raw;
+};
+
+const extractLastSegment = (value: string) => {
+  const parts = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : value;
+};
+
+const matchOption = (value: string, options: string[]) => {
+  const normalized = normalizeText(value);
+  const matched = options.find((option) => normalizeText(option) === normalized);
+  return matched ?? value;
+};
+
+const buildUpdatedLabelFrom = (value?: string | null) => {
+  if (!value) return "Updated";
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return "Updated";
+  const diffMs = Date.now() - timestamp;
+  if (!Number.isFinite(diffMs) || diffMs < 0) return "Updated";
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  if (diffHours < 1) return "Updated just now";
+  if (diffHours < 24) return `Updated ${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `Updated ${diffDays}d ago`;
+};
+
+const mapPostToListing = (post: Post): Listing => {
+  const amenityNames = (post.amenities ?? [])
+    .map((amenity) => (amenity?.name ?? "").trim())
+    .filter(Boolean);
+  const amenityText = amenityNames.join(" ").toLowerCase();
+  const price = toPriceMillionValue(post.price);
+  const area = toNumberValue(post.area);
+  const campusFallback = campusOptions[1] ?? campusOptions[0] ?? "Campus";
+  const categoryName = post.category?.name ?? "Unknown";
+  const districtRaw = extractLastSegment(post.address || "");
+  const updatedSource = post.updatedAt ?? post.createdAt ?? "";
+  const updatedAtValue = updatedSource ? new Date(updatedSource).getTime() : Date.now();
+
+  return {
+    id: post.id,
+    title: post.title,
+    image: post.images?.[0]?.image_url || "/images/House.svg",
+    location: post.address || "Unknown",
+    district: matchOption(districtRaw, districtOptions),
+    campus: campusFallback,
+    type: matchOption(categoryName, typeOptions),
+    beds: Math.max(1, Math.round(toNumberValue(post.max_occupancy ?? 1))),
+    baths: 1,
+    wifi: amenityText.includes("wifi"),
+    area: Number.isFinite(area) && area > 0 ? area : 0,
+    price: Number.isFinite(price) && price > 0 ? price : 0,
+    furnished: false,
+    parking: amenityText.includes("giu xe") || amenityText.includes("parking"),
+    rating: 0,
+    reviews: 0,
+    updatedAt: Number.isFinite(updatedAtValue) ? updatedAtValue : Date.now(),
+    updatedLabel: buildUpdatedLabelFrom(updatedSource),
+    tags: amenityNames,
+  };
 };
 
 
@@ -312,6 +390,10 @@ const isResetCommand = (input: string) => {
 };
 
 export default function ListingsPage() {
+  const [remoteListings, setRemoteListings] = useState<Listing[]>([]);
+  const [remoteLoaded, setRemoteLoaded] = useState(false);
+  const [remoteError, setRemoteError] = useState<string | null>(null);
+
   const [query, setQuery] = useState("");
   const [campus, setCampus] = useState("Tất cả");
   const [district, setDistrict] = useState("Tất cả");
@@ -337,6 +419,27 @@ export default function ListingsPage() {
   const endRef = useRef<HTMLDivElement | null>(null);
   const messageCounter = useRef(0);
 
+  useEffect(() => {
+    let active = true;
+    setRemoteError(null);
+    getApprovedPosts()
+      .then((posts) => {
+        if (!active) return;
+        setRemoteListings(posts.map(mapPostToListing));
+      })
+      .catch(() => {
+        if (!active) return;
+        setRemoteError("load_failed");
+      })
+      .finally(() => {
+        if (!active) return;
+        setRemoteLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const nextMessageId = (prefix: "m" | "a") => {
     messageCounter.current += 1;
     return `${prefix}-${messageCounter.current}`;
@@ -345,6 +448,8 @@ export default function ListingsPage() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const sourceListings = remoteLoaded && !remoteError ? remoteListings : listings;
 
   const applyCriteriaToFilters = (criteria: Criteria) => {
     setQuery(criteria.query ?? "");
@@ -399,7 +504,7 @@ export default function ListingsPage() {
   const filtered = useMemo(() => {
     const queryValue = normalizeText(query.trim());
 
-    return listings
+    return sourceListings
       .filter((item) => {
         if (queryValue) {
           const inTitle = normalizeText(item.title).includes(queryValue);
@@ -420,7 +525,7 @@ export default function ListingsPage() {
         if (sortBy === "rating-desc") return b.rating - a.rating;
         return b.updatedAt - a.updatedAt;
       });
-  }, [assistantExtras, manualCriteria, query, sortBy]);
+  }, [assistantExtras, manualCriteria, query, sortBy, sourceListings]);
 
   const stats = useMemo(() => {
     if (filtered.length === 0) {
@@ -491,7 +596,7 @@ export default function ListingsPage() {
     if (summary.length === 0) {
       assistantText = "Mình chưa thấy tiêu chí rõ ràng. Bạn có thể thêm giá, khu vực hoặc tiện ích mong muốn nhé.";
     } else {
-      const matched = listings.filter((item) => matchesCriteria(item, parsed));
+      const matched = sourceListings.filter((item) => matchesCriteria(item, parsed));
 
       if (matched.length === 0) {
         assistantText = `Mình đã lọc theo ${summary.join(", ")} nhưng chưa tìm thấy tin phù hợp. Bạn muốn nới tiêu chí nào không?`;
