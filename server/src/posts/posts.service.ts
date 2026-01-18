@@ -270,6 +270,15 @@ export class PostsService {
     };
   }
 
+  // H?m l?y danh s ch tin dang cua ch? tr?
+  async findMine(user: any) {
+    return this.postRepository.find({
+      where: { userId: user.userId },
+      relations: ['category', 'amenities', 'images'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   // Hàm cập nhật tin đăng theo ID
   async update(id: number, updatePostDto: UpdatePostDto, user: any) {
     // Tìm tin đăng cần cập nhật
@@ -287,7 +296,15 @@ export class PostsService {
     const { categoryId, amenityIds, imageUrls, ...postData } = updatePostDto;
 
     // Cập nhật các trường thông tin cơ bản
+    const wasRejected = post.status === 'rejected';
+
     Object.assign(post, postData);
+
+    if (wasRejected) {
+      post.status = 'pending';
+      post.rejectionReason = null;
+      post.resubmittedAt = new Date();
+    }
 
     // Cập nhật Category
     if (categoryId) {

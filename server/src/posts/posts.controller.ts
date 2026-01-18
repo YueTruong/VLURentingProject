@@ -55,6 +55,17 @@ export class PostsController {
     return this.postsService.findAll(searchPostDto);
   }
 
+  // API l?y danh s ch tin dang cua ch? tr?
+  // GET /posts/me
+  @Get('me')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'L?y danh s ch tin dang cua ch? tr?' })
+  @Roles('owner', 'admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async findMine(@Request() req: any) {
+    return this.postsService.findMine(req.user);
+  }
+
   // API lấy chi tiết tin đăng theo ID
   // GET /posts/:id
   @Get(':id')

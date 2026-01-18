@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PostEntity } from 'src/database/entities/post.entity';
 import { Not, Repository, FindManyOptions } from 'typeorm';
@@ -54,7 +59,21 @@ export class AdminService {
     }
 
     // Cập nhật trạng thái
-    post.status = updatePostStatusDto.status;
+    const nextStatus = updatePostStatusDto.status;
+    const rejectionReason = updatePostStatusDto.rejectionReason?.trim();
+
+    if (nextStatus === 'rejected') {
+      if (!rejectionReason) {
+        throw new BadRequestException('Vui lòng nhập lý do từ chối');
+      }
+      post.rejectionReason = rejectionReason;
+      post.resubmittedAt = null;
+    } else {
+      post.rejectionReason = null;
+      post.resubmittedAt = null;
+    }
+
+    post.status = nextStatus;
 
     // Lưu lại
     return this.postRepository.save(post);

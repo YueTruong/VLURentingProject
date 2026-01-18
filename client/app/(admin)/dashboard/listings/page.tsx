@@ -15,6 +15,7 @@ type AdminPostRow = {
   city: string;
   price: number;
   status: string;
+  resubmittedAt?: string | null;
   createdAt: string;
   createdAtValue: number;
 };
@@ -105,10 +106,10 @@ const statusTone = (status: string): "green" | "yellow" | "red" | "gray" => {
   return "gray";
 };
 
-const statusLabel = (status: string) => {
+const statusLabel = (status: string, resubmittedAt?: string | null) => {
   const normalized = status.toLowerCase();
   if (normalized === "approved") return "Đã duyệt";
-  if (normalized === "pending") return "Chờ duyệt";
+  if (normalized === "pending") return resubmittedAt ? "Chờ duyệt lại" : "Chờ duyệt";
   if (normalized === "rejected") return "Từ chối";
   if (normalized === "hidden") return "Cân nhắc";
   if (normalized === "rented") return "Đã cho thuê";
@@ -132,6 +133,7 @@ const mapPostToRow = (post: Post): AdminPostRow => {
     city: post.address || "-",
     price: toNumberValue(post.price),
     status: post.status ?? "pending",
+    resubmittedAt: post.resubmittedAt ?? null,
     createdAt: formatDate(createdSource),
     createdAtValue: createdSource ? new Date(createdSource).getTime() : 0,
   };
@@ -146,6 +148,9 @@ export default function ListingsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionKey, setActionKey] = useState<string | null>(null);
+  const [rejectTargetId, setRejectTargetId] = useState<number | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectError, setRejectError] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   useEffect(() => {
@@ -201,6 +206,10 @@ export default function ListingsPage() {
     () => posts.find((post) => post.id === selectedId) ?? null,
     [posts, selectedId],
   );
+  const rejectTargetPost = useMemo(
+    () => posts.find((post) => post.id === rejectTargetId) ?? null,
+    [posts, rejectTargetId],
+  );
   const selectedImages = useMemo(
     () =>
       (selectedPost?.images ?? [])
@@ -224,13 +233,23 @@ export default function ListingsPage() {
   const activeImageSrc =
     lightboxIndex !== null ? selectedImages[lightboxIndex] : null;
 
-  const updateLocalStatus = (id: number, nextStatus: string) => {
+  const updateLocalStatus = (
+    id: number,
+    nextStatus: string,
+    rejectionReason?: string | null,
+  ) => {
     setRows((prev) =>
       prev.map((row) => (row.id === id ? { ...row, status: nextStatus } : row)),
     );
     setPosts((prev) =>
       prev.map((post) =>
-        post.id === id ? { ...post, status: nextStatus } : post,
+        post.id === id
+          ? {
+              ...post,
+              status: nextStatus,
+              rejectionReason: nextStatus === "rejected" ? rejectionReason ?? null : null,
+            }
+          : post,
       ),
     );
   };
@@ -264,16 +283,51 @@ export default function ListingsPage() {
     });
   };
 
-  const handleStatusChange = async (id: number, nextStatus: string) => {
+  const handleStatusChange = async (
+    id: number,
+    nextStatus: string,
+    rejectionReason?: string,
+  ) => {
     const key = `${id}:${nextStatus}`;
     setActionKey(key);
     try {
-      await updatePostStatus(id, nextStatus);
-      updateLocalStatus(id, nextStatus);
+      await updatePostStatus(id, nextStatus, rejectionReason);
+      updateLocalStatus(id, nextStatus, rejectionReason ?? null);
+      return true;
     } catch (error) {
       console.error(error);
+      return false;
     } finally {
       setActionKey(null);
+    }
+  };
+
+  const openRejectDialog = (id: number) => {
+    const current = posts.find((post) => post.id === id);
+    setRejectTargetId(id);
+    setRejectReason(current?.rejectionReason ?? "");
+    setRejectError(null);
+  };
+
+  const closeRejectDialog = () => {
+    setRejectTargetId(null);
+    setRejectReason("");
+    setRejectError(null);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectTargetId) return;
+    const trimmed = rejectReason.trim();
+    if (!trimmed) {
+      setRejectError("Vui lòng nhập lý do từ chối.");
+      return;
+    }
+    setRejectError(null);
+    const ok = await handleStatusChange(rejectTargetId, "rejected", trimmed);
+    if (ok) {
+      closeRejectDialog();
+    } else {
+      setRejectError("Không thể cập nhật trạng thái. Vui lòng thử lại.");
     }
   };
 
@@ -297,7 +351,9 @@ export default function ListingsPage() {
       header: "Trạng thái",
       sortable: true,
       width: "10%",
-      render: (r) => <StatusBadge label={statusLabel(r.status)} tone={statusTone(r.status)} />,
+      render: (r) => (
+        <StatusBadge label={statusLabel(r.status, r.resubmittedAt)} tone={statusTone(r.status)} />
+      ),
     },
     {
       key: "createdAt",
@@ -328,9 +384,9 @@ export default function ListingsPage() {
             type="button"
             onClick={(event) => {
               event.stopPropagation();
-              handleStatusChange(r.id, "rejected");
+              openRejectDialog(r.id);
             }}
-            disabled={r.status.toLowerCase() === "rejected" || actionKey === `${r.id}:rejected`}
+            disabled={actionKey === `${r.id}:rejected`}
             className={`${actionButtonBase} border-rose-200 text-rose-700 hover:bg-rose-50`}
           >
             {actionKey === `${r.id}:rejected` ? "Đang từ chối..." : "Từ chối"}
@@ -353,11 +409,11 @@ export default function ListingsPage() {
   return (
     <div className="space-y-6">
       <SectionCard
-        title="Quản lý tin đăng"
-        subtitle="Duyệt và theo dõi nội dung người dùng đăng tải"
+        title="Listings"
+        subtitle="Review, approve, and manage user listings"
         right={
           <button className="rounded-xl bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800">
-            Tạo tin mới
+            Create listing
           </button>
         }
       >
@@ -367,7 +423,7 @@ export default function ListingsPage() {
           status={status}
           onStatus={setStatus}
           statusOptions={statusOptions}
-          placeholder="Tìm kiếm theo tiêu đề, người đăng, địa chỉ"
+          placeholder="Search by title, owner, address"
         />
       </SectionCard>
 
@@ -408,6 +464,23 @@ export default function ListingsPage() {
                   </p>
                 </div>
               </div>
+              {selectedPost.status === "pending" && selectedPost.resubmittedAt ? (
+                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+                  <div className="text-xs font-semibold uppercase text-amber-600">Thông báo gửi lại</div>
+                  <p className="mt-2 text-sm text-amber-700">
+                    Bài đăng đã được chỉnh sửa và gửi lại lúc{" "}
+                    {formatDateTime(selectedPost.resubmittedAt ?? undefined)}.
+                  </p>
+                </div>
+              ) : null}
+              {selectedPost.status === "rejected" ? (
+                <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4">
+                  <div className="text-xs font-semibold uppercase text-rose-500">Lý do từ chối</div>
+                  <p className="mt-2 text-sm text-rose-700">
+                    {selectedPost.rejectionReason || "Chưa có lý do từ chối."}
+                  </p>
+                </div>
+              ) : null}
 
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="rounded-2xl border border-gray-100 bg-white p-4">
@@ -527,7 +600,10 @@ export default function ListingsPage() {
                 <div className="flex items-center justify-between">
                   <div className="text-xs font-semibold uppercase text-gray-500">Trạng thái</div>
                   <StatusBadge
-                    label={statusLabel(selectedPost.status ?? "pending")}
+                    label={statusLabel(
+                      selectedPost.status ?? "pending",
+                      selectedPost.resubmittedAt,
+                    )}
                     tone={statusTone(selectedPost.status ?? "pending")}
                   />
                 </div>
@@ -545,9 +621,8 @@ export default function ListingsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleStatusChange(selectedPost.id, "rejected")}
+                    onClick={() => openRejectDialog(selectedPost.id)}
                     disabled={
-                      selectedPost.status === "rejected" ||
                       actionKey === `${selectedPost.id}:rejected`
                     }
                     className={`${actionButtonBase} border-rose-200 text-rose-700 hover:bg-rose-50`}
@@ -599,6 +674,54 @@ export default function ListingsPage() {
           </div>
         )}
       </SectionCard>
+
+      {rejectTargetId ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+          onClick={closeRejectDialog}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="text-lg font-semibold text-gray-900">Từ chối bài đăng</div>
+            <div className="mt-1 text-sm text-gray-500">
+              {rejectTargetPost?.title || "Bài đăng"} • Vui lòng nhập lý do rõ ràng để người dùng chỉnh sửa.
+            </div>
+            <div className="mt-4 space-y-2">
+              <label className="text-sm font-semibold text-gray-700" htmlFor="reject-reason">
+                Lý do từ chối
+              </label>
+              <textarea
+                id="reject-reason"
+                value={rejectReason}
+                onChange={(event) => setRejectReason(event.target.value)}
+                rows={4}
+                placeholder="Ví dụ: Ảnh không rõ, thiếu thông tin giá thuê, địa chỉ chưa đầy đủ..."
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-300"
+              />
+              {rejectError ? <div className="text-xs text-rose-600">{rejectError}</div> : null}
+            </div>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeRejectDialog}
+                className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={confirmReject}
+                disabled={actionKey === `${rejectTargetId}:rejected`}
+                className="inline-flex h-9 items-center justify-center rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {actionKey === `${rejectTargetId}:rejected` ? "Đang gửi..." : "Xác nhận từ chối"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {activeImageSrc ? (
         <div

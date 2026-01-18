@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 // Định nghĩa các trạng thái hợp lệ mà Admin có thể set
 // (Không bao gồm 'pending')
@@ -16,4 +16,9 @@ export class UpdatePostStatusDto {
   })
   @IsNotEmpty({ message: 'Trạng thái không được để trống' })
   status: PostStatusAdmin;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500, { message: 'Lý do từ chối không được quá 500 ký tự' })
+  rejectionReason?: string;
 }

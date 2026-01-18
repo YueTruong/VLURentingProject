@@ -45,6 +45,12 @@ export class PostEntity {
   @Column({ type: 'double precision', nullable: true })
   longitude: number;
 
+  @Column({ type: 'text', name: 'rejection_reason', nullable: true })
+  rejectionReason: string | null;
+
+  @Column({ type: 'timestamp', name: 'resubmitted_at', nullable: true })
+  resubmittedAt: Date | null;
+
   @Column({ type: 'int', default: 1 })
   max_occupancy: number; // Số người ở tối đa
 
