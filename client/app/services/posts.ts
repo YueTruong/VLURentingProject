@@ -16,6 +16,20 @@ export type CreatePostPayload = {
   imageUrls?: string[];
 };
 
+export type UpdatePostPayload = {
+  title?: string;
+  description?: string;
+  price?: number;
+  area?: number;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  max_occupancy?: number;
+  categoryId?: number;
+  amenityIds?: number[];
+  imageUrls?: string[];
+};
+
 export type PostImage = {
   image_url?: string;
 };
@@ -51,6 +65,8 @@ export type Post = {
   longitude?: number;
   max_occupancy?: number;
   status?: string;
+  rejectionReason?: string | null;
+  resubmittedAt?: string | null;
   images?: PostImage[];
   amenities?: PostAmenity[];
   category?: PostCategory;
@@ -99,12 +115,33 @@ export async function getAdminPosts(status?: string): Promise<Post[]> {
   return res.data ?? [];
 }
 
-export async function updatePostStatus(id: number, status: string) {
-  const res = await api.patch(`/admin/posts/${id}/status`, { status });
+export async function updatePostStatus(
+  id: number,
+  status: string,
+  rejectionReason?: string,
+) {
+  const payload: Record<string, string> = { status };
+  if (rejectionReason) payload.rejectionReason = rejectionReason;
+  const res = await api.patch(`/admin/posts/${id}/status`, payload);
   return res.data;
 }
 
 export async function getPostById(id: number | string): Promise<Post> {
   const res = await api.get<Post>(`/posts/${id}`);
+  return res.data;
+}
+
+export async function getMyPosts(): Promise<Post[]> {
+  const res = await api.get<Post[]>("/posts/me");
+  return res.data ?? [];
+}
+
+export async function updatePost(id: number, payload: UpdatePostPayload) {
+  const res = await api.patch(`/posts/${id}`, payload);
+  return res.data;
+}
+
+export async function deletePost(id: number) {
+  const res = await api.delete(`/posts/${id}`);
   return res.data;
 }

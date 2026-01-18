@@ -161,6 +161,16 @@ export default function UserMenu() {
               }
               onClick={() => setIsOpen(false)}
             />
+            <MenuItem
+              href="/my-posts"
+              label="Tin của tôi"
+              icon={
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h10" />
+                </svg>
+              }
+              onClick={() => setIsOpen(false)}
+            />
           </div>
 
           {/* Section: Tiện ích (list) */}
