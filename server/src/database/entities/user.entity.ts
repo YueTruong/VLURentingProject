@@ -53,4 +53,7 @@ export class UserEntity {
   // Một User Chủ trọ có thể đăng nhiều Post
   @OneToMany(() => PostEntity, (post) => post.user)
   posts: PostEntity[];
+
+  @Column({ nullable: true, default: 'local' }) // Cho phép null hoặc mặc định là local
+  provider: string;
 }
