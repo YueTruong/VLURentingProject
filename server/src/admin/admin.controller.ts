@@ -31,7 +31,9 @@ export class AdminController {
   @Roles('admin') // Chỉ cho phép role 'admin'
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Lấy tất cả bài đăng với tùy chọn lọc theo trạng thái' })
+  @ApiOperation({
+    summary: 'Lấy tất cả bài đăng với tùy chọn lọc theo trạng thái',
+  })
   async getAllPosts(@Query('status') status: string) {
     // Dùng @Query để lấy tham số truy vấn 'status'
     return this.adminService.getAllPosts(status);

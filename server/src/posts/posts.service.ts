@@ -10,7 +10,7 @@ import { CategoryEntity } from 'src/database/entities/category.entity';
 import { AmenityEntity } from 'src/database/entities/amenity.entity';
 import { PostImageEntity } from 'src/database/entities/post-image.entity';
 import { CreatePostDto } from './dto/create-post.dto';
-import { UserEntity } from 'src/database/entities/user.entity';
+// import { UserEntity } from 'src/database/entities/user.entity';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { SearchPostDto } from './dto/search-post.dto';
 
@@ -252,7 +252,10 @@ export class PostsService {
     // Tính điểm trung bình từ đánh giá
     let averageRating = 0;
     if (post.reviews && post.reviews.length > 0) {
-      const total = post.reviews.reduce((sum, review) => sum + review.rating, 0);
+      const total = post.reviews.reduce(
+        (sum, review) => sum + review.rating,
+        0,
+      );
       averageRating = parseFloat((total / post.reviews.length).toFixed(1)); // Làm tròn 1 chữ số thập phân
 
       // Xóa hash mật khẩu của người đánh giá
@@ -270,7 +273,7 @@ export class PostsService {
     };
   }
 
-  // H?m l?y danh s ch tin dang cua ch? tr?
+  // Hàm lấy danh sách tin đăng của chủ trọ
   async findMine(user: any) {
     return this.postRepository.find({
       where: { userId: user.userId },
@@ -358,4 +361,3 @@ export class PostsService {
     return { message: 'Xóa tin đăng thành công' };
   }
 }
-

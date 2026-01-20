@@ -45,7 +45,9 @@ import { UsersModule } from './users/user.module';
 
           // Neon cần SSL
           ssl: databaseUrl ? { rejectUnauthorized: false } : false,
-          extra: databaseUrl ? { ssl: { rejectUnauthorized: false } } : undefined,
+          extra: databaseUrl
+            ? { ssl: { rejectUnauthorized: false } }
+            : undefined,
 
           // Prod tuyệt đối không synchronize
           synchronize: !isProd && !databaseUrl, // local dev mới true

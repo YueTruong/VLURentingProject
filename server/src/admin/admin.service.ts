@@ -48,10 +48,7 @@ export class AdminService {
   }
 
   // Cập nhật trạng thái tin đăng
-  async updatePostStatus(
-    id: number,
-    updatePostStatusDto: UpdatePostStatusDto,
-  ) {
+  async updatePostStatus(id: number, updatePostStatusDto: UpdatePostStatusDto) {
     // Tìm bài đăng
     const post = await this.postRepository.findOneBy({ id });
     if (!post) {
@@ -103,10 +100,7 @@ export class AdminService {
   }
 
   // Hàm cập nhật trạng thái user
-  async updateUserStatus(
-    id: number,
-    updateUserStatusDto: UpdateUserStatusDto,
-  ) {
+  async updateUserStatus(id: number, updateUserStatusDto: UpdateUserStatusDto) {
     // TÌm user theo ID, lấy kèm role
     const user = await this.userRepository.findOne({
       where: { id: id },
@@ -119,7 +113,9 @@ export class AdminService {
 
     // Ngăn chặn thay đổi trạng thái của admin
     if (user.role.name === 'admin') {
-      throw new ForbiddenException('Bạn không có quyền thay đổi trạng thái của tài khoản Admin');
+      throw new ForbiddenException(
+        'Bạn không có quyền thay đổi trạng thái của tài khoản Admin',
+      );
     }
 
     // Cập nhật trạng thái is_active

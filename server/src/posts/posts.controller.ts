@@ -55,7 +55,7 @@ export class PostsController {
     return this.postsService.findAll(searchPostDto);
   }
 
-  // API l?y danh s ch tin dang cua ch? tr?
+  // API lấy danh sách tin đăng của chủ trọ
   // GET /posts/me
   @Get('me')
   @ApiBearerAuth()
