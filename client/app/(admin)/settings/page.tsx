@@ -102,7 +102,7 @@ export default async function SettingsInfoPage() {
 
           <div className="mt-10 flex items-center justify-between">
             <Link
-              href="/loggedhomepage"
+              href="/"
               className="rounded-xl border border-gray-300 px-6 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 active:scale-[0.99] transition"
             >
               Quay lại
