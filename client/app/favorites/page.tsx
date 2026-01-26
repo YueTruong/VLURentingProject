@@ -142,7 +142,7 @@ export default function FavoritesPage() {
           ))}
         </div>
 
-        <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+        {/* <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 flex flex-wrap items-center justify-between gap-3 shadow-sm">
           <div>
             <p className="text-sm font-semibold text-gray-800">Không thấy tin hợp lý?</p>
             <p className="text-sm text-gray-600">
@@ -157,7 +157,7 @@ export default function FavoritesPage() {
               Nhận gợi ý
             </button>
           </div>
-        </div>
+        </div> */}
       </div>
     </UserPageShell>
   );

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ReactNode } from "react";
 import UserTopBar from "@/app/homepage/components/UserTopBar";
@@ -25,14 +25,14 @@ export default function UserPageShell({ title, description, actions, children }:
               </span>
               <h1 className="text-3xl md:text-4xl font-extrabold leading-tight">{title}</h1>
               <p className="text-base text-gray-200 md:text-lg">{description}</p>
-              <div className="flex flex-wrap gap-2">
+              {/* <div className="flex flex-wrap gap-2">
                 <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-gray-100">
                   Luồng người dùng
                 </span>
                 <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-gray-100">
                   Cập nhật thời gian thực
                 </span>
-              </div>
+              </div> */}
             </div>
             {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
           </div>
