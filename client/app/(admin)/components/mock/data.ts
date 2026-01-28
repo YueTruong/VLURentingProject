@@ -4,6 +4,7 @@ export type UserRow = {
   email: string;
   role: "STUDENT" | "LANDLORD" | "ADMIN";
   status: "ACTIVE" | "BLOCKED" | "PENDING";
+  verified: boolean;
   createdAt: string;
 };
 
@@ -268,14 +269,18 @@ export const activities: ActivityLog[] = [
   },
 ];
 
-export const users: UserRow[] = Array.from({ length: 23 }).map((_, i) => ({
-  id: String(i + 1),
-  username: `user_${i + 1}`,
-  email: `user${i + 1}@mail.com`,
-  role: i % 8 === 0 ? "ADMIN" : i % 3 === 0 ? "LANDLORD" : "STUDENT",
-  status: i % 9 === 0 ? "BLOCKED" : i % 5 === 0 ? "PENDING" : "ACTIVE",
-  createdAt: new Date(Date.now() - i * 86400000).toISOString().slice(0, 10),
-}));
+export const users: UserRow[] = Array.from({ length: 23 }).map((_, i) => {
+  const role = i % 8 === 0 ? "ADMIN" : i % 3 === 0 ? "LANDLORD" : "STUDENT";
+  return {
+    id: String(i + 1),
+    username: `user_${i + 1}`,
+    email: `user${i + 1}@mail.com`,
+    role,
+    status: i % 9 === 0 ? "BLOCKED" : i % 5 === 0 ? "PENDING" : "ACTIVE",
+    verified: role === "LANDLORD" ? i % 2 === 0 : false,
+    createdAt: new Date(Date.now() - i * 86400000).toISOString().slice(0, 10),
+  };
+});
 
 export const listings: ListingRow[] = Array.from({ length: 19 }).map((_, i) => ({
   id: String(i + 101),
