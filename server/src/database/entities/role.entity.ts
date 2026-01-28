@@ -10,7 +10,7 @@ export class RoleEntity {
 
   // Định nghĩa cột 'name'
   @Column({ type: 'varchar', length: 50, unique: true })
-  name: string; // 'admin', 'owner', 'student'
+  name: string; // 'ADMIN', 'STUDENT', 'LANDLORD'
 
   // Định nghĩa mối quan hệ Một-Nhiều
   // Một vai trò (Role) có thể thuộc về nhiều Người dùng (User)

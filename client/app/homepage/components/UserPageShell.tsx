@@ -16,7 +16,7 @@ export default function UserPageShell({ title, description, actions, children }:
       <UserTopBar />
 
       <main className="flex-1">
-        <section className="relative overflow-hidden bg-gradient-to-r from-[#010433] via-[#0a0f55] to-[#111827] text-white">
+        <section className="relative overflow-hidden bg-linear-to-r from-[#010433] via-[#0a0f55] to-[#111827] text-white">
           <div className="absolute inset-0 opacity-60" style={{ backgroundImage: "radial-gradient(circle at 20% 20%, #D51F35 0, transparent 25%), radial-gradient(circle at 80% 0%, rgba(255,255,255,0.2) 0, transparent 35%)" }} />
           <div className="container relative mx-auto px-4 py-12 flex flex-wrap items-center justify-between gap-6">
             <div className="space-y-3 max-w-3xl">

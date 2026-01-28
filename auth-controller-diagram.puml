@@ -1,0 +1,53 @@
+@startuml Auth Controller Diagram
+
+class AuthController {
+  +constructor(authService: AuthService)
+  +register(registerDto: RegisterDto): any
+  +login(req: any, loginDto: LoginDto): any
+  +getProfile(req: any): any
+}
+
+class AuthService {
+  +constructor(userRepository: Repository<UserEntity>, roleRepository: Repository<RoleEntity>, profileRepository: Repository<UserProfileEntity>, jwtService: JwtService)
+  +register(registerDto: RegisterDto): any
+  +validateUser(identifier: string, pass: string): any
+  +login(user: any): any
+  +getProfile(userId: number): any
+}
+
+class UserEntity {
+  +id: number
+  +email: string
+  +username: string
+  +password_hash: string
+  +roleId: number
+  +is_active: boolean
+  +createdAt: Date
+  +updatedAt: Date
+  +role: RoleEntity
+  +profile: UserProfileEntity
+  +posts: PostEntity[]
+}
+
+class RoleEntity {
+  +id: number
+  +name: string
+  +users: UserEntity[]
+}
+
+class UserProfileEntity {
+  +userId: number
+  +full_name: string
+  +phone_number: string
+  +avatar_url: string
+  +address: string
+  +user: UserEntity
+}
+
+' Relationships
+AuthController --> AuthService : uses
+AuthService --> UserEntity : manages
+AuthService --> RoleEntity : manages
+AuthService --> UserProfileEntity : manages
+
+@enduml

@@ -379,7 +379,7 @@ export default function MyPostsPage() {
       </div>
 
       {editingId && editDraft ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-xl">
             <div className="text-lg font-semibold text-gray-900">Cập nhật bài đăng</div>
             <div className="mt-1 text-sm text-gray-500">

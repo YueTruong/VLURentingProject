@@ -100,7 +100,7 @@ export default function NotificationsPage() {
             </button>
           </div>
 
-          <div className="bg-gradient-to-r from-[#0c184f] to-[#182c7a] text-white px-6 py-6">
+          <div className="bg-linear-to-r from-[#0c184f] to-[#182c7a] text-white px-6 py-6">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <span className="rounded-full bg-white/15 px-2 py-1 text-xs font-semibold uppercase">Thông báo</span>

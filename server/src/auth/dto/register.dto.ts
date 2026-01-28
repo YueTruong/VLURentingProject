@@ -7,17 +7,20 @@ import {
   IsPhoneNumber,
 } from 'class-validator';
 
-// Định nghĩa 2 vai trò mà người dùng có thể đăng ký
+// Định nghĩa 3 vai trò mà người dùng có thể đăng ký
 export enum UserRole {
-  STUDENT = 'student',
-  LANDLORD = 'landlord',
-  ADMIN = 'admin',
+  STUDENT = 'STUDENT',
+  LANDLORD = 'LANDLORD',
+  ADMIN = 'ADMIN',
 }
 
 export class RegisterDto {
   @IsEmail({}, { message: 'Email không hợp lệ.' })
   @IsNotEmpty({ message: 'Email không được để trống.' })
   email: string;
+
+  @IsString()
+  username: string;
 
   @IsString()
   @IsNotEmpty({ message: 'Mật khẩu không được để trống.' })

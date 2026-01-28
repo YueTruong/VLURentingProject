@@ -35,13 +35,14 @@ export class AuthService {
   async register(registerDto: RegisterDto) {
     const {
       email,
+      username,
       password,
       fullName,
       phoneNumber,
       role: roleName,
     } = registerDto;
 
-    // Kiểm tra sự tồn tại của Email và SĐT
+    // Kiểm tra sự tồn tại của Email và SĐT và Username
     const existingUser = await this.userRepository.findOne({
       where: { email },
     });
@@ -56,11 +57,18 @@ export class AuthService {
       throw new ConflictException('Số điện thoại đã tồn tại');
     }
 
+    const existingUsername = await this.userRepository.findOne({
+      where: { username },
+    });
+    if (existingUsername) {
+      throw new ConflictException('Username đã tồn tại');
+    }
+
     // --- 2. Tìm Role (vai trò) ---
     // Chúng ta giả định đã chèn 'student' và 'owner' vào bảng 'roles'
     // (Từ file SQL DDL ở bước 1)
     const userRole = await this.roleRepository.findOne({
-      where: { name: roleName }, // roleName là 'student' hoặc 'owner'
+      where: { name: roleName },
     });
 
     if (!userRole) {
@@ -76,6 +84,7 @@ export class AuthService {
     newUser.email = email;
     newUser.password_hash = hashedPassword;
     newUser.role = userRole; // Gán đối tượng RoleEntity
+    newUser.username = username;
 
     const newProfile = new UserProfileEntity();
     newProfile.full_name = fullName;
@@ -182,16 +191,16 @@ export class AuthService {
 
     const access_token = this.jwtService.sign(payload);
 
-      return {
-        access_token,
-        user: {
-          id: user.id,
-          email: user.email ?? null,
-          username: user.username ?? null,
-          role: roleName,
-          roles: roleName,
-        },
-      };
+    return {
+      access_token,
+      user: {
+        id: user.id,
+        email: user.email ?? null,
+        username: user.username ?? null,
+        role: roleName,
+        roles: roleName,
+      },
+    };
   }
 
   // Hàm lấy thông tin Profile

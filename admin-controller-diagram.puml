@@ -1,0 +1,62 @@
+@startuml Admin Controller Diagram
+
+class AdminController {
+  +constructor(adminService: AdminService)
+  +getAllPosts(status: string): any
+  +updatePostStatus(id: number, updatePostStatusDto: UpdatePostStatusDto): any
+  +getAllUsers(): any
+  +updateUserStatus(id: number, UpdateUserStatusDto: UpdateUserStatusDto): any
+}
+
+class AdminService {
+  +constructor(postRepository: Repository<PostEntity>, userRepository: Repository<UserEntity>)
+  +getAllPosts(status?: string): any
+  +updatePostStatus(id: number, updatePostStatusDto: UpdatePostStatusDto): any
+  +getAllUsers(): any
+  +updateUserStatus(id: number, updateUserStatusDto: UpdateUserStatusDto): any
+}
+
+class PostEntity {
+  +id: number
+  +title: string
+  +description: string
+  +price: number
+  +area: number
+  +address: string
+  +latitude: number
+  +longitude: number
+  +rejectionReason: string
+  +resubmittedAt: Date
+  +max_occupancy: number
+  +status: PostStatus
+  +createdAt: Date
+  +updatedAt: Date
+  +userId: number
+  +categoryId: number
+  +user: UserEntity
+  +category: CategoryEntity
+  +images: PostImageEntity[]
+  +amenities: AmenityEntity[]
+  +reviews: ReviewEntity[]
+}
+
+class UserEntity {
+  +id: number
+  +email: string
+  +username: string
+  +password_hash: string
+  +roleId: number
+  +is_active: boolean
+  +createdAt: Date
+  +updatedAt: Date
+  +role: RoleEntity
+  +profile: UserProfileEntity
+  +posts: PostEntity[]
+}
+
+' Relationships
+AdminController --> AdminService : uses
+AdminService --> PostEntity : manages
+AdminService --> UserEntity : manages
+
+@enduml

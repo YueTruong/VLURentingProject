@@ -1,0 +1,99 @@
+@startuml Class Diagram
+
+class UserEntity {
+  +id: number
+  +email: string
+  +username: string
+  +password_hash: string
+  +roleId: number
+  +is_active: boolean
+  +createdAt: Date
+  +updatedAt: Date
+  +role: RoleEntity
+  +profile: UserProfileEntity
+  +posts: PostEntity[]
+}
+
+class RoleEntity {
+  +id: number
+  +name: string
+  +users: UserEntity[]
+}
+
+class UserProfileEntity {
+  +userId: number
+  +full_name: string
+  +phone_number: string
+  +avatar_url: string
+  +address: string
+  +user: UserEntity
+}
+
+class PostEntity {
+  +id: number
+  +title: string
+  +description: string
+  +price: number
+  +area: number
+  +address: string
+  +latitude: number
+  +longitude: number
+  +rejectionReason: string
+  +resubmittedAt: Date
+  +max_occupancy: number
+  +status: PostStatus
+  +createdAt: Date
+  +updatedAt: Date
+  +userId: number
+  +categoryId: number
+  +user: UserEntity
+  +category: CategoryEntity
+  +images: PostImageEntity[]
+  +amenities: AmenityEntity[]
+  +reviews: ReviewEntity[]
+}
+
+class CategoryEntity {
+  +id: number
+  +name: string
+  +description: string
+  +posts: PostEntity[]
+}
+
+class AmenityEntity {
+  +id: number
+  +name: string
+  +icon_url: string
+  +posts: PostEntity[]
+}
+
+class PostImageEntity {
+  +id: number
+  +postId: number
+  +image_url: string
+  +is_video: boolean
+  +post: PostEntity
+}
+
+class ReviewEntity {
+  +id: number
+  +rating: number
+  +comment: string
+  +createdAt: Date
+  +userId: number
+  +postId: number
+  +user: UserEntity
+  +post: PostEntity
+}
+
+UserEntity ||--o{ RoleEntity : "many-to-one"
+UserEntity ||--|| UserProfileEntity : "one-to-one"
+UserEntity ||--o{ PostEntity : "one-to-many"
+PostEntity ||--o{ CategoryEntity : "many-to-one"
+PostEntity ||--o{ PostImageEntity : "one-to-many"
+PostEntity ||--o{ ReviewEntity : "one-to-many"
+PostEntity }o--o{ AmenityEntity : "many-to-many"
+ReviewEntity ||--o{ UserEntity : "many-to-one"
+ReviewEntity ||--o{ PostEntity : "many-to-one"
+
+@enduml
