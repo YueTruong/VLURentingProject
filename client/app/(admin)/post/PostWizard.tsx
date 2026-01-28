@@ -1,10 +1,14 @@
 ﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { createPost, uploadImages } from "@/app/services/posts";
 
 type ListingType = "PHONG_TRO" | "CAN_HO" | "NHA_NGUYEN_CAN";
+type ListingPurpose = "RENT" | "ROOMMATE";
+type RoommateLinkType = "LANDLORD_ASSIST" | "TENANT_SELF";
+type RoommateApprovalStatus = "pending" | "approved" | "rejected";
 type Furnishing = "NONE" | "BASIC" | "FULL";
 
 type Amenities = {
@@ -16,12 +20,36 @@ type Amenities = {
   freeTime: boolean;
 };
 
+type RoommateLifestyle = {
+  quiet: boolean;
+  clean: boolean;
+  noSmoking: boolean;
+  noPets: boolean;
+  shareUtility: boolean;
+};
+
 type ListingDraft = {
+  purpose: ListingPurpose;
   title: string;
   type: ListingType;
   priceVnd: string; // giá string để format dễ đọc, backend parse sau
   areaM2: string;
   maxPeople: string;
+  roommateMoveInDate: string;
+  roommateGender: string;
+  roommateOccupation: string;
+  roommateContact: string;
+  roommateLifestyle: RoommateLifestyle;
+  roommateLinkType: RoommateLinkType;
+  roommateListingId: string;
+  roommateListingTitle: string;
+  roommateListingAddress: string;
+  roommateLandlordName: string;
+  roommateCurrentOccupancy: string;
+  roommateMaxOccupancy: string;
+  roommateApprovalStatus: RoommateApprovalStatus;
+  roommateNotifyLandlord: boolean;
+  roommateLandlordConsent: boolean;
 
   addressText: string;
   district: string;
@@ -60,7 +88,50 @@ const amenityNameMap: Record<keyof Amenities, string> = {
   freeTime: "Giờ giấc tự do",
 };
 
+const roommateLifestyleMap: Record<keyof RoommateLifestyle, string> = {
+  quiet: "Yên tĩnh",
+  clean: "Gọn gàng",
+  noSmoking: "Không hút thuốc",
+  noPets: "Không nuôi thú cưng",
+  shareUtility: "Chia sẻ tiện ích",
+};
+
+const roommateListingCatalog = [
+  {
+    id: "R-1203",
+    title: "Phòng trọ Bình Thạnh - Cổng sau VLU",
+    address: "12/3 Nguyễn Gia Trí, P.25, Bình Thạnh",
+    landlordName: "Nguyễn Thị Mai",
+    currentOccupancy: 2,
+    maxOccupancy: 3,
+  },
+  {
+    id: "R-2041",
+    title: "Căn hộ mini Q7 - gần trạm xe buýt",
+    address: "88 Nguyễn Thị Thập, Q7",
+    landlordName: "Lê Văn Hải",
+    currentOccupancy: 3,
+    maxOccupancy: 4,
+  },
+  {
+    id: "R-3310",
+    title: "Phòng trọ Gò Vấp - yên tĩnh",
+    address: "15/7 Phan Huy Ích, Gò Vấp",
+    landlordName: "Trần Minh Khôi",
+    currentOccupancy: 1,
+    maxOccupancy: 2,
+  },
+] as const;
+
+const roommateListingOptions = roommateListingCatalog.map((item) => ({
+  value: item.id,
+  label: `${item.title} • ${item.currentOccupancy}/${item.maxOccupancy} người`,
+}));
+
 const MapPicker = dynamic(() => import("./MapPicker"), { ssr: false });
+
+const VERIFICATION_STORAGE_KEY = "vlu.landlord.verified";
+const VERIFICATION_PENDING_KEY = "vlu.landlord.pending";
 
 function cn(...s: Array<string | false | undefined | null>) {
   return s.filter(Boolean).join(" ");
@@ -92,6 +163,66 @@ function collectAmenityNames(amenities: Amenities) {
     .map((key) => amenityNameMap[key]);
 }
 
+function collectRoommateLifestyleLabels(lifestyle: RoommateLifestyle) {
+  return (Object.keys(roommateLifestyleMap) as Array<keyof RoommateLifestyle>)
+    .filter((key) => lifestyle[key])
+    .map((key) => roommateLifestyleMap[key]);
+}
+
+function buildRoommateSummary(draft: ListingDraft) {
+  const lines: string[] = [];
+  if (draft.roommateListingTitle) {
+    lines.push(`- Phòng gốc: ${draft.roommateListingTitle}`);
+  }
+  if (draft.roommateListingAddress) {
+    lines.push(`- Địa chỉ phòng gốc: ${draft.roommateListingAddress}`);
+  }
+  if (draft.roommateLandlordName) {
+    lines.push(`- Chủ trọ: ${draft.roommateLandlordName}`);
+  }
+  if (draft.roommateCurrentOccupancy || draft.roommateMaxOccupancy) {
+    lines.push(
+      `- Số người hiện tại: ${draft.roommateCurrentOccupancy || "--"}/${draft.roommateMaxOccupancy || "--"}`
+    );
+  }
+  if (draft.roommateMoveInDate) {
+    lines.push(`- Ngày vào ở: ${draft.roommateMoveInDate}`);
+  }
+  if (draft.roommateGender && draft.roommateGender !== "Không yêu cầu") {
+    lines.push(`- Giới tính ưu tiên: ${draft.roommateGender}`);
+  }
+  if (draft.roommateOccupation && draft.roommateOccupation !== "Không yêu cầu") {
+    lines.push(`- Nghề nghiệp ưu tiên: ${draft.roommateOccupation}`);
+  }
+  if (draft.roommateContact) {
+    lines.push(`- Liên hệ: ${draft.roommateContact}`);
+  }
+  const lifestyleLabels = collectRoommateLifestyleLabels(draft.roommateLifestyle);
+  if (lifestyleLabels.length > 0) {
+    lines.push(`- Phong cách sống: ${lifestyleLabels.join(", ")}`);
+  }
+  if (draft.roommateApprovalStatus) {
+    const statusLabel =
+      draft.roommateApprovalStatus === "approved"
+        ? "Đã được chủ trọ xác nhận"
+        : draft.roommateApprovalStatus === "rejected"
+          ? "Chủ trọ từ chối"
+          : "Chờ chủ trọ xác nhận";
+    lines.push(`- Trạng thái: ${statusLabel}`);
+  }
+  if (lines.length === 0) return "";
+  return `Thông tin ở ghép:\n${lines.join("\n")}`;
+}
+
+function buildFinalDescription(draft: ListingDraft) {
+  if (draft.purpose !== "ROOMMATE") return draft.description.trim();
+  const summary = buildRoommateSummary(draft);
+  const base = draft.description.trim();
+  if (!summary) return base;
+  if (!base) return summary;
+  return `${base}\n\n${summary}`;
+}
+
 function StepShell({
   title,
   subtitle,
@@ -117,18 +248,21 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 function Input({
+  type = "text",
   value,
   onChange,
   placeholder,
   inputMode,
 }: {
+  type?: React.InputHTMLAttributes<HTMLInputElement>["type"];
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
-  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  inputMode?: React.InputHTMLAttributes<HTMLInputElement>["inputMode"];
 }) {
   return (
     <input
+      type={type}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
@@ -275,13 +409,25 @@ function PreviewCard({
   const price = toNumber(data.priceVnd);
   const area = toNumber(data.areaM2);
   const maxPeople = toNumber(data.maxPeople);
+  const isRoommate = data.purpose === "ROOMMATE";
+  const approvalMap: Record<RoommateApprovalStatus, { label: string; tone: string }> = {
+    approved: { label: "Chủ trọ đã xác nhận", tone: "bg-green-100 text-green-800" },
+    pending: { label: "Chờ chủ trọ xác nhận", tone: "bg-yellow-100 text-yellow-800" },
+    rejected: { label: "Bị từ chối", tone: "bg-red-100 text-red-700" },
+  };
+  const approvalBadge = approvalMap[data.roommateApprovalStatus];
   const totalImages = data.images?.length ?? 0;
   const currentIdx = totalImages > 0 ? Math.min(activeImageIdx, totalImages - 1) : 0;
   const currentImg = totalImages > 0 ? data.images[currentIdx] : undefined;
 
   const priceText = price ? data.priceVnd + "đ" : "--";
   const areaText = area ? area + "m²" : "--";
-  const peopleText = maxPeople ? maxPeople + " người" : "--";
+  const peopleText = maxPeople
+    ? isRoommate
+      ? `Cần thêm ${maxPeople} người`
+      : `${maxPeople} người`
+    : "--";
+  const priceSuffix = isRoommate ? "/người/tháng" : "/tháng";
 
   const badges = [
     data.amenities.wifi && "Wifi",
@@ -291,6 +437,12 @@ function PreviewCard({
     data.amenities.parking && "Giữ xe",
     data.amenities.freeTime && "Giờ giấc tự do",
   ].filter(Boolean) as string[];
+  const roommateSummary = isRoommate ? buildRoommateSummary(data) : "";
+  const previewDescription = roommateSummary
+    ? data.description
+      ? `${data.description}\n\n${roommateSummary}`
+      : roommateSummary
+    : data.description;
 
   return (
     <div className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
@@ -335,14 +487,28 @@ function PreviewCard({
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <div className="truncate text-lg font-semibold text-gray-900">{data.title || "Tiêu đề tin..."}</div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="truncate text-lg font-semibold text-gray-900">
+                {data.title || "Tiêu đề tin..."}
+              </div>
+              {isRoommate && (
+                <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                  Ở ghép
+                </span>
+              )}
+            </div>
             <div className="mt-1 text-sm text-gray-500">
               {data.ward || "Phường"} - {data.district || "Quận"} - {data.addressText || "Địa chỉ chi tiết"}
             </div>
+            {isRoommate && data.roommateListingTitle && (
+              <div className="mt-1 text-xs text-gray-500">
+                Phòng gốc: {data.roommateListingTitle}
+              </div>
+            )}
           </div>
           <div className="shrink-0 text-right">
             <div className="text-lg font-bold text-gray-900">
-              {priceText} <span className="text-sm font-medium text-gray-500">/tháng</span>
+              {priceText} <span className="text-sm font-medium text-gray-500">{priceSuffix}</span>
             </div>
             <div className="mt-0.5 text-xs text-gray-500">
               {areaText} - {peopleText}
@@ -363,9 +529,22 @@ function PreviewCard({
           </div>
         )}
 
+        {isRoommate && approvalBadge && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${approvalBadge.tone}`}>
+              {approvalBadge.label}
+            </span>
+            {(data.roommateCurrentOccupancy || data.roommateMaxOccupancy) && (
+              <span className="text-xs text-gray-500">
+                Số người: {data.roommateCurrentOccupancy || "--"}/{data.roommateMaxOccupancy || "--"}
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="mt-4 text-sm text-gray-700">
-          {data.description ? (
-            <p className="line-clamp-3">{data.description}</p>
+          {previewDescription ? (
+            <p className="line-clamp-3 whitespace-pre-line">{previewDescription}</p>
           ) : (
             <p className="text-gray-500">Chưa có mô tả.</p>
           )}
@@ -376,14 +555,39 @@ function PreviewCard({
 }
 
 export default function PostWizard() {
+  const [verificationStatus, setVerificationStatus] = useState<
+    "loading" | "verified" | "pending" | "unverified"
+  >("loading");
   const [step, setStep] = useState(0);
 
   const [draft, setDraft] = useState<ListingDraft>({
+    purpose: "RENT",
     title: "",
     type: "PHONG_TRO",
     priceVnd: "",
     areaM2: "",
     maxPeople: "1",
+    roommateMoveInDate: "",
+    roommateGender: "Không yêu cầu",
+    roommateOccupation: "Sinh viên",
+    roommateContact: "",
+    roommateLifestyle: {
+      quiet: true,
+      clean: true,
+      noSmoking: false,
+      noPets: false,
+      shareUtility: true,
+    },
+    roommateLinkType: "TENANT_SELF",
+    roommateListingId: "",
+    roommateListingTitle: "",
+    roommateListingAddress: "",
+    roommateLandlordName: "",
+    roommateCurrentOccupancy: "",
+    roommateMaxOccupancy: "",
+    roommateApprovalStatus: "pending",
+    roommateNotifyLandlord: false,
+    roommateLandlordConsent: false,
 
     addressText: "",
     district: "Bình Thạnh",
@@ -410,15 +614,49 @@ export default function PostWizard() {
   const [mapQuery, setMapQuery] = useState("");
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [postConsents, setPostConsents] = useState({
+    terms: false,
+    privacy: false,
+    policy: false,
+  });
+
+  const refreshVerificationStatus = () => {
+    const verified = localStorage.getItem(VERIFICATION_STORAGE_KEY) === "true";
+    const pending = localStorage.getItem(VERIFICATION_PENDING_KEY) === "true";
+    if (verified) {
+      setVerificationStatus("verified");
+      return;
+    }
+    setVerificationStatus(pending ? "pending" : "unverified");
+  };
+
+  useEffect(() => {
+    refreshVerificationStatus();
+  }, []);
 
   const canNext = useMemo(() => {
     if (step === 0) {
-      return (
+      const baseReady =
         draft.title.trim().length >= 8 &&
         toNumber(draft.priceVnd) > 0 &&
         toNumber(draft.areaM2) > 0 &&
-        toNumber(draft.maxPeople) > 0
-      );
+        toNumber(draft.maxPeople) > 0;
+      if (draft.purpose === "ROOMMATE") {
+        const currentOcc = toNumber(draft.roommateCurrentOccupancy);
+        const maxOcc = toNumber(draft.roommateMaxOccupancy);
+        const requested = toNumber(draft.maxPeople);
+        const capacityLeft = Math.max(0, maxOcc - currentOcc);
+        const hasCapacity = maxOcc > 0 && currentOcc < maxOcc && requested <= capacityLeft;
+        const hasListing = draft.roommateListingId.trim().length > 0;
+        const hasContact = draft.roommateContact.trim().length > 0;
+        const approvalOk =
+          draft.roommateLinkType === "LANDLORD_ASSIST" ||
+          (draft.roommateNotifyLandlord &&
+            draft.roommateLandlordConsent &&
+            draft.roommateApprovalStatus === "approved");
+        return baseReady && hasListing && hasContact && hasCapacity && approvalOk;
+      }
+      return baseReady && verificationStatus === "verified";
     }
     if (step === 1) {
       return draft.addressText.trim().length >= 6 && draft.district.trim().length > 0;
@@ -428,7 +666,57 @@ export default function PostWizard() {
       return draft.images.length > 0 && draft.description.trim().length >= 20; // tối thiểu mô tả
     }
     return true;
-  }, [draft, step]);
+  }, [draft, step, verificationStatus]);
+
+  const canSubmit = useMemo(() => {
+    const consentOk = postConsents.terms && postConsents.privacy && postConsents.policy;
+    if (!consentOk) return false;
+    if (draft.purpose === "RENT") {
+      return verificationStatus === "verified";
+    }
+    const currentOcc = toNumber(draft.roommateCurrentOccupancy);
+    const maxOcc = toNumber(draft.roommateMaxOccupancy);
+    const requested = toNumber(draft.maxPeople);
+    const capacityLeft = Math.max(0, maxOcc - currentOcc);
+    const hasCapacity = maxOcc > 0 && currentOcc < maxOcc && requested <= capacityLeft;
+    const hasListing = draft.roommateListingId.trim().length > 0;
+    const hasContact = draft.roommateContact.trim().length > 0;
+    if (!hasListing || !hasContact || !hasCapacity) return false;
+    if (draft.roommateLinkType === "TENANT_SELF") {
+      return (
+        draft.roommateNotifyLandlord &&
+        draft.roommateLandlordConsent &&
+        draft.roommateApprovalStatus === "approved"
+      );
+    }
+    return true;
+  }, [draft, postConsents, verificationStatus]);
+
+  if (verificationStatus === "loading") {
+    return (
+      <div className="mx-auto w-full max-w-4xl px-4 py-10 sm:px-6 lg:px-12">
+        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="text-lg font-semibold text-gray-900">Đang kiểm tra xác minh...</div>
+          <div className="mt-2 text-sm text-gray-500">Vui lòng chờ trong giây lát.</div>
+        </div>
+      </div>
+    );
+  }
+
+  const isVerified = verificationStatus === "verified";
+  const isPending = verificationStatus === "pending";
+  const linkedListing = roommateListingCatalog.find((item) => item.id === draft.roommateListingId) ?? null;
+  const roommateApprovalBadge: Record<RoommateApprovalStatus, { label: string; tone: string }> = {
+    approved: { label: "Đã được chủ trọ xác nhận", tone: "bg-green-100 text-green-800" },
+    pending: { label: "Chờ chủ trọ xác nhận", tone: "bg-yellow-100 text-yellow-800" },
+    rejected: { label: "Chủ trọ từ chối", tone: "bg-red-100 text-red-700" },
+  };
+  const roommateCurrentCount = toNumber(draft.roommateCurrentOccupancy);
+  const roommateMaxCount = toNumber(draft.roommateMaxOccupancy);
+  const roommateAtCapacity = roommateMaxCount > 0 && roommateCurrentCount >= roommateMaxCount;
+  const roommateCapacityLeft = Math.max(0, roommateMaxCount - roommateCurrentCount);
+  const roommateRequestedCount = toNumber(draft.maxPeople);
+  const roommateOverLimit = roommateMaxCount > 0 && roommateRequestedCount > roommateCapacityLeft;
 
   async function geocodeAddress() {
     const query = mapQuery.trim() || buildAddress(draft);
@@ -522,9 +810,17 @@ export default function PostWizard() {
     if (isSubmitting) return;
     setSubmitError(null);
     setSubmitSuccess(null);
+    if (!canSubmit) {
+      setSubmitError("Vui lòng hoàn tất xác nhận và đồng ý điều khoản trước khi đăng.");
+      return;
+    }
     setIsSubmitting(true);
 
     try {
+      if (draft.purpose === "ROOMMATE" && draft.roommateLinkType === "LANDLORD_ASSIST") {
+        setSubmitSuccess("Đã gửi yêu cầu nhờ chủ trọ hỗ trợ đăng tin ở ghép.");
+        return;
+      }
       const categoryName = categoryNameMap[draft.type];
       const amenityNames = collectAmenityNames(draft.amenities);
       const address = buildAddress(draft);
@@ -533,7 +829,7 @@ export default function PostWizard() {
 
       const payload = {
         title: draft.title.trim(),
-        description: draft.description.trim(),
+        description: buildFinalDescription(draft),
         price: toNumber(draft.priceVnd),
         area: toNumber(draft.areaM2),
         address: address,
@@ -548,7 +844,9 @@ export default function PostWizard() {
       const result = await createPost(payload);
       const message =
         (result as { message?: string })?.message ||
-        "Dang tin thanh cong. Tin dang cho duyet.";
+        (draft.purpose === "ROOMMATE"
+          ? "Đăng tin ở ghép thành công. Tin đang chờ chủ trọ xác nhận."
+          : "Dang tin thanh cong. Tin dang cho duyet.");
       setSubmitSuccess(message);
     } catch (err) {
       const message =
@@ -565,11 +863,49 @@ export default function PostWizard() {
   return (
     <div className="mx-auto w-full max-w-none px-4 py-8 sm:px-6 lg:px-12">
       <div className="mb-6">
-        <div className="text-2xl font-bold text-gray-900">Đăng tin cho thuê</div>
+        <div className="text-2xl font-bold text-gray-900">
+          {draft.purpose === "ROOMMATE" ? "Đăng tin ở ghép" : "Đăng tin cho thuê"}
+        </div>
         <div className="mt-1 text-sm text-gray-500">
           Điền theo từng bước để tin đăng đầy đủ và dễ duyệt.
         </div>
       </div>
+
+      {!isVerified && draft.purpose === "RENT" && (
+        <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-lg font-semibold text-gray-900">Cần xác minh chủ trọ trước khi đăng tin</div>
+              <p className="mt-1 text-sm text-gray-600">
+                Hệ thống yêu cầu xác minh để đảm bảo tính minh bạch và hạn chế tranh chấp. Bạn vẫn có thể chọn
+                loại tin “Ở ghép” để đăng theo cơ chế xin xác nhận chủ trọ.
+              </p>
+            </div>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                isPending ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-700"
+              }`}
+            >
+              {isPending ? "Hồ sơ đang duyệt" : "Chưa xác minh"}
+            </span>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Link
+              href="/landlord-verification"
+              className="rounded-full bg-[#D51F35] px-5 py-2 text-sm font-semibold text-white hover:bg-[#b01628]"
+            >
+              Xác minh ngay
+            </Link>
+            <button
+              type="button"
+              onClick={refreshVerificationStatus}
+              className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Kiểm tra lại
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
         <div className="space-y-4">
@@ -606,6 +942,18 @@ export default function PostWizard() {
                   <div className="mt-1 text-xs text-gray-500">Tối thiểu 8 ký tự.</div>
                 </div>
 
+                <div className="md:col-span-2">
+                  <FieldLabel>Loại tin đăng</FieldLabel>
+                  <Select
+                    value={draft.purpose}
+                    onChange={(v) => setDraft((d) => ({ ...d, purpose: v as ListingPurpose }))}
+                    options={[
+                      { value: "RENT", label: "Cho thuê phòng" },
+                      { value: "ROOMMATE", label: "Tìm người ở ghép" },
+                    ]}
+                  />
+                </div>
+
                 <div>
                   <FieldLabel>Loại bất động sản</FieldLabel>
                   <Select
@@ -633,11 +981,13 @@ export default function PostWizard() {
                 </div>
 
                 <div>
-                  <FieldLabel>Giá thuê (VND/tháng)</FieldLabel>
+                  <FieldLabel>
+                    {draft.purpose === "ROOMMATE" ? "Ngân sách mỗi người (VND/tháng)" : "Giá thuê (VND/tháng)"}
+                  </FieldLabel>
                   <Input
                     value={draft.priceVnd}
                     onChange={(v) => setDraft((d) => ({ ...d, priceVnd: formatVndInput(v) }))}
-                    placeholder="VD: 4.500.000"
+                    placeholder={draft.purpose === "ROOMMATE" ? "VD: 2.500.000" : "VD: 4.500.000"}
                     inputMode="numeric"
                   />
                 </div>
@@ -653,15 +1003,280 @@ export default function PostWizard() {
                 </div>
 
                 <div>
-                  <FieldLabel>Số người tối đa</FieldLabel>
+                  <FieldLabel>{draft.purpose === "ROOMMATE" ? "Cần thêm (người)" : "Số người tối đa"}</FieldLabel>
                   <Input
                     value={draft.maxPeople}
                     onChange={(v) => setDraft((d) => ({ ...d, maxPeople: v.replace(/[^\d]/g, "") }))}
-                    placeholder="VD: 2"
+                    placeholder={draft.purpose === "ROOMMATE" ? "VD: 1" : "VD: 2"}
                     inputMode="numeric"
                   />
                 </div>
               </div>
+              {draft.purpose === "RENT" && !isVerified && (
+                <div className="mt-3 text-xs text-red-600">
+                  Bạn cần xác minh chủ trọ để đăng tin cho thuê.
+                </div>
+              )}
+
+              {draft.purpose === "ROOMMATE" && (
+                <div className="mt-6 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                  <div className="text-sm font-semibold text-gray-900">Thông tin ở ghép</div>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <div className="md:col-span-2">
+                      <FieldLabel>Liên kết phòng trọ gốc (đang thuê)</FieldLabel>
+                      <Select
+                        value={draft.roommateListingId}
+                        onChange={(v) => {
+                          const picked = roommateListingCatalog.find((item) => item.id === v);
+                          setDraft((d) => ({
+                            ...d,
+                            roommateListingId: v,
+                            roommateListingTitle: picked?.title ?? "",
+                            roommateListingAddress: picked?.address ?? "",
+                            roommateLandlordName: picked?.landlordName ?? "",
+                            roommateCurrentOccupancy: picked ? String(picked.currentOccupancy) : "",
+                            roommateMaxOccupancy: picked ? String(picked.maxOccupancy) : "",
+                          }));
+                        }}
+                        options={[{ value: "", label: "Chọn phòng đang thuê" }, ...roommateListingOptions]}
+                      />
+                    </div>
+                    <div>
+                      <FieldLabel>Số người hiện tại</FieldLabel>
+                      <Input
+                        value={draft.roommateCurrentOccupancy}
+                        onChange={(v) =>
+                          setDraft((d) => ({
+                            ...d,
+                            roommateCurrentOccupancy: v.replace(/[^\d]/g, ""),
+                          }))
+                        }
+                        placeholder="VD: 2"
+                        inputMode="numeric"
+                      />
+                    </div>
+                    <div>
+                      <FieldLabel>Giới hạn tối đa</FieldLabel>
+                      <Input
+                        value={draft.roommateMaxOccupancy}
+                        onChange={(v) =>
+                          setDraft((d) => ({
+                            ...d,
+                            roommateMaxOccupancy: v.replace(/[^\d]/g, ""),
+                          }))
+                        }
+                        placeholder="VD: 3"
+                        inputMode="numeric"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <FieldLabel>Hình thức đăng ở ghép</FieldLabel>
+                      <Select
+                        value={draft.roommateLinkType}
+                        onChange={(v) => setDraft((d) => ({ ...d, roommateLinkType: v as RoommateLinkType }))}
+                        options={[
+                          { value: "LANDLORD_ASSIST", label: "Nhờ chủ trọ hỗ trợ đăng" },
+                          { value: "TENANT_SELF", label: "Người thuê tự đăng (cần xác nhận)" },
+                        ]}
+                      />
+                    </div>
+                  </div>
+
+                  {linkedListing ? (
+                    <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-700">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <div className="text-sm font-semibold text-gray-900">{linkedListing.title}</div>
+                          <div className="text-xs text-gray-500">{linkedListing.address}</div>
+                        </div>
+                        <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700">
+                          {draft.roommateCurrentOccupancy || "--"}/{draft.roommateMaxOccupancy || "--"} người
+                        </span>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-500">
+                        Chủ trọ: <span className="font-semibold text-gray-700">{linkedListing.landlordName}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4 text-xs text-gray-500">
+                      Chọn phòng trọ gốc để liên kết bài đăng ở ghép.
+                    </div>
+                  )}
+
+                  {roommateAtCapacity && (
+                    <div className="mt-3 text-xs text-red-600">
+                      Phòng đã đủ số người tối đa, không thể đăng thêm ở ghép.
+                    </div>
+                  )}
+                  {!roommateAtCapacity && roommateOverLimit && (
+                    <div className="mt-3 text-xs text-red-600">
+                      Số người cần thêm vượt quá chỗ trống còn lại ({roommateCapacityLeft}).
+                    </div>
+                  )}
+
+                  {draft.roommateLinkType === "TENANT_SELF" ? (
+                    <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
+                      <div className="text-sm font-semibold text-gray-900">Xác nhận chủ trọ</div>
+                      <div className="mt-3 space-y-2 text-sm text-gray-600">
+                        <label className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                            checked={draft.roommateNotifyLandlord}
+                            onChange={(e) =>
+                              setDraft((d) => ({ ...d, roommateNotifyLandlord: e.target.checked }))
+                            }
+                          />
+                          <span>Tôi đã thông báo nhu cầu ở ghép cho chủ trọ.</span>
+                        </label>
+                        <label className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                            checked={draft.roommateLandlordConsent}
+                            onChange={(e) =>
+                              setDraft((d) => ({ ...d, roommateLandlordConsent: e.target.checked }))
+                            }
+                          />
+                          <span>Tôi đã nhận được sự đồng ý của chủ trọ để đăng bài.</span>
+                        </label>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                            roommateApprovalBadge[draft.roommateApprovalStatus].tone
+                          }`}
+                        >
+                          {roommateApprovalBadge[draft.roommateApprovalStatus].label}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDraft((d) => ({ ...d, roommateApprovalStatus: "approved" }))
+                          }
+                          className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                        >
+                          Giả lập chủ trọ xác nhận
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDraft((d) => ({ ...d, roommateApprovalStatus: "rejected" }))
+                          }
+                          className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                        >
+                          Giả lập từ chối
+                        </button>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-500">
+                        Bài đăng chỉ được duyệt khi chủ trọ xác nhận đồng ý.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-700">
+                      <div className="text-sm font-semibold text-gray-900">Nhờ chủ trọ hỗ trợ đăng</div>
+                      <p className="mt-1 text-xs text-gray-500">
+                        Yêu cầu của bạn sẽ được gửi đến chủ trọ. Chủ trọ sẽ đăng bài hoặc phản hồi trực tiếp.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <div>
+                      <FieldLabel>Ngày vào ở dự kiến</FieldLabel>
+                      <Input
+                        type="date"
+                        value={draft.roommateMoveInDate}
+                        onChange={(v) => setDraft((d) => ({ ...d, roommateMoveInDate: v }))}
+                      />
+                    </div>
+                    <div>
+                      <FieldLabel>Giới tính ưu tiên</FieldLabel>
+                      <Select
+                        value={draft.roommateGender}
+                        onChange={(v) => setDraft((d) => ({ ...d, roommateGender: v }))}
+                        options={[
+                          { value: "Không yêu cầu", label: "Không yêu cầu" },
+                          { value: "Nam", label: "Nam" },
+                          { value: "Nữ", label: "Nữ" },
+                          { value: "Khác", label: "Khác" },
+                        ]}
+                      />
+                    </div>
+                    <div>
+                      <FieldLabel>Nghề nghiệp ưu tiên</FieldLabel>
+                      <Select
+                        value={draft.roommateOccupation}
+                        onChange={(v) => setDraft((d) => ({ ...d, roommateOccupation: v }))}
+                        options={[
+                          { value: "Sinh viên", label: "Sinh viên" },
+                          { value: "Nhân viên văn phòng", label: "Nhân viên văn phòng" },
+                          { value: "Freelancer", label: "Freelancer" },
+                          { value: "Không yêu cầu", label: "Không yêu cầu" },
+                        ]}
+                      />
+                    </div>
+                    <div>
+                      <FieldLabel>Liên hệ (Zalo/SĐT)</FieldLabel>
+                      <Input
+                        value={draft.roommateContact}
+                        onChange={(v) => setDraft((d) => ({ ...d, roommateContact: v }))}
+                        placeholder="VD: 09xx xxx xxx"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <Toggle
+                      checked={draft.roommateLifestyle.quiet}
+                      onChange={(v) =>
+                        setDraft((d) => ({ ...d, roommateLifestyle: { ...d.roommateLifestyle, quiet: v } }))
+                      }
+                      label="Yên tĩnh"
+                      desc="Ưu tiên không gian yên tĩnh"
+                    />
+                    <Toggle
+                      checked={draft.roommateLifestyle.clean}
+                      onChange={(v) =>
+                        setDraft((d) => ({ ...d, roommateLifestyle: { ...d.roommateLifestyle, clean: v } }))
+                      }
+                      label="Gọn gàng"
+                      desc="Giữ phòng sạch sẽ, ngăn nắp"
+                    />
+                    <Toggle
+                      checked={draft.roommateLifestyle.noSmoking}
+                      onChange={(v) =>
+                        setDraft((d) => ({ ...d, roommateLifestyle: { ...d.roommateLifestyle, noSmoking: v } }))
+                      }
+                      label="Không hút thuốc"
+                      desc="Ưu tiên không hút thuốc trong phòng"
+                    />
+                    <Toggle
+                      checked={draft.roommateLifestyle.noPets}
+                      onChange={(v) =>
+                        setDraft((d) => ({ ...d, roommateLifestyle: { ...d.roommateLifestyle, noPets: v } }))
+                      }
+                      label="Không nuôi thú cưng"
+                      desc="Không nuôi thú cưng trong phòng"
+                    />
+                    <Toggle
+                      checked={draft.roommateLifestyle.shareUtility}
+                      onChange={(v) =>
+                        setDraft((d) => ({
+                          ...d,
+                          roommateLifestyle: { ...d.roommateLifestyle, shareUtility: v },
+                        }))
+                      }
+                      label="Chia sẻ tiện ích"
+                      desc="Sẵn sàng chia sẻ tiện ích chung"
+                    />
+                  </div>
+
+                  <div className="mt-3 text-xs text-gray-500">
+                    Thông tin ở ghép sẽ được gộp vào mô tả khi đăng tin.
+                  </div>
+                </div>
+              )}
             </StepShell>
           )}
 
@@ -670,11 +1285,15 @@ export default function PostWizard() {
             <StepShell title="Bước 2: Vị trí" subtitle="Địa chỉ rõ ràng giúp người thuê tin tưởng hơn.">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <FieldLabel>Địa chỉ chi tiết</FieldLabel>
+                  <FieldLabel>{draft.purpose === "ROOMMATE" ? "Địa chỉ / khu vực" : "Địa chỉ chi tiết"}</FieldLabel>
                   <Input
                     value={draft.addressText}
                     onChange={(v) => setDraft((d) => ({ ...d, addressText: v }))}
-                    placeholder="VD: 12/3 Nguyễn Gia Trí, P.25"
+                    placeholder={
+                      draft.purpose === "ROOMMATE"
+                        ? "VD: 12/3 Nguyễn Gia Trí hoặc khu vực gần VLU"
+                        : "VD: 12/3 Nguyễn Gia Trí, P.25"
+                    }
                   />
                 </div>
 
@@ -913,30 +1532,96 @@ export default function PostWizard() {
                     rows={7}
                   />
                   <div className="mt-1 text-xs text-gray-500">Tối thiểu 20 ký tự.</div>
+                  {draft.purpose === "ROOMMATE" && (
+                    <div className="mt-1 text-xs text-gray-500">
+                      Thông tin ở ghép sẽ được tự động chèn vào mô tả khi đăng.
+                    </div>
+                  )}
                 </div>
               </div>
             </StepShell>
           )}
 
           {/* STEP 5 */}
-          {step === 4 && (
-            <StepShell title="Bước 5: Xem trước & đăng" subtitle="Kiểm tra lại lần cuối trước khi đăng tin.">
-              <PreviewCard
-                data={draft}
-                activeImageIdx={activeImageIdx}
-                onPrevImage={prevImage}
-                onNextImage={nextImage}
-              />
-              <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                <div className="text-sm font-semibold text-gray-900">Gợi ý nhanh</div>
-                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
-                  <li>Tiêu đề nên có vị trí + điểm mạnh (gần trường, full nội thất...).</li>
-                  <li>Ảnh nên có: mặt tiền, phòng ngủ, WC, bếp, lối gửi xe.</li>
-                  <li>Mô tả nên ghi rõ điện/nước, cọc, số người tối đa.</li>
-                </ul>
-              </div>
-            </StepShell>
-          )}
+            {step === 4 && (
+              <StepShell title="Bước 5: Xem trước & đăng" subtitle="Kiểm tra lại lần cuối trước khi đăng tin.">
+                <PreviewCard
+                  data={draft}
+                  activeImageIdx={activeImageIdx}
+                  onPrevImage={prevImage}
+                  onNextImage={nextImage}
+                />
+                <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="text-sm font-semibold text-gray-900">Gợi ý nhanh</div>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-700">
+                    <li>Tiêu đề nên có vị trí + điểm mạnh (gần trường, full nội thất...).</li>
+                    <li>Ảnh nên có: mặt tiền, phòng ngủ, WC, bếp, lối gửi xe.</li>
+                    <li>Mô tả nên ghi rõ điện/nước, cọc, số người tối đa.</li>
+                  </ul>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
+                  <div className="text-sm font-semibold text-gray-900">Xác nhận điều khoản</div>
+                  <div className="mt-3 space-y-2 text-sm text-gray-600">
+                    <label className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                        checked={postConsents.terms}
+                        onChange={(e) => setPostConsents((prev) => ({ ...prev, terms: e.target.checked }))}
+                      />
+                      <span>
+                        Tôi đồng ý với{" "}
+                        <Link href="/terms" className="font-semibold text-gray-800 hover:text-[#D51F35]">
+                          Điều khoản sử dụng
+                        </Link>
+                        .
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                        checked={postConsents.privacy}
+                        onChange={(e) => setPostConsents((prev) => ({ ...prev, privacy: e.target.checked }))}
+                      />
+                      <span>
+                        Tôi đồng ý với{" "}
+                        <Link href="/privacy" className="font-semibold text-gray-800 hover:text-[#D51F35]">
+                          Chính sách bảo mật
+                        </Link>
+                        .
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                        checked={postConsents.policy}
+                        onChange={(e) => setPostConsents((prev) => ({ ...prev, policy: e.target.checked }))}
+                      />
+                      <span>
+                        Tôi đã đọc{" "}
+                        <Link href="/user-policy" className="font-semibold text-gray-800 hover:text-[#D51F35]">
+                          quy định ở ghép, hợp đồng và tiền cọc
+                        </Link>
+                        .
+                      </span>
+                    </label>
+                  </div>
+                  <div className="mt-3 text-xs text-gray-500">
+                    Nền tảng đóng vai trò trung gian; trách nhiệm về tính chính xác thông tin và tranh chấp thuộc
+                    về bên cho thuê và người thuê.
+                  </div>
+                </div>
+
+                {draft.purpose === "ROOMMATE" && (
+                  <div className="mt-3 text-xs text-gray-500">
+                    Bài đăng ở ghép phải được chủ trọ xác nhận trước khi hiển thị công khai.
+                  </div>
+                )}
+              </StepShell>
+            )}
 
           {/* Footer actions */}
           <div className="sticky bottom-4 z-10">
@@ -975,26 +1660,35 @@ export default function PostWizard() {
                     >
                       Tiếp tục
                     </button>
-                  ) : (                    <button
-                      type="button"
-                      onClick={submit}
-                      disabled={isSubmitting}
-                      className={cn(
-                        "inline-flex h-11 items-center gap-2 rounded-full px-6 text-sm font-semibold shadow-sm transition",
-                        isSubmitting
-                          ? "cursor-not-allowed bg-gray-200 text-gray-500"
-                          : "bg-gray-900 text-white hover:bg-black"
-                      )}
-                    >
-                      {isSubmitting ? "Đang gửi..." : "Đăng tin"}
-                    </button>
-                  )}
+                    ) : (                    <button
+                        type="button"
+                        onClick={submit}
+                        disabled={isSubmitting || !canSubmit}
+                        className={cn(
+                          "inline-flex h-11 items-center gap-2 rounded-full px-6 text-sm font-semibold shadow-sm transition",
+                          isSubmitting || !canSubmit
+                            ? "cursor-not-allowed bg-gray-200 text-gray-500"
+                            : "bg-gray-900 text-white hover:bg-black"
+                        )}
+                      >
+                        {isSubmitting
+                          ? "Đang gửi..."
+                          : draft.purpose === "ROOMMATE" && draft.roommateLinkType === "LANDLORD_ASSIST"
+                          ? "Gửi yêu cầu"
+                          : "Đăng tin"}
+                      </button>
+                    )}
                 </div>
               </div>
 
               {!canNext && step !== 4 && (
                 <div className="mt-2 text-xs text-gray-500">
                   Vui lòng điền đủ thông tin bắt buộc để tiếp tục.
+                </div>
+              )}
+              {step === 4 && !canSubmit && (
+                <div className="mt-2 text-xs text-gray-500">
+                  Vui lòng đồng ý điều khoản và đảm bảo đủ điều kiện xác minh trước khi đăng.
                 </div>
               )}
 
