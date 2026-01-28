@@ -1,9 +1,10 @@
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Footer() {
   return(
     <footer className="w-full bg-[#010433] text-white px-4 py-6">
-      <div className="max-w-ful mx-auto px-6 flex justify-between">
+      <div className="max-w-full mx-auto px-6 flex flex-wrap items-center justify-between gap-6">
 
         {/* Left side (Logo + Copyright) */}
         <div className="flex flex-col space-y-4 ">
@@ -21,10 +22,11 @@ export default function Footer() {
         </div>
 
         {/* Right side (Links) */}
-        <div className="flex items-center space-x-12 text-s font-medium">
-          <a href='#' className="hover:text-red-400 transistion">Term of Service</a>
-          <a href='#' className="hover:text-red-400 transistion">Privacy Policy</a>
-          <a href='#' className="hover:text-red-400 transistion">Contact Us</a>
+        <div className="flex flex-wrap items-center gap-6 text-sm font-medium">
+          <Link href="/terms" className="hover:text-red-400 transition">Điều khoản sử dụng</Link>
+          <Link href="/privacy" className="hover:text-red-400 transition">Chính sách bảo mật</Link>
+          <Link href="/user-policy" className="hover:text-red-400 transition">Chính sách người dùng</Link>
+          <Link href="/feedback" className="hover:text-red-400 transition">Liên hệ</Link>
         </div>
 
       </div>
