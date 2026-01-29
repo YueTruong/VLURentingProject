@@ -68,13 +68,13 @@ export default function Sidebar() {
           ))}
         </nav>
 
-        <div className="mt-6 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+        {/* <div className="mt-6 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
           <div className="text-xs uppercase tracking-wide text-gray-500">Quick tip</div>
           <div className="mt-2 text-sm font-medium text-gray-900">Connect analytics API later</div>
           <p className="mt-1 text-xs text-gray-500">
             UI is ready for SWR/React Query - just wire the endpoints.
           </p>
-        </div>
+        </div> */}
 
         <div className="mt-auto pt-4">
           <Link

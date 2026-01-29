@@ -89,12 +89,6 @@ export default function NotificationsPage() {
         <div className="rounded-3xl bg-white shadow-md border border-gray-100 overflow-hidden">
           {/* Tabs mock */}
           <div className="flex items-center gap-4 border-b border-gray-100 px-6 pt-6">
-            <button className="rounded-t-xl border-b-2 border-transparent px-3 pb-3 text-sm font-semibold text-gray-500 hover:text-gray-800">
-              Thông tin chung
-            </button>
-            <button className="rounded-t-xl border-b-2 border-transparent px-3 pb-3 text-sm font-semibold text-gray-500 hover:text-gray-800">
-              Bảo mật & Mật khẩu
-            </button>
             <button className="rounded-t-xl border-b-2 border-[#2c4ce8] px-3 pb-3 text-sm font-semibold text-[#2c4ce8]">
               Thông báo
             </button>
@@ -109,10 +103,10 @@ export default function NotificationsPage() {
               <p className="text-sm text-gray-100">
                 Tổng hợp cập nhật mới về tin nhắn, lịch xem phòng và thay đổi từ các tin bạn quan tâm.
               </p>
-              <div className="flex flex-wrap gap-2 pt-1">
+              {/* <div className="flex flex-wrap gap-2 pt-1">
                 <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-gray-100">Luồng người dùng</span>
                 <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-gray-100">Cập nhật thời gian thực</span>
-              </div>
+              </div> */}
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-gray-100">{unread} thông báo chưa đọc</p>

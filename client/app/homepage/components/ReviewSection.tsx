@@ -102,10 +102,6 @@ export default function ReviewsSection() {
           </div>
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-5">
-            <div className="text-sm text-gray-600">
-              Có thể thêm “Write a review” sau khi có login/booking.
-            </div>
-
             <div className="flex gap-2">
               <button className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-500">
                 Xem tất cả

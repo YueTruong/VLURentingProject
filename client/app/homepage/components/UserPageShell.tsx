@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ReactNode } from "react";
 import UserTopBar from "@/app/homepage/components/UserTopBar";
@@ -6,11 +6,12 @@ import UserTopBar from "@/app/homepage/components/UserTopBar";
 type UserPageShellProps = {
   title: string;
   description: string;
+  eyebrow?: string;
   actions?: ReactNode;
   children: ReactNode;
 };
 
-export default function UserPageShell({ title, description, actions, children }: UserPageShellProps) {
+export default function UserPageShell({ title, description, eyebrow = "User menu", actions, children }: UserPageShellProps) {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <UserTopBar />
@@ -21,18 +22,18 @@ export default function UserPageShell({ title, description, actions, children }:
           <div className="container relative mx-auto px-4 py-12 flex flex-wrap items-center justify-between gap-6">
             <div className="space-y-3 max-w-3xl">
               <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-gray-200">
-                User menu
+                {eyebrow}
               </span>
               <h1 className="text-3xl md:text-4xl font-extrabold leading-tight">{title}</h1>
               <p className="text-base text-gray-200 md:text-lg">{description}</p>
-              <div className="flex flex-wrap gap-2">
+              {/* <div className="flex flex-wrap gap-2">
                 <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-gray-100">
                   Luồng người dùng
                 </span>
                 <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-gray-100">
                   Cập nhật thời gian thực
                 </span>
-              </div>
+              </div> */}
             </div>
             {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
           </div>

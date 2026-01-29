@@ -38,18 +38,14 @@ export default function MapSection() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-4 py-3">
-            <div className="text-sm text-gray-600">
-              Gợi ý: Có thể lọc theo khoảng cách ở phần Filters (làm sau).
-            </div>
-            
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-4 py-3">            
             <div className="flex gap-2">
-              <button className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50">
+              {/* <button className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50">
                 Xem quanh đây
               </button>
               <button className="rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50">
                 Tìm theo vị trí
-              </button>
+              </button> */}
             </div>
           </div>
         </div>

@@ -9,12 +9,17 @@ export default function LoginPage() {
   {/* State dùng cho phần nhập mail test */}
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
   
   {/* Hàm xử lý đăng nhập */}
   const handleTesterLogin = async () => {
     setError("");
+    if (!accepted) {
+      setError("Vui lòng đồng ý Điều khoản và Chính sách trước khi đăng nhập.");
+      return;
+    }
     
     const res = await signIn("credentials", {
       redirect: false,
@@ -82,38 +87,70 @@ export default function LoginPage() {
 
             {/* BUTTON 1: MICROSOFT */}
             <div className="flex flex-col gap-3">
-              <Link href="/">
-                <button 
-                onClick={() => signIn("azure-ad", {callbackUrl: "/" })}
-
-                className="
+              <button
+                type="button"
+                onClick={() => accepted && signIn("azure-ad", { callbackUrl: "/" })}
+                disabled={!accepted}
+                className={`
                   w-full flex items-center jusitfy-start gap-4 px-6
                   h-14 rounded-lg border border-gray-300
-                  hover:bg-gray-50 hover:border-gray-400 hover:shadow-md
-                  transition-all duration-300 active:scale-95 group
-                ">
-                  <Image src="/icons/Microsoft.svg" alt="Microsoft" width={24} height={24} />
-                  <span className="text-gray-600 font-medium group-hover:text-black">
-                    Sign in with Microsoft
-                  </span>
-                </button>
-              </Link>
+                  transition-all duration-300 group
+                  ${accepted
+                    ? "hover:bg-gray-50 hover:border-gray-400 hover:shadow-md active:scale-95"
+                    : "cursor-not-allowed bg-gray-100 text-gray-400"}
+                `}
+              >
+                <Image src="/icons/Microsoft.svg" alt="Microsoft" width={24} height={24} />
+                <span className={`font-medium ${accepted ? "text-gray-600 group-hover:text-black" : "text-gray-400"}`}>
+                  Sign in with Microsoft
+                </span>
+              </button>
 
               {/* BUTTON 2: GOOGLE */}
                 <button 
-                  onClick={() => signIn("google", { callbackUrl: "/loggedhomepage" })} // 1. Gọi hàm signIn thay vì Link
+                  onClick={() => accepted && signIn("google", { callbackUrl: "/loggedhomepage" })} // 1. Gọi hàm signIn thay vì Link
                   type="button"
+                  disabled={!accepted}
                   className="
                     w-full flex items-center jusitfy-start gap-4 px-6
                     h-14 rounded-lg border border-gray-300
+                    transition-all duration-300 group
+                    disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400
+                    disabled:hover:shadow-none disabled:hover:border-gray-300
                     hover:bg-gray-50 hover:border-gray-400 hover:shadow-md
-                    transition-all duration-300 active:scale-95 group
+                    active:scale-95
                 ">
                   <Image src="/icons/Google.svg" alt="Google" width={24} height={24} />
-                  <span className="text-gray-600 font-medium group-hover:text-black">
+                  <span className={`font-medium ${accepted ? "text-gray-600 group-hover:text-black" : "text-gray-400"}`}>
                     Sign in with Google Account
                   </span>
                 </button>                     
+            </div>
+
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+              <label className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                  checked={accepted}
+                  onChange={(e) => setAccepted(e.target.checked)}
+                />
+                <span>
+                  Tôi đồng ý với{" "}
+                  <Link href="/terms" className="font-semibold text-gray-700 hover:text-[#D51F35]">
+                    Điều khoản sử dụng
+                  </Link>
+                  ,{" "}
+                  <Link href="/privacy" className="font-semibold text-gray-700 hover:text-[#D51F35]">
+                    Chính sách bảo mật
+                  </Link>{" "}
+                  và{" "}
+                  <Link href="/user-policy" className="font-semibold text-gray-700 hover:text-[#D51F35]">
+                    quy định ở ghép, hợp đồng & tiền cọc
+                  </Link>
+                  .
+                </span>
+              </label>
             </div>
 
             {/* PHẦN TESTER */}
@@ -155,6 +192,7 @@ export default function LoginPage() {
 
                 <button 
                   type="submit"
+                  disabled={!accepted}
                   className="
                     w-full h-[42px]
                     bg-gray-800 hover:bg-black
@@ -162,6 +200,7 @@ export default function LoginPage() {
                     text-sm font-bold uppercase tracking-wider
                     transition-all duration-300 active:scale-95
                     shadow-lg hover:shadow-xl
+                    disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none
                   ">
                   Login
                 </button>

@@ -432,11 +432,6 @@ export default function ListingsPage() {
       <SectionCard
         title="Listings"
         subtitle="Review, approve, and manage user listings"
-        right={
-          <button className="rounded-xl bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800">
-            Create listing
-          </button>
-        }
       >
         <FiltersBar
           q={q}

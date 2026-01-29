@@ -39,6 +39,22 @@ export default function UsersPage() {
       sortValue: (r) => r.role,
     },
     {
+      key: "verified",
+      header: "Verification",
+      render: (r) => {
+        if (r.role !== "LANDLORD") {
+          return <StatusBadge label="N/A" tone="gray" />;
+        }
+        return (
+          <StatusBadge
+            label={r.verified ? "Verified" : "Unverified"}
+            tone={r.verified ? "green" : "yellow"}
+          />
+        );
+      },
+      sortValue: (r) => (r.role === "LANDLORD" ? (r.verified ? "verified" : "unverified") : "na"),
+    },
+    {
       key: "stauts",
       header: "Status",
       sortable: true,
