@@ -8,48 +8,43 @@ import {
 import { Server, Socket } from 'socket.io';
 import { ChatService } from './chat.service';
 
-@WebSocketGateway({
-  cors: { origin: '*' }, // Cho phép Frontend gọi vào
-})
+@WebSocketGateway({ cors: { origin: '*' } }) // Cho phép mọi Client kết nối
 export class ChatGateway {
   @WebSocketServer()
   server: Server;
 
-  // 👇 Inject ChatService vào để dùng
   constructor(private chatService: ChatService) {}
 
-  // 1. Join phòng chat
-  @SubscribeMessage('join_room')
+  // 1. Client join vào phòng chat cụ thể
+  @SubscribeMessage('join_conversation')
   handleJoinRoom(
-    @MessageBody() conversationId: string,
+    @MessageBody() conversationId: number,
     @ConnectedSocket() client: Socket,
   ) {
-    client.join(`conversation_${conversationId}`);
-    console.log(`Client ${client.id} đã vào phòng chat ${conversationId}`);
+    client.join(`room_${conversationId}`);
+    console.log(`User ${client.id} joined room_${conversationId}`);
   }
 
-  // 2. Gửi tin nhắn (Vừa lưu DB, vừa gửi cho người kia)
+  // 2. Nhận tin nhắn từ Client -> Lưu DB -> Gửi lại cho người kia
   @SubscribeMessage('send_message')
-  async handleMessage(
+  async handleSendMessage(
     @MessageBody()
-    data: {
+    payload: {
       conversationId: number;
       senderId: number;
       content: string;
     },
   ) {
-    console.log('📩 Nhận tin nhắn:', data);
-
-    // BƯỚC QUAN TRỌNG: Lưu vào DB
-    const savedMessage = await this.chatService.saveMessage(
-      data.conversationId,
-      data.senderId,
-      data.content,
+    // Lưu vào DB
+    const savedMsg = await this.chatService.saveMessage(
+      payload.conversationId,
+      payload.senderId,
+      payload.content,
     );
 
-    // Gửi tin nhắn đã lưu (có ID, created_at) cho tất cả người trong phòng
+    // Gửi sự kiện 'new_message' cho tất cả người trong phòng này
     this.server
-      .to(`conversation_${data.conversationId}`)
-      .emit('receive_message', savedMessage);
+      .to(`room_${payload.conversationId}`)
+      .emit('new_message', savedMsg);
   }
 }

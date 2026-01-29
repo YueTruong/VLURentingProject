@@ -1,6 +1,6 @@
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
@@ -22,16 +22,29 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   // Hàm này nhận payload đã được giải mã từ token
   // @param payload Payload đã được giải mã (ví dụ: { userId: 1, email: '...' })
   async validate(payload: any) {
-    // Bất cứ thứ gì trả về từ đây, Passport sẽ gán nó vào req.user và chỉ cần trả về payload
+    // 👇 1. Lấy ID user từ bất kỳ trường nào có thể (sub, id, hoặc userId)
+    // Để đề phòng trường hợp lúc tạo token em dùng key khác nhau
+    const userId = payload.sub || payload.id || payload.userId;
+
+    if (!userId) {
+      throw new UnauthorizedException(
+        'Token không hợp lệ (không tìm thấy User ID)',
+      );
+    }
+
+    // 👇 2. Chuẩn hóa Role (chấp nhận cả string hoặc array)
     const normalizedRole =
       typeof payload.role === 'string'
         ? payload.role.toLowerCase()
         : typeof payload.roles === 'string'
-        ? payload.roles.toLowerCase()
-        : undefined;
+          ? payload.roles.toLowerCase()
+          : undefined; // Hoặc mặc định là 'student' nếu muốn
 
+    // 👇 3. Trả về object User đầy đủ để gán vào req.user
+    // Thầy thêm cả 'id' và 'userId' để Service dùng cái nào cũng trúng
     return {
-      userId: payload.sub,
+      id: Number(userId), // Dành cho ai thích dùng user.id
+      userId: Number(userId), // Dành cho ai thích dùng user.userId
       email: payload.email,
       username: payload.username,
       role: normalizedRole,

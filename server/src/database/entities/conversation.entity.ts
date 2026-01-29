@@ -1,25 +1,31 @@
 import {
   Entity,
   PrimaryGeneratedColumn,
-  Column,
+  ManyToOne,
   OneToMany,
+  JoinColumn,
   CreateDateColumn,
 } from 'typeorm';
-import { Message } from './message.entity';
+import { UserEntity } from './user.entity';
+import { MessageEntity } from './message.entity';
 
 @Entity('conversations')
-export class Conversation {
+export class ConversationEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
-  studentId: number;
+  // Người thuê (Sinh viên)
+  @ManyToOne(() => UserEntity)
+  @JoinColumn({ name: 'student_id' })
+  student: UserEntity;
 
-  @Column()
-  landlordId: number;
+  // Chủ trọ (Landlord)
+  @ManyToOne(() => UserEntity)
+  @JoinColumn({ name: 'landlord_id' })
+  landlord: UserEntity;
 
-  @OneToMany(() => Message, (message) => message.conversation)
-  messages: Message[];
+  @OneToMany(() => MessageEntity, (message) => message.conversation)
+  messages: MessageEntity[];
 
   @CreateDateColumn()
   created_at: Date;

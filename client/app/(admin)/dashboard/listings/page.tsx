@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { useSession } from "next-auth/react"; // 👈 1. Import useSession
 import SectionCard from "../../components/SectionCard";
 import FiltersBar from "../../components/FiltersBar";
 import DataTable, { Column } from "../../components/DataTable";
@@ -153,33 +154,52 @@ export default function ListingsPage() {
   const [rejectError, setRejectError] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
+  // 👈 2. Lấy session và đổi tên biến status thành sessionStatus để tránh trùng tên
+  const { data: session, status: sessionStatus } = useSession();
+
   useEffect(() => {
+    if (sessionStatus === "loading") return;
+    const accessToken = session?.user?.accessToken;
+
+    if (!accessToken) {
+        setLoadError("auth_failed");
+        setLoading(false);
+        return;
+    }
+
     let active = true;
     setLoadError(null);
-    getAdminPosts()
-      .then((posts) => {
+    
+    getAdminPosts(undefined, accessToken)
+      .then((data) => { // 👈 1. Đặt tên biến trả về là 'data' (tránh trùng tên với state 'posts')
         if (!active) return;
-        const mappedRows = posts
+        
+        // 👈 2. Dùng 'data' để map, KHÔNG dùng 'posts'
+        const mappedRows = data 
           .map(mapPostToRow)
-          .sort((a, b) => a.createdAtValue - b.createdAtValue);
-        setPosts(posts);
+          .sort((a: AdminPostRow, b: AdminPostRow) => b.createdAtValue - a.createdAtValue);
+
+        setPosts(data); // 👈 3. Set state bằng 'data'
         setRows(mappedRows);
+        
         if (mappedRows.length > 0) {
           setSelectedId((current) => current ?? mappedRows[0].id);
         }
       })
-      .catch(() => {
+      .catch((err) => {
         if (!active) return;
+        console.error("Lỗi load admin posts:", err);
         setLoadError("load_failed");
       })
       .finally(() => {
         if (!active) return;
         setLoading(false);
       });
+      
     return () => {
       active = false;
     };
-  }, []);
+  }, [session, sessionStatus]);
 
   const statusOptions = [
     { value: "all", label: "Tất cả trạng thái" },
@@ -283,19 +303,20 @@ export default function ListingsPage() {
     });
   };
 
-  const handleStatusChange = async (
-    id: number,
-    nextStatus: string,
-    rejectionReason?: string,
-  ) => {
+  // Hàm xử lý duyệt/từ chối
+  const handleStatusChange = async (id: number, nextStatus: string, rejectionReason?: string) => {
+    const accessToken = session?.user?.accessToken;
+    if (!accessToken) return alert("Vui lòng đăng nhập lại!");
+
     const key = `${id}:${nextStatus}`;
     setActionKey(key);
     try {
-      await updatePostStatus(id, nextStatus, rejectionReason);
-      updateLocalStatus(id, nextStatus, rejectionReason ?? null);
+      await updatePostStatus(id, nextStatus, accessToken, rejectionReason);
+      updateLocalStatus(id, nextStatus, rejectionReason); // Cập nhật UI ngay lập tức
       return true;
     } catch (error) {
       console.error(error);
+      alert("Lỗi khi cập nhật trạng thái!");
       return false;
     } finally {
       setActionKey(null);
@@ -677,7 +698,7 @@ export default function ListingsPage() {
 
       {rejectTargetId ? (
         <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4"
           onClick={closeRejectDialog}
         >
           <div

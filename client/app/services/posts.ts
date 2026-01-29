@@ -1,4 +1,5 @@
 import api from "./api";
+import axios from 'axios';
 
 export type CreatePostPayload = {
   title: string;
@@ -49,6 +50,7 @@ export type PostUserProfile = {
 };
 
 export type PostUser = {
+  id?: number;
   email?: string;
   username?: string;
   profile?: PostUserProfile;
@@ -107,22 +109,29 @@ export async function getApprovedPosts(): Promise<Post[]> {
   return res.data ?? [];
 }
 
-export async function getAdminPosts(status?: string): Promise<Post[]> {
-  const res = await api.get<Post[]>(
-    "/admin/posts",
-    status ? { params: { status } } : undefined,
-  );
+const getBaseUrl = () => process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+export async function getAdminPosts(status: string | undefined, token: string) {
+  const res = await axios.get(`${getBaseUrl()}/posts/admin`, {
+    params: status ? { status } : undefined,
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return res.data ?? [];
 }
 
 export async function updatePostStatus(
   id: number,
   status: string,
+  token: string,
   rejectionReason?: string,
 ) {
   const payload: Record<string, string> = { status };
   if (rejectionReason) payload.rejectionReason = rejectionReason;
-  const res = await api.patch(`/admin/posts/${id}/status`, payload);
+
+  const res = await axios.patch(
+    `${getBaseUrl()}/posts/admin/${id}/approve`, // Khớp với controller backend
+    payload,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
   return res.data;
 }
 
@@ -131,13 +140,27 @@ export async function getPostById(id: number | string): Promise<Post> {
   return res.data;
 }
 
-export async function getMyPosts(): Promise<Post[]> {
-  const res = await api.get<Post[]>("/posts/me");
-  return res.data ?? [];
+export async function getMyPosts(token: string) {
+  const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL}/posts/me`, {
+    headers: {
+      Authorization: `Bearer ${token}`, // 👈 Phải có dòng này
+    },
+  });
+  return res.data;
 }
 
-export async function updatePost(id: number, payload: UpdatePostPayload) {
-  const res = await api.patch(`/posts/${id}`, payload);
+export async function updatePost(id: number, payload: UpdatePostPayload, token: string) {
+  // Thay vì dùng biến 'api' chung chung, ta cấu hình trực tiếp để chắc chắn có Header
+  const res = await axios.patch(
+    `${process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL}/posts/${id}`, // Đảm bảo đường dẫn API đúng
+    payload,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`, // 👈 QUAN TRỌNG: Gắn vé thông hành vào đây
+        'Content-Type': 'application/json',
+      },
+    }
+  );
   return res.data;
 }
 

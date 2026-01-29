@@ -2,6 +2,7 @@
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException, // 👈 Thêm cái này để báo lỗi nếu status sai
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -10,7 +11,6 @@ import { CategoryEntity } from 'src/database/entities/category.entity';
 import { AmenityEntity } from 'src/database/entities/amenity.entity';
 import { PostImageEntity } from 'src/database/entities/post-image.entity';
 import { CreatePostDto } from './dto/create-post.dto';
-// import { UserEntity } from 'src/database/entities/user.entity';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { SearchPostDto } from './dto/search-post.dto';
 
@@ -26,8 +26,6 @@ export class PostsService {
   ) {}
 
   // Tạo tin đăng mới
-  // @param createPostDto Dữ liệu từ client
-  // @param user Thông tin user (từ JWT)
   async create(createPostDto: CreatePostDto, user: any) {
     const {
       categoryId,
@@ -46,7 +44,7 @@ export class PostsService {
         where: { id: categoryId },
       });
       if (!category) {
-        throw new NotFoundException('Khong tim thay loai phong (Category)');
+        throw new NotFoundException('Không tìm thấy loại phòng (Category)');
       }
     } else if (normalizedCategoryName) {
       category = await this.categoryRepository.findOne({
@@ -126,7 +124,7 @@ export class PostsService {
     return this.postRepository.save(newPost);
   }
 
-  // Hàm lấy danh sách tất cả tin đăng đã đươpc duyệt
+  // Hàm lấy danh sách tất cả tin đăng đã được duyệt
   async findAll(searchPostDto: SearchPostDto) {
     const {
       keyword,
@@ -141,19 +139,16 @@ export class PostsService {
       radius,
     } = searchPostDto;
 
-    // Xây dựng điều kiện truy vấn
     const queryBuilder = this.postRepository.createQueryBuilder('post');
 
     // Chỉ lấy tin đã duyệt
     queryBuilder.where('post.status = :status', { status: 'approved' });
 
-    // Thêm các điều kiện lọc nếu có
     queryBuilder
       .leftJoinAndSelect('post.category', 'category')
       .leftJoinAndSelect('post.images', 'images')
       .leftJoinAndSelect('post.amenities', 'amenities');
 
-    // Lọc theo từ khoá
     if (keyword) {
       queryBuilder.andWhere(
         '(post.title LIKE :keyword OR post.address LIKE :keyword)',
@@ -161,7 +156,6 @@ export class PostsService {
       );
     }
 
-    // Lọc theo khoảng giá
     if (price_min) {
       queryBuilder.andWhere('post.price >= :price_min', { price_min });
     }
@@ -169,24 +163,16 @@ export class PostsService {
       queryBuilder.andWhere('post.price <= :price_max', { price_max });
     }
 
-    // Tìm kiếm theo bán kính
     if (lat && lng && radius) {
-      // Công thức Haversine để tính khoảng cách giữa hai điểm trên bản đồ
-      // 6371 là bán kính Trái Đất tính bằng km
       const haversineFormula = `(6371 * acos(cos(radians(:lat)) * cos(radians(post.latitude)) * cos(radians(post.longitude) - radians(:lng)) + sin(radians(:lat)) * sin(radians(post.latitude))))`;
-
-      // Thêm điều kiện vào truy vấn
       queryBuilder.andWhere(`${haversineFormula} <= :radius`, {
         lat,
         lng,
         radius,
       });
-
-      // Sắp xếp theo khoảng cách gần nhất
       queryBuilder.orderBy('post.createdAt', 'DESC');
     }
 
-    // Lọc theo diện tích
     if (area_min) {
       queryBuilder.andWhere('post.area >= :area_min', { area_min });
     }
@@ -194,16 +180,12 @@ export class PostsService {
       queryBuilder.andWhere('post.area <= :area_max', { area_max });
     }
 
-    // Lọc theo loại phòng (Category)
     if (category_id) {
       queryBuilder.andWhere('post.categoryId = :category_id', { category_id });
     }
 
-    // Lọc theo tiện ích (Amenities)
     if (amenity_ids && amenity_ids.length > 0) {
       const ids = amenity_ids;
-
-      // Tham gia bảng post_amenities để lọc
       queryBuilder
         .innerJoin('post.amenities', 'amenity')
         .andWhere('amenity.id IN (:...ids)', { ids })
@@ -211,20 +193,17 @@ export class PostsService {
         .having('COUNT(DISTINCT amenity.id) = :count', { count: ids.length });
     }
 
-    // Sắp xếp và thực thi
     queryBuilder.orderBy('post.createdAt', 'DESC');
-
-    return queryBuilder.getMany(); // Lấy tất cả kết quả
+    return queryBuilder.getMany();
   }
 
-  // Hàm lấy chi tiết một tin đăng theo ID
+  // Hàm lấy chi tiết một tin đăng
   async findOne(id: number) {
     const post = await this.postRepository.findOne({
       where: {
         id: id,
-        status: 'approved', // Chỉ lấy tin đã duyệt
+        // status: 'approved', // Tạm thời comment dòng này để Chủ trọ xem được tin chưa duyệt của mình
       },
-      // Lấy luôn quan hệ liên quan
       relations: [
         'category',
         'amenities',
@@ -238,27 +217,20 @@ export class PostsService {
     });
 
     if (!post) {
-      // Nếu không tìm thấy, ném lỗi NotFound
-      throw new NotFoundException(
-        'Không tìm thấy tin đăng hoặc tin chưa được duyệt',
-      );
+      throw new NotFoundException('Không tìm thấy tin đăng');
     }
 
-    // Xóa hash mật khẩu của chủ trọ trước khi trả về
     if (post.user) {
       delete post.user.password_hash;
     }
 
-    // Tính điểm trung bình từ đánh giá
     let averageRating = 0;
     if (post.reviews && post.reviews.length > 0) {
       const total = post.reviews.reduce(
         (sum, review) => sum + review.rating,
         0,
       );
-      averageRating = parseFloat((total / post.reviews.length).toFixed(1)); // Làm tròn 1 chữ số thập phân
-
-      // Xóa hash mật khẩu của người đánh giá
+      averageRating = parseFloat((total / post.reviews.length).toFixed(1));
       post.reviews.forEach((review) => {
         if (review.user) {
           delete review.user.password_hash;
@@ -269,14 +241,24 @@ export class PostsService {
     return {
       ...post,
       averageRating: averageRating,
-      reviewCount: post.reviews.length,
+      reviewCount: post.reviews ? post.reviews.length : 0,
     };
   }
 
   // Hàm lấy danh sách tin đăng của chủ trọ
   async findMine(user: any) {
+    console.log('User requesting mine:', user); // 👈 Thêm dòng này xem Server nhận được gì
+
+    // Nếu user log ra là { userId: 1, ... } thì dùng userId
+    // Nếu user log ra là { id: 1, ... } thì dùng id
+    const ownerId = user.userId || user.id;
+
     return this.postRepository.find({
-      where: { userId: user.userId },
+      where: {
+        // 👇 Sửa chỗ này để khớp với tên cột trong DB (thường là user_id map vào user.id hoặc userId)
+        // Nếu trong Entity Post em khai báo @Column({ name: 'user_id' }) userId: number;
+        userId: ownerId,
+      },
       relations: ['category', 'amenities', 'images'],
       order: { createdAt: 'DESC' },
     });
@@ -284,23 +266,18 @@ export class PostsService {
 
   // Hàm cập nhật tin đăng theo ID
   async update(id: number, updatePostDto: UpdatePostDto, user: any) {
-    // Tìm tin đăng cần cập nhật
     const post = await this.postRepository.findOneBy({ id });
     if (!post) {
       throw new NotFoundException('Không tìm thấy tin đăng');
     }
 
-    // Kiểm tra quyền: chỉ chủ trọ tạo tin đăng mới được cập nhật
     if (post.userId !== user.userId) {
       throw new ForbiddenException('Bạn không có quyền sửa tin đăng này');
     }
 
-    // Xử lý các trường hợp cập nhật liên quan
     const { categoryId, amenityIds, imageUrls, ...postData } = updatePostDto;
 
-    // Cập nhật các trường thông tin cơ bản
     const wasRejected = post.status === 'rejected';
-
     Object.assign(post, postData);
 
     if (wasRejected) {
@@ -309,7 +286,6 @@ export class PostsService {
       post.resubmittedAt = new Date();
     }
 
-    // Cập nhật Category
     if (categoryId) {
       const category = await this.categoryRepository.findOneBy({
         id: categoryId,
@@ -320,7 +296,6 @@ export class PostsService {
       post.category = category;
     }
 
-    // Cập nhật tiện ích
     if (amenityIds) {
       const amenities = await this.amenityRepository.findBy({
         id: In(amenityIds),
@@ -328,7 +303,6 @@ export class PostsService {
       post.amenities = amenities;
     }
 
-    // Cập nhật ảnh
     if (imageUrls) {
       const images = imageUrls.map((url) => {
         const img = new PostImageEntity();
@@ -339,24 +313,63 @@ export class PostsService {
       post.images = images;
     }
 
-    // Lưu thay đổi vào database
     return this.postRepository.save(post);
   }
 
-  // Hàm xáo tin đăng theo ID
+  // ----------------------------------------------------------------
+  // 👇 1. Hàm Duyệt tin (Mới)
+  async approve(id: number, status: string, rejectionReason?: string) {
+    const post = await this.postRepository.findOneBy({ id });
+    if (!post) throw new NotFoundException('Không tìm thấy tin đăng');
+
+    if (status !== 'approved' && status !== 'rejected' && status !== 'hidden') {
+      throw new BadRequestException('Trạng thái không hợp lệ');
+    }
+
+    post.status = status;
+
+    if (status === 'approved') {
+      post.rejectionReason = null;
+      post.resubmittedAt = null;
+    } else if (status === 'rejected') {
+      post.rejectionReason = rejectionReason || 'Bài đăng vi phạm quy định';
+    }
+
+    return this.postRepository.save(post);
+  }
+  // ----------------------------------------------------------------
+
+  // 👇 2. Hàm Lấy tin cho Admin (Mới)
+  async findAllForAdmin(status?: string) {
+    const query = this.postRepository
+      .createQueryBuilder('post')
+      .leftJoinAndSelect('post.user', 'user')
+      .leftJoinAndSelect('user.profile', 'profile')
+      .leftJoinAndSelect('post.category', 'category')
+      .leftJoinAndSelect('post.images', 'images')
+      .leftJoinAndSelect('post.amenities', 'amenities')
+      .orderBy('post.createdAt', 'DESC');
+
+    if (status && status !== 'all') {
+      query.where('post.status = :status', { status });
+    }
+
+    return query.getMany();
+  }
+
+  // Hàm xóa tin đăng theo ID
   async delete(id: number, user: any) {
-    // Tìm tin đăng cần xóa
     const post = await this.postRepository.findOneBy({ id });
     if (!post) {
       throw new NotFoundException('Không tìm thấy tin đăng');
     }
 
-    // Kiểm tra quyền: chỉ chủ trọ tạo tin đăng mới được xóa
+    // 👇 LOGIC MỚI CỦA EM (Chỉ Chủ trọ được xóa) - DÙNG CÁI NÀY
     if (post.userId !== user.userId) {
-      throw new ForbiddenException('Bạn không có quyền xóa tin đăng này');
+      // Nếu không phải chính chủ -> Chặn luôn (kể cả Admin)
+      throw new ForbiddenException('Chỉ chủ bài đăng mới có quyền xóa bài này');
     }
 
-    // Xóa tin đăng
     await this.postRepository.remove(post);
     return { message: 'Xóa tin đăng thành công' };
   }

@@ -24,6 +24,6 @@ export class UserProfileEntity {
   @JoinColumn({ name: 'user_id' })
   user: UserEntity;
 
-  @Column({ nullable: true })
-  cccd: string;
+  // @Column({ nullable: true })
+  // cccd: string;
 }

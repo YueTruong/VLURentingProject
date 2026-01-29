@@ -54,6 +54,6 @@ export class UserEntity {
   @OneToMany(() => PostEntity, (post) => post.user)
   posts: PostEntity[];
 
-  @Column({ nullable: true, default: 'local' }) // Cho phép null hoặc mặc định là local
-  provider: string;
+  // @Column({ nullable: true, default: 'local' }) // Cho phép null hoặc mặc định là local
+  // provider: string;
 }

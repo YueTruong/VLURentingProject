@@ -1,24 +1,25 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import { ChatService } from './chat.service';
 
 @Controller('chat')
 export class ChatController {
   constructor(private chatService: ChatService) {}
 
-  // API: Tạo cuộc hội thoại (Ví dụ: Bấm nút "Liên hệ" trên Frontend)
-  @Post('create')
-  async createConversation(
-    @Body() body: { studentId: number; landlordId: number },
-  ) {
-    return this.chatService.getOrCreateConversation(
-      body.studentId,
-      body.landlordId,
-    );
+  // API bắt đầu chat (VD: Sinh viên bấm nút "Chat ngay" trên bài đăng)
+  @Post('start')
+  async startChat(@Body() body: { studentId: number; landlordId: number }) {
+    return this.chatService.getConversation(body.studentId, body.landlordId);
   }
 
-  // API: Lấy lịch sử tin nhắn
+  // API lấy tin nhắn cũ
   @Get(':conversationId/messages')
-  async getHistory(@Param('conversationId') conversationId: number) {
+  async getMessages(@Param('conversationId') conversationId: number) {
     return this.chatService.getMessages(conversationId);
+  }
+
+  // API lấy danh sách chat của user (cho sidebar)
+  @Get('my-conversations')
+  async getMyConversations(@Query('userId') userId: number) {
+    return this.chatService.getUserConversations(userId);
   }
 }

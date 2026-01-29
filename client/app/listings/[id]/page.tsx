@@ -1,12 +1,14 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation"; // Thêm useRouter
 import Image from "next/image";
 import Link from "next/link";
+import { useSession } from "next-auth/react"; // Thêm useSession
 import UserTopBar from "@/app/homepage/components/UserTopBar";
 import { getPostById, type Post } from "@/app/services/posts";
 
+// --- 1. Cập nhật Type Listing (Thêm ID chủ trọ) ---
 type Listing = {
   id: string;
   title: string;
@@ -24,6 +26,7 @@ type Listing = {
   amenities: string[];
   description: string;
   landlord: {
+    id: number; // ✅ Thêm field này để biết chat với ai
     name: string;
     phone: string;
     email: string;
@@ -34,40 +37,7 @@ type Listing = {
   mapQuery: string;
 };
 
-/*
-const mockListing: Listing = {
-  id: "101",
-  title: "Căn hộ studio view sông, gần trường ĐH",
-  price: "4.8 triệu / tháng",
-  area: "32 m²",
-  address: "123 Đường ABC, Quận 7, TP.HCM",
-  campus: "Cơ sở 3",
-  rating: "4.8",
-  reviews: 12,
-  beds: 1,
-  baths: 1,
-  parking: "Miễn phí gửi xe",
-  wifi: true,
-  utilities: [
-    { label: "Điện", value: "3.500đ/kWh" },
-    { label: "Nước", value: "20.000đ/m³" },
-    { label: "Phí quản lý", value: "200k/tháng" },
-  ],
-  amenities: ["Wifi miễn phí", "Ban công", "Bếp riêng", "Máy lạnh", "Máy giặt", "Thang máy", "Thú cưng nhỏ"],
-  description:
-    "Căn hộ studio thoáng mát, có ban công nhìn ra sông, đón gió tự nhiên. Vị trí cực kỳ thuận tiện, chỉ mất 8 phút đi bộ tới cơ sở 3, gần siêu thị và trạm xe buýt. Khu vực an ninh tốt, yên tĩnh, phù hợp cho sinh viên cần không gian học tập. Chủ nhà thân thiện, tôn trọng sự riêng tư, giờ giấc tự do.",
-  landlord: {
-    name: "Chị Lan",
-    phone: "0901 234 567",
-    email: "lan.home@example.com",
-    response: "Phản hồi trong ~15 phút",
-    avatar: "/images/Admins.png",
-  },
-  images: ["/images/House.svg", "/images/House.svg", "/images/House.svg", "/images/House.svg"],
-  mapQuery: "Van Lang University Cơ sở 3",
-};
-*/
-
+// --- Helper Functions (Giữ nguyên) ---
 const toNumberValue = (value: number | string | undefined | null) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (typeof value === "string") {
@@ -108,6 +78,7 @@ const getAmenityNames = (post: Post) =>
     .map((amenity) => (amenity?.name ?? "").trim())
     .filter(Boolean);
 
+// --- 2. Cập nhật Mapper (Lấy ID chủ trọ từ Post) ---
 const mapPostToListing = (post: Post): Listing => {
   const amenityNames = getAmenityNames(post);
   const amenityText = amenityNames.join(" ").toLowerCase();
@@ -120,11 +91,14 @@ const mapPostToListing = (post: Post): Listing => {
     .filter(Boolean);
   const safeImages = images.length > 0 ? images : ["/images/House.svg"];
   const profile = post.user?.profile;
+  
+  const landlordId = post.user?.id || 0; // ✅ Lấy ID User
   const landlordName =
     profile?.full_name || post.user?.username || post.user?.email || "Chủ nhà";
   const landlordPhone = profile?.phone_number || "";
   const landlordEmail = post.user?.email || "";
   const landlordAvatar = profile?.avatar_url || "/images/Admins.png";
+  
   const lat = toOptionalNumber(post.latitude);
   const lng = toOptionalNumber(post.longitude);
   const mapQuery =
@@ -147,6 +121,7 @@ const mapPostToListing = (post: Post): Listing => {
     amenities: amenityNames,
     description: post.description || "",
     landlord: {
+      id: landlordId, // ✅ Gán ID vào đây
       name: landlordName,
       phone: landlordPhone,
       email: landlordEmail,
@@ -190,14 +165,65 @@ function AmenityTag({ text }: { text: string }) {
   );
 }
 
+// --- MAIN COMPONENT ---
 export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter(); // ✅ Init Router
+  const { data: session } = useSession(); // ✅ Lấy session
+  const currentUserId = session?.user ? Number(session.user.id) : null;
+
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  
+  // State xử lý nút Chat loading
+  const [isChatting, setIsChatting] = useState(false);
+
   const imageCount = listing?.images.length ?? 0;
+
+  // --- 3. Hàm xử lý bắt đầu Chat ---
+  const handleStartChat = async () => {
+    if (!listing) return;
+
+    // A. Check đăng nhập
+    if (!currentUserId) {
+        alert("Bạn cần đăng nhập để chat với chủ trọ!");
+        // router.push("/login"); // Uncomment nếu muốn redirect login
+        return;
+    }
+
+    // B. Check chat với chính mình
+    if (currentUserId === listing.landlord.id) {
+        alert("Đây là bài đăng của bạn, không thể tự chat!");
+        return;
+    }
+
+    setIsChatting(true);
+    try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+        const res = await fetch(`${apiUrl}/chat/start`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                studentId: currentUserId,
+                landlordId: listing.landlord.id
+            }),
+        });
+
+        if (!res.ok) throw new Error("Lỗi khi tạo hội thoại");
+        
+        // Tạo xong thì chuyển hướng sang trang Chat
+        router.push("/chat"); 
+    } catch (error) {
+        console.error("Chat Error:", error);
+        alert("Không thể kết nối chat lúc này.");
+    } finally {
+        setIsChatting(false);
+    }
+  };
+  // -------------------------------
 
   const openLightbox = (index: number) => {
     setActiveImageIndex(index);
@@ -437,12 +463,16 @@ export default function ListingDetailPage() {
                 >
                   Gửi email
                 </a>
-                <Link
-                  href="/chat"
-                  className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 active:scale-95 text-center"
+                
+                {/* ✅ Thay Link bằng Button xử lý Chat */}
+                <button
+                  onClick={handleStartChat}
+                  disabled={isChatting}
+                  className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 active:scale-95 text-center disabled:bg-gray-100 disabled:text-gray-400"
                 >
-                  Trò chuyện ngay
-                </Link>
+                  {isChatting ? "Đang kết nối..." : "Trò chuyện ngay"}
+                </button>
+
               </div>
             </div>
 

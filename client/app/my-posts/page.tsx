@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import UserPageShell from "@/app/homepage/components/UserPageShell";
 import {
@@ -22,6 +23,14 @@ type EditDraft = {
   existingImages: string[];
   newImages: File[];
   imagesTouched: boolean;
+};
+
+// Định nghĩa kiểu dữ liệu cho User có thêm accessToken để dùng lại
+type UserWithToken = {
+  accessToken?: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
 };
 
 const formatPriceVnd = (value: number | string | undefined) => {
@@ -77,26 +86,48 @@ export default function MyPostsPage() {
   const [savingId, setSavingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  
+  const { data: session, status } = useSession();
+
+  console.log("Status:", status);
+  console.log("Session:", session);
+  console.log("Token:", session?.user?.accessToken);
 
   useEffect(() => {
+    // 1. Nếu session chưa sẵn sàng, không làm gì cả
+    if (status === "loading") return;
+
+    // 2. Lấy token an toàn
+    const accessToken = session?.user?.accessToken;
+
+    // 3. Nếu load xong mà không có token => Người dùng chưa đăng nhập
+    if (!accessToken) {
+      setLoadError("load_failed");
+      setLoading(false);
+      return;
+    }
     let active = true;
-    getMyPosts()
+    
+    // 4. Gọi API kèm Token
+    getMyPosts(accessToken)
       .then((data) => {
         if (!active) return;
         setPosts(data);
       })
-      .catch(() => {
+      .catch((err) => {
         if (!active) return;
+        console.error("Lỗi tải tin:", err);
         setLoadError("load_failed");
       })
       .finally(() => {
         if (!active) return;
         setLoading(false);
       });
+
     return () => {
       active = false;
     };
-  }, []);
+  }, [session, status]);
 
   const editingPost = useMemo(
     () => posts.find((post) => post.id === editingId) ?? null,
@@ -133,6 +164,16 @@ export default function MyPostsPage() {
 
   const handleSave = async () => {
     if (!editDraft || !editingId) return;
+
+    // ✅ FIX 1: Ép kiểu tường minh thay vì dùng 'any'
+    const user = session?.user as UserWithToken | undefined;
+    const accessToken = user?.accessToken;
+
+    if (!accessToken) {
+        alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!");
+        return;
+    }
+
     const payload: UpdatePostPayload = {};
     const wasRejected = editingPost?.status === "rejected";
 
@@ -164,7 +205,9 @@ export default function MyPostsPage() {
         const uploaded = editDraft.newImages.length > 0 ? await uploadImages(editDraft.newImages) : [];
         payload.imageUrls = [...editDraft.existingImages, ...uploaded];
       }
-      const result = await updatePost(editingId, payload);
+      
+      const result = await updatePost(editingId, payload, accessToken);
+      
       const updated = (result as { data?: Post })?.data ?? (result as Post);
       setPosts((prev) =>
         prev.map((post) => (post.id === editingId ? { ...post, ...updated } : post)),
@@ -226,9 +269,19 @@ export default function MyPostsPage() {
   const handleDelete = async (id: number) => {
     const confirmed = window.confirm("Bạn chắc chắn muốn xóa bài đăng này?");
     if (!confirmed) return;
+
+    // ✅ FIX 2: Ép kiểu tường minh cho hàm xóa
+    const user = session?.user as UserWithToken | undefined;
+    const accessToken = user?.accessToken;
+
+    if (!accessToken) {
+        alert("Bạn cần đăng nhập để thực hiện thao tác này!");
+        return;
+    }
+
     setDeletingId(id);
     try {
-      await deletePost(id);
+      await deletePost(id); 
       setPosts((prev) => prev.filter((post) => post.id !== id));
     } catch (error) {
       console.error(error);

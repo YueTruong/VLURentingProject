@@ -3,13 +3,13 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-
 import { AuthModule } from './auth/auth.module';
 import { PostsModule } from './posts/posts.module';
 import { AdminModule } from './admin/admin.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { UsersModule } from './users/user.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -50,7 +50,8 @@ import { UsersModule } from './users/user.module';
             : undefined,
 
           // Prod tuyệt đối không synchronize
-          synchronize: !isProd && !databaseUrl, // local dev mới true
+          // synchronize: !isProd && !databaseUrl, // local dev mới true
+          synchronize: !isProd,
           logging: !isProd,
         };
       },
@@ -62,6 +63,7 @@ import { UsersModule } from './users/user.module';
     PostsModule,
     AdminModule,
     ReviewsModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,53 +1,66 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Conversation } from '../database/entities/conversation.entity';
-import { Message } from '../database/entities/message.entity';
+import { ConversationEntity } from '../database/entities/conversation.entity';
+import { MessageEntity } from '../database/entities/message.entity';
 
 @Injectable()
 export class ChatService {
   constructor(
-    @InjectRepository(Conversation)
-    private conversationRepo: Repository<Conversation>,
-    @InjectRepository(Message)
-    private messageRepo: Repository<Message>,
+    @InjectRepository(ConversationEntity)
+    private conversationRepo: Repository<ConversationEntity>,
+    @InjectRepository(MessageEntity)
+    private messageRepo: Repository<MessageEntity>,
   ) {}
 
-  // 1. Tìm hoặc Tạo cuộc hội thoại mới giữa 2 người
-  async getOrCreateConversation(studentId: number, landlordId: number) {
-    // Tìm xem đã có cuộc trò chuyện nào giữa 2 người này chưa
+  // Tạo hoặc lấy cuộc hội thoại giữa Student và Landlord
+  async getConversation(studentId: number, landlordId: number) {
+    // Tìm xem đã có chưa
     let conversation = await this.conversationRepo.findOne({
-      where: [
-        { studentId, landlordId },
-        // (Optional) Nếu muốn chat 2 chiều linh hoạt thì check thêm chiều ngược lại
-      ],
-      relations: ['messages'], // Load kèm tin nhắn cũ
+      where: {
+        student: { id: studentId },
+        landlord: { id: landlordId },
+      },
+      relations: ['student', 'landlord'],
     });
 
-    // Nếu chưa có thì tạo mới
+    // Chưa có thì tạo mới
     if (!conversation) {
-      conversation = this.conversationRepo.create({ studentId, landlordId });
+      conversation = this.conversationRepo.create({
+        student: { id: studentId },
+        landlord: { id: landlordId },
+      });
       await this.conversationRepo.save(conversation);
     }
 
     return conversation;
   }
 
-  // 2. Lưu tin nhắn mới vào DB
+  // Lưu tin nhắn mới vào DB
   async saveMessage(conversationId: number, senderId: number, content: string) {
     const newMessage = this.messageRepo.create({
-      conversation: { id: conversationId }, // Link tới Conversation
-      senderId,
-      content,
+      conversation: { id: conversationId },
+      sender: { id: senderId },
+      content: content,
     });
     return await this.messageRepo.save(newMessage);
   }
 
-  // 3. Lấy lịch sử tin nhắn của 1 cuộc hội thoại
+  // Lấy lịch sử tin nhắn
   async getMessages(conversationId: number) {
     return await this.messageRepo.find({
       where: { conversation: { id: conversationId } },
-      order: { created_at: 'ASC' }, // Tin nhắn cũ xếp trước
+      relations: ['sender'], // Load thông tin người gửi để hiển thị tên/avatar
+      order: { created_at: 'ASC' },
+    });
+  }
+
+  // Lấy danh sách các cuộc hội thoại của 1 user (để hiển thị list bên trái)
+  async getUserConversations(userId: number) {
+    return await this.conversationRepo.find({
+      where: [{ student: { id: userId } }, { landlord: { id: userId } }],
+      relations: ['student', 'landlord', 'messages'],
+      order: { created_at: 'DESC' },
     });
   }
 }

@@ -68,7 +68,7 @@ export const authOptions: NextAuthOptions = {
               email: decoded.email || "",
               
               // ⚠️ Fix lỗi: Ép kiểu 'as string' để đảm bảo không bao giờ là undefined
-              role: (decoded.role ?? decoded.roles ?? "student") as string, 
+              role: (decoded.role ?? decoded.roles ?? "student") as "student" | "landlord" | "admin",
               
               // ⚠️ Fix lỗi: Ép kiểu 'as string'
               accessToken: data.access_token as string, 
@@ -88,22 +88,24 @@ export const authOptions: NextAuthOptions = {
 
   // 4. Cấu hình để lưu dữ liệu vào Session
   callbacks: {
+    // 1. Khi đăng nhập thành công, lưu token backend trả về vào JWT của NextAuth
     async jwt({ token, user }) {
-      // Lần đầu login thành công, user sẽ có dữ liệu từ hàm authorize ở trên
       if (user) {
-        token.accessToken = user.accessToken;
-        token.role = user.role;
-        token.id = user.id;
+        // user này là object trả về từ hàm authorize (chứa accessToken, role...)
+        return { ...token, ...user };
       }
       return token;
     },
+
+    // 2. Mỗi khi FE gọi useSession(), lấy dữ liệu từ JWT bỏ vào Session
     async session({ session, token }) {
-      // Chuyển dữ liệu từ Token sang Session để Frontend dùng (thông qua useSession)
-      if (session.user) {
-        session.user.accessToken = token.accessToken as string;
-        session.user.role = token.role as "student" | "landlord" | "admin";
-        session.user.id = token.id as string;
-      }
+      session.user = {
+        ...session.user,
+        // 👇 Quan trọng: Gán accessToken và id từ token vào session
+        accessToken: token.accessToken as string, 
+        id: token.id as string,
+        role: token.role as "student" | "landlord" | "admin",
+      };
       return session;
     },
   },
