@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation"; // 👈 1. Import Router
 import UserTopBar from "@/app/homepage/components/UserTopBar";
 import { 
   getNotifications, 
@@ -36,15 +37,23 @@ function TypeBadge({ type }: { type: string }) {
   return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${chosen.color}`}>{chosen.label}</span>;
 }
 
-function NotificationCard({ item, onMarkRead }: { item: Notification; onMarkRead: (id: number) => void }) {
-  // Highlight nếu chưa đọc (!isRead)
+// 👈 Thêm prop onOpenDetail
+function NotificationCard({ 
+  item, 
+  onMarkRead, 
+  onOpenDetail 
+}: { 
+  item: Notification; 
+  onMarkRead: (id: number) => void;
+  onOpenDetail: (item: Notification) => void;
+}) {
   const isUnread = !item.isRead;
   const border = isUnread ? "border-red-200 bg-red-50" : "border-gray-200 bg-white";
 
   return (
     <article className={`rounded-2xl border ${border} p-4 shadow-sm transition-all duration-300`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="flex-1 cursor-pointer" onClick={() => onOpenDetail(item)}>
           <h3 className={`text-base text-gray-900 ${isUnread ? 'font-bold' : 'font-medium'}`}>{item.title}</h3>
           <p className="text-sm text-gray-700 mt-1">{item.message}</p>
           <p className="text-xs text-gray-500 mt-2">{formatTimeAgo(item.createdAt)}</p>
@@ -54,13 +63,22 @@ function NotificationCard({ item, onMarkRead }: { item: Notification; onMarkRead
       <div className="mt-3 flex flex-wrap gap-2">
         {isUnread && (
           <button 
-            onClick={() => onMarkRead(item.id)}
+            onClick={(e) => {
+              e.stopPropagation(); // Tránh kích hoạt click của thẻ cha
+              onMarkRead(item.id);
+            }}
             className="rounded-full border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-50 active:scale-95"
           >
             Đánh dấu đã đọc
           </button>
         )}
-        <button className="rounded-full bg-[#0b1a57] px-3 py-2 text-xs font-semibold text-white hover:bg-[#0a1647] active:scale-95">
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenDetail(item);
+          }}
+          className="rounded-full bg-[#0b1a57] px-3 py-2 text-xs font-semibold text-white hover:bg-[#0a1647] active:scale-95"
+        >
           Mở chi tiết
         </button>
       </div>
@@ -70,21 +88,20 @@ function NotificationCard({ item, onMarkRead }: { item: Notification; onMarkRead
 
 export default function NotificationsPage() {
   const { data: session, status } = useSession();
+  const router = useRouter(); // 👈 Init Router
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 👇 SỬA LẠI USE EFFECT (Dùng hàm async wrapper)
+  // Fetch dữ liệu
   useEffect(() => {
     const fetchData = async () => {
       if (status === "loading") return;
-
       const token = session?.user?.accessToken;
 
       if (!token) {
         setLoading(false);
         return;
       }
-
       try {
         const data = await getNotifications(token);
         setNotifications(data);
@@ -94,7 +111,6 @@ export default function NotificationsPage() {
         setLoading(false);
       }
     };
-
     fetchData();
   }, [session, status]);
 
@@ -103,7 +119,6 @@ export default function NotificationsPage() {
     const token = session?.user?.accessToken;
     if (!token) return;
 
-    // Cập nhật UI ngay lập tức (Optimistic update)
     setNotifications((prev) => 
       prev.map(n => n.id === id ? { ...n, isRead: true } : n)
     );
@@ -127,6 +142,33 @@ export default function NotificationsPage() {
        } catch (error) {
          console.error("Lỗi đánh dấu tất cả:", error);
        }
+    }
+  };
+
+  // 👈 LOGIC MỞ CHI TIẾT
+  const handleOpenDetail = async (item: Notification) => {
+    // 1. Nếu chưa đọc thì đánh dấu đã đọc trước
+    if (!item.isRead) {
+       await handleMarkAsRead(item.id);
+    }
+
+    // 2. Điều hướng dựa theo loại thông báo
+    if (item.type === 'listing' && item.relatedId) {
+      if (item.title.includes("từ chối")) {
+        // Nếu bị từ chối, dẫn về trang Quản lý tin để sửa
+        router.push('/my-posts'); 
+      } else {
+        // Nếu được duyệt, dẫn về trang xem chi tiết công khai
+        router.push(`/posts/${item.relatedId}`);
+      }
+    }
+    else if (item.type === 'message') {
+      // Chuyển sang trang tin nhắn (nếu có relatedId là ID người chat thì nối thêm vào)
+      router.push(`/messages`); 
+    }
+    else {
+      // Mặc định reload hoặc không làm gì nếu là system notif không có link
+      alert(item.message); 
     }
   };
 
@@ -181,6 +223,7 @@ export default function NotificationsPage() {
                   key={n.id} 
                   item={n} 
                   onMarkRead={handleMarkAsRead} 
+                  onOpenDetail={handleOpenDetail} // 👈 Truyền hàm xuống
                 />
               ))
             )}

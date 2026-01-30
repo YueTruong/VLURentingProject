@@ -14,8 +14,8 @@ function TopHeader() {
 
         <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center hidden md:block">
           <h1 className="text-[42px] font-extrabold tracking-wide">
-            <span className="text-white">VLU</span>{" "}
-            <span className="text-[#D51F35]">Renting</span>
+            <span className="text-[#D51F35]">VLU</span>
+            <span className="text-white">RENTING</span>
           </h1>
           <p className="text-[16px] text-gray-300 font-light -mt-1">
             Trang web giúp sinh viên Văn Lang tìm kiếm nhà trọ phù hợp
