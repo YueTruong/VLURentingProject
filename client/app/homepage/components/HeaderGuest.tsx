@@ -1,56 +1,69 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { PersonIcon } from "@radix-ui/react-icons";
 
 // 2. Sub-component: TopHeader
 function TopHeader() {
   return (
-    <header className="w-full bg-[#010433] text-white relative z-20">
-      <div className="w-full mx-auto flex items-center justify-between py-4 px-12 h-[100px]">
-        {/* Logo */}
-        <div className="shrink-0">
+    <header className="relative w-full bg-[#010433] text-white z-50 shadow-lg border-b border-white/5">
+      {/* Background Gradient */}
+      <div className="absolute inset-0 bg-linear-to-r from-[#010433] via-[#060c4d] to-[#010433] pointer-events-none" />
+
+      {/* Container: w-full để tràn màn hình, px-6 để đẩy sát biên hơn */}
+      <div className="relative w-full flex h-[100px] items-center justify-between px-6 md:px-10 2xl:px-16">
+        
+        {/* === LEFT: LOGO === */}
+        <Link href="/" className="shrink-0 transition-transform hover:scale-105 duration-300 z-10">
           <Image
             src="/images/VLU-Renting-Logo.svg"
             alt="VLU Renting"
-            width={187}
-            height={74}
-            className="object-contain"
+            width={160}
+            height={64}
+            className="object-contain w-auto h-[50px] sm:h-[60px] md:h-[70px]"
+            priority
           />
-        </div>
+        </Link>
 
-        {/* Title */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center hidden md:block">
-          <h1 className="text-[42px] font-extrabold tracking-wide">
+        {/* === CENTER: TITLE === */}
+        {/* Logic: 
+            - xl (Laptop): Hiện tiêu đề to, Slogan chữ nhỏ.
+            - 2xl (PC lớn): Hiện đầy đủ thoải mái.
+            - hidden: Ẩn trên tablet/mobile.
+        */}
+        <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 text-center xl:block z-0 pointer-events-none">
+          <h1 className="text-[36px] 2xl:text-[42px] font-extrabold leading-none tracking-tight drop-shadow-lg whitespace-nowrap">
             <span className="text-[#D51F35]">VLU</span>
             <span className="text-white">RENTING</span>
           </h1>
-          <p className="text-[16px] text-gray-300 font-light -mt-1">
+          {/* Dòng slogan dài: Chỉ hiện trên màn hình > 1280px, chỉnh font nhỏ lại chút để vừa vặn */}
+          <p className="mt-2 text-[12px] 2xl:text-[14px] font-medium text-gray-300 tracking-wide opacity-90 whitespace-nowrap">
             Trang web giúp sinh viên Văn Lang tìm kiếm nhà trọ phù hợp
           </p>
         </div>
 
-        {/* Login button */}
-        <Link href="/login">
-          <button
-            type="button"
-            className="
-              shrink-0 w-[140px] h-10 
-              bg-white text-black rounded-full 
-              flex items-center justify-center gap-2 
-              font-semibold text-sm shadow-md 
-              hover:bg-gray-100 transition-all active:scale-95
-            "
-          >
-            <div className="w-5 h-5 relative">
-              <Image
-                src="/icons/UserIcon.svg"
-                alt="user"
-                fill
-                className="object-contain"
-              />
-            </div>
-            Thành viên
-          </button>
-        </Link>
+        {/* === RIGHT: ACTIONS === */}
+        <div className="z-10 shrink-0">
+          <Link href="/login">
+            <button
+              type="button"
+              className="
+                group relative flex h-10 sm:h-11 w-[130px] sm:w-[150px] items-center justify-center gap-2.5 
+                rounded-full bg-white text-[#010433] 
+                font-bold text-xs sm:text-sm shadow-md transition-all duration-300
+                hover:shadow-[0_0_15px_rgba(255,255,255,0.4)] hover:-translate-y-0.5
+                active:scale-95
+              "
+            >
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#010433]/10 text-[#010433] transition-colors group-hover:bg-[#D51F35] group-hover:text-white">
+                <PersonIcon className="h-4 w-4" />
+              </div>
+              <span>Thành viên</span>
+            </button>
+          </Link>
+        </div>
+
       </div>
     </header>
   );
@@ -59,13 +72,13 @@ function TopHeader() {
 // 3. Sub-component: SearchBar
 function SearchBar() {
   return (
-    <div className="relative w-full h-[276px]">
-      {/* Background */}
+    <div className="relative w-full h-[200px] sm:h-60 md:h-[280px] overflow-hidden">
       <div
-        className="absolute inset-0 bg-cover bg-center"
+        className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 hover:scale-105"
         style={{ backgroundImage: "url('/images/Background-Image.svg')" }}
       >
-        <div className="absolute inset-0 bg-black/10" />
+        <div className="absolute inset-0 bg-black/30" />
+        <div className="absolute inset-0 bg-linear-to-t from-[#010433]/90 via-transparent to-transparent" />
       </div>
     </div>
   );
@@ -74,7 +87,7 @@ function SearchBar() {
 // 4. Header chính
 export default function Header() {
   return (
-    <div className="flex flex-col w-full">
+    <div className="flex flex-col w-full shadow-2xl">
       <TopHeader />
       <SearchBar />
     </div>
