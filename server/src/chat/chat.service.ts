@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConversationEntity } from '../database/entities/conversation.entity';
 import { MessageEntity } from '../database/entities/message.entity';
+import { UserEntity } from '../database/entities/user.entity';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Injectable()
 export class ChatService {
@@ -11,6 +13,10 @@ export class ChatService {
     private conversationRepo: Repository<ConversationEntity>,
     @InjectRepository(MessageEntity)
     private messageRepo: Repository<MessageEntity>,
+    @InjectRepository(UserEntity)
+    private userRepo: Repository<UserEntity>,
+
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // Tạo hoặc lấy cuộc hội thoại giữa Student và Landlord
@@ -37,13 +43,63 @@ export class ChatService {
   }
 
   // Lưu tin nhắn mới vào DB
-  async saveMessage(conversationId: number, senderId: number, content: string) {
+  async saveMessage(
+    conversationId: number,
+    senderId: number,
+    content: string,
+    isReceiverWatching: boolean = false, // Mặc định là false
+  ) {
+    // 1. Lưu tin nhắn vào DB
     const newMessage = this.messageRepo.create({
       conversation: { id: conversationId },
       sender: { id: senderId },
       content: content,
     });
-    return await this.messageRepo.save(newMessage);
+    const savedMsg = await this.messageRepo.save(newMessage);
+
+    // 2. Nếu người nhận ĐANG XEM (Online trong phòng) -> KHÔNG TẠO THÔNG BÁO
+    if (isReceiverWatching) {
+      return savedMsg; // Kết thúc luôn
+    }
+
+    // 3. Logic tạo thông báo (khi người nhận không xem)
+    const conversation = await this.conversationRepo.findOne({
+      where: { id: conversationId },
+      relations: ['student', 'landlord'],
+    });
+
+    const sender = await this.userRepo.findOne({
+      where: { id: senderId },
+      relations: ['profile'],
+    });
+
+    if (conversation && sender) {
+      const sId = Number(senderId);
+      const receiverId =
+        sId === conversation.student.id
+          ? conversation.landlord.id
+          : conversation.student.id;
+
+      // Tên người gửi
+      const senderName =
+        sender.profile?.full_name || sender.email || 'Người dùng';
+
+      // --- YÊU CẦU CỦA EM: NỘI DUNG ẨN ---
+      // Không hiện nội dung chat, chỉ báo có tin nhắn đang chờ
+      const notifTitle = `Tin nhắn mới từ ${senderName}`;
+      const notifMessage = 'Đang chờ bạn phản hồi...';
+
+      // Gọi service (Nó sẽ tự gộp nếu đã có thông báo chưa đọc từ người này)
+      await this.notificationsService.createNotification(
+        receiverId,
+        notifTitle,
+        notifMessage,
+        'message',
+        sId, // relatedId để mở chat
+      );
+    }
+
+    return savedMsg;
   }
 
   // Lấy lịch sử tin nhắn

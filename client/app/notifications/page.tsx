@@ -164,7 +164,7 @@ export default function NotificationsPage() {
     }
     else if (item.type === 'message') {
       // Chuyển sang trang tin nhắn (nếu có relatedId là ID người chat thì nối thêm vào)
-      router.push(`/messages`); 
+      router.push(`/chat`); 
     }
     else {
       // Mặc định reload hoặc không làm gì nếu là system notif không có link

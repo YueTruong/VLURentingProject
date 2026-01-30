@@ -17,7 +17,7 @@ export default function Footer() {
           />
 
           <p className="text-sm text-gray-300">
-            Copyright 2025 © VLU Renting. All Right Reserved
+            Copyright 2025 © VLURenting. All Right Reserved
           </p>
         </div>
 

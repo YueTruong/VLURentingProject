@@ -23,6 +23,11 @@ export class NotificationsController {
     return this.service.findMyNotifications(req.user.userId || req.user.id);
   }
 
+  @Get('unread-count')
+  async getUnreadCount(@Request() req: any) {
+    return this.service.countUnread(req.user.userId || req.user.id);
+  }
+
   @Patch('read-all')
   async readAll(@Request() req: any) {
     return this.service.markAllAsRead(req.user.userId || req.user.id);

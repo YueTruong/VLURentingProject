@@ -41,7 +41,40 @@ export class NotificationsService {
     type: string,
     relatedId?: number,
   ) {
+    // 1. Nếu là tin nhắn chat, kiểm tra xem có thông báo nào CÙNG NGƯỜI GỬI (relatedId) và CHƯA ĐỌC không?
+    if (type === 'message') {
+      const existingNotif = await this.repo.findOne({
+        where: {
+          userId: userId, // Người nhận
+          type: 'message', // Loại tin nhắn
+          relatedId: relatedId, // ID người gửi
+          isRead: false, // Chưa đọc
+        },
+      });
+
+      // 2. Nếu đã có -> Chỉ cập nhật thời gian và nội dung chung chung
+      if (existingNotif) {
+        existingNotif.message = message; // Cập nhật lại nội dung (VD: "5 tin nhắn đang chờ")
+        // Hack: Update lại createdAt bằng cách xóa đi tạo lại hoặc dùng QueryBuilder,
+        // nhưng đơn giản nhất ở đây là ta save lại, TypeORM sẽ update 'updatedAt' nếu em có cột đó.
+        // Để đẩy lên đầu danh sách, ta có thể xóa cái cũ và tạo cái mới, hoặc chấp nhận thứ tự cũ.
+        // Cách tốt nhất: Xóa cái cũ, tạo cái mới để nó nhảy lên đầu.
+        await this.repo.remove(existingNotif);
+      }
+    }
+
+    // 3. Tạo thông báo mới (hoặc tái tạo cái vừa xóa để nó mới nhất)
     const notif = this.repo.create({ userId, title, message, type, relatedId });
     return this.repo.save(notif);
+  }
+
+  async countUnread(userId: number) {
+    const count = await this.repo.count({
+      where: {
+        userId: userId,
+        isRead: false,
+      },
+    });
+    return { count };
   }
 }

@@ -15,17 +15,18 @@ export class ChatGateway {
 
   constructor(private chatService: ChatService) {}
 
-  // 1. Client join vào phòng chat cụ thể
   @SubscribeMessage('join_conversation')
   handleJoinRoom(
     @MessageBody() conversationId: number,
     @ConnectedSocket() client: Socket,
   ) {
-    client.join(`room_${conversationId}`);
-    console.log(`User ${client.id} joined room_${conversationId}`);
+    const roomId = `room_${conversationId}`;
+    client.join(roomId);
+
+    // (Optional) Có thể báo cho người kia biết mình đã vào xem (Seen status)
+    // this.server.to(roomId).emit('user_joined', { userId: ... });
   }
 
-  // 2. Nhận tin nhắn từ Client -> Lưu DB -> Gửi lại cho người kia
   @SubscribeMessage('send_message')
   async handleSendMessage(
     @MessageBody()
@@ -35,16 +36,25 @@ export class ChatGateway {
       content: string;
     },
   ) {
-    // Lưu vào DB
+    const roomId = `room_${payload.conversationId}`;
+
+    // 👇 LOGIC KIỂM TRA ONLINE
+    // Lấy danh sách socket đang ở trong phòng này
+    const roomSockets = this.server.sockets.adapter.rooms.get(roomId);
+    const numClients = roomSockets ? roomSockets.size : 0;
+
+    // Nếu có từ 2 người trở lên trong phòng -> Người kia đang xem
+    const isReceiverWatching = numClients > 1;
+
+    // Gọi Service lưu tin nhắn và truyền cờ này vào
     const savedMsg = await this.chatService.saveMessage(
       payload.conversationId,
       payload.senderId,
       payload.content,
+      isReceiverWatching, // 👈 Truyền vào đây
     );
 
-    // Gửi sự kiện 'new_message' cho tất cả người trong phòng này
-    this.server
-      .to(`room_${payload.conversationId}`)
-      .emit('new_message', savedMsg);
+    // Gửi tin nhắn qua Socket như bình thường
+    this.server.to(roomId).emit('new_message', savedMsg);
   }
 }
