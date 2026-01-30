@@ -355,13 +355,6 @@ export class PostsService {
       );
     }
 
-    // if (status === 'approved') {
-    //   post.rejectionReason = null;
-    //   post.resubmittedAt = null;
-    // } else if (status === 'rejected') {
-    //   post.rejectionReason = rejectionReason || 'Bài đăng vi phạm quy định';
-    // }
-
     return this.postRepository.save(post);
   }
   // ----------------------------------------------------------------
