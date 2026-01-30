@@ -65,6 +65,19 @@ type ListingDraft = {
   images: File[]; // FE preview
 };
 
+type DraftSnapshot = {
+  version: number;
+  savedAt: string;
+  step: number;
+  mapQuery: string;
+  postConsents: {
+    terms: boolean;
+    privacy: boolean;
+    policy: boolean;
+  };
+  draft: Omit<ListingDraft, "images">;
+};
+
 const steps = [
   { key: "basic", label: "Cơ bản" },
   { key: "location", label: "Vị trí" },
@@ -130,8 +143,68 @@ const roommateListingOptions = roommateListingCatalog.map((item) => ({
 
 const MapPicker = dynamic(() => import("./MapPicker"), { ssr: false });
 
+const DRAFT_STORAGE_KEY = "vlu.post.draft.v1";
+const DRAFT_STORAGE_VERSION = 1;
+const DRAFT_SAVE_DELAY = 700;
 const VERIFICATION_STORAGE_KEY = "vlu.landlord.verified";
 const VERIFICATION_PENDING_KEY = "vlu.landlord.pending";
+
+function createEmptyDraft(): ListingDraft {
+  return {
+    purpose: "RENT",
+    title: "",
+    type: "PHONG_TRO",
+    priceVnd: "",
+    areaM2: "",
+    maxPeople: "1",
+    roommateMoveInDate: "",
+    roommateGender: "Không yêu cầu",
+    roommateOccupation: "Sinh viên",
+    roommateContact: "",
+    roommateLifestyle: {
+      quiet: true,
+      clean: true,
+      noSmoking: false,
+      noPets: false,
+      shareUtility: true,
+    },
+    roommateLinkType: "TENANT_SELF",
+    roommateListingId: "",
+    roommateListingTitle: "",
+    roommateListingAddress: "",
+    roommateLandlordName: "",
+    roommateCurrentOccupancy: "",
+    roommateMaxOccupancy: "",
+    roommateApprovalStatus: "pending",
+    roommateNotifyLandlord: false,
+    roommateLandlordConsent: false,
+
+    addressText: "",
+    district: "Bình Thạnh",
+    ward: "",
+
+    furnishing: "BASIC",
+    amenities: {
+      wifi: true,
+      aircon: false,
+      privateWc: true,
+      mezzanine: false,
+      parking: true,
+      freeTime: false,
+    },
+
+    description: "",
+    images: [],
+  };
+}
+
+function createDefaultConsents() {
+  return {
+    terms: false,
+    privacy: false,
+    policy: false,
+  };
+}
 
 function cn(...s: Array<string | false | undefined | null>) {
   return s.filter(Boolean).join(" ");
@@ -148,6 +221,18 @@ function formatVndInput(raw: string) {
 function toNumber(raw: string) {
   const digits = raw.replace(/[^\d]/g, "");
   return digits ? Number(digits) : 0;
+}
+
+function formatDraftTimestamp(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toLocaleString("vi-VN", {
+    hour12: false,
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function buildAddress(draft: ListingDraft) {
@@ -560,52 +645,7 @@ export default function PostWizard() {
   >("loading");
   const [step, setStep] = useState(0);
 
-  const [draft, setDraft] = useState<ListingDraft>({
-    purpose: "RENT",
-    title: "",
-    type: "PHONG_TRO",
-    priceVnd: "",
-    areaM2: "",
-    maxPeople: "1",
-    roommateMoveInDate: "",
-    roommateGender: "Không yêu cầu",
-    roommateOccupation: "Sinh viên",
-    roommateContact: "",
-    roommateLifestyle: {
-      quiet: true,
-      clean: true,
-      noSmoking: false,
-      noPets: false,
-      shareUtility: true,
-    },
-    roommateLinkType: "TENANT_SELF",
-    roommateListingId: "",
-    roommateListingTitle: "",
-    roommateListingAddress: "",
-    roommateLandlordName: "",
-    roommateCurrentOccupancy: "",
-    roommateMaxOccupancy: "",
-    roommateApprovalStatus: "pending",
-    roommateNotifyLandlord: false,
-    roommateLandlordConsent: false,
-
-    addressText: "",
-    district: "Bình Thạnh",
-    ward: "",
-
-    furnishing: "BASIC",
-    amenities: {
-      wifi: true,
-      aircon: false,
-      privateWc: true,
-      mezzanine: false,
-      parking: true,
-      freeTime: false,
-    },
-
-    description: "",
-    images: [],
-  });
+  const [draft, setDraft] = useState<ListingDraft>(() => createEmptyDraft());
   const [isDragging, setIsDragging] = useState(false);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -614,11 +654,9 @@ export default function PostWizard() {
   const [mapQuery, setMapQuery] = useState("");
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
-  const [postConsents, setPostConsents] = useState({
-    terms: false,
-    privacy: false,
-    policy: false,
-  });
+  const [postConsents, setPostConsents] = useState(() => createDefaultConsents());
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
 
   const refreshVerificationStatus = () => {
     const verified = localStorage.getItem(VERIFICATION_STORAGE_KEY) === "true";
@@ -630,9 +668,99 @@ export default function PostWizard() {
     setVerificationStatus(pending ? "pending" : "unverified");
   };
 
+  const hydrateDraft = () => {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as Partial<DraftSnapshot>;
+      if (parsed.version && parsed.version !== DRAFT_STORAGE_VERSION) {
+        return;
+      }
+      if (!parsed.draft) return;
+      const base = createEmptyDraft();
+      const nextDraft: ListingDraft = {
+        ...base,
+        ...parsed.draft,
+        roommateLifestyle: {
+          ...base.roommateLifestyle,
+          ...(parsed.draft.roommateLifestyle ?? {}),
+        },
+        amenities: {
+          ...base.amenities,
+          ...(parsed.draft.amenities ?? {}),
+        },
+        images: [],
+      };
+      setDraft(nextDraft);
+      if (typeof parsed.step === "number" && Number.isFinite(parsed.step)) {
+        const safeStep = Math.min(Math.max(parsed.step, 0), steps.length - 1);
+        setStep(safeStep);
+      }
+      if (typeof parsed.mapQuery === "string") {
+        setMapQuery(parsed.mapQuery);
+      }
+      if (parsed.postConsents) {
+        setPostConsents({ ...createDefaultConsents(), ...parsed.postConsents });
+      }
+      if (parsed.savedAt) {
+        setDraftSavedAt(parsed.savedAt);
+      }
+    } catch (error) {
+      console.error("Draft restore failed.", error);
+    }
+  };
+
+  const persistDraft = () => {
+    try {
+      const { images, ...rest } = draft;
+      const payload: DraftSnapshot = {
+        version: DRAFT_STORAGE_VERSION,
+        savedAt: new Date().toISOString(),
+        step,
+        mapQuery,
+        postConsents,
+        draft: rest,
+      };
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
+      setDraftSavedAt(payload.savedAt);
+    } catch (error) {
+      console.error("Draft save failed.", error);
+    }
+  };
+
+  const clearDraftStorage = (resetForm: boolean) => {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    setDraftSavedAt(null);
+    if (resetForm) {
+      setDraft(createEmptyDraft());
+      setStep(0);
+      setMapQuery("");
+      setPostConsents(createDefaultConsents());
+      setActiveImageIdx(0);
+      setSubmitError(null);
+      setSubmitSuccess(null);
+    }
+  };
+
+  const handleDiscardDraft = () => {
+    const ok = window.confirm("Xoá bản nháp và nhập lại từ đầu?");
+    if (!ok) return;
+    clearDraftStorage(true);
+  };
+
   useEffect(() => {
     refreshVerificationStatus();
+    hydrateDraft();
+    setDraftReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    const timer = setTimeout(() => {
+      persistDraft();
+    }, DRAFT_SAVE_DELAY);
+    return () => clearTimeout(timer);
+  }, [draft, step, mapQuery, postConsents, draftReady]);
 
   const canNext = useMemo(() => {
     if (step === 0) {
@@ -819,6 +947,7 @@ export default function PostWizard() {
     try {
       if (draft.purpose === "ROOMMATE" && draft.roommateLinkType === "LANDLORD_ASSIST") {
         setSubmitSuccess("Đã gửi yêu cầu nhờ chủ trọ hỗ trợ đăng tin ở ghép.");
+        clearDraftStorage(false);
         return;
       }
       const categoryName = categoryNameMap[draft.type];
@@ -848,6 +977,7 @@ export default function PostWizard() {
           ? "Đăng tin ở ghép thành công. Tin đang chờ chủ trọ xác nhận."
           : "Dang tin thanh cong. Tin dang cho duyet.");
       setSubmitSuccess(message);
+      clearDraftStorage(false);
     } catch (err) {
       const message =
         (err as { response?: { data?: { message?: string } }; message?: string })
@@ -862,12 +992,37 @@ export default function PostWizard() {
 
   return (
     <div className="mx-auto w-full max-w-none px-4 py-8 sm:px-6 lg:px-12">
-      <div className="mb-6">
-        <div className="text-2xl font-bold text-gray-900">
-          {draft.purpose === "ROOMMATE" ? "Đăng tin ở ghép" : "Đăng tin cho thuê"}
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-2xl font-bold text-gray-900">
+            {draft.purpose === "ROOMMATE" ? "Đăng tin ở ghép" : "Đăng tin cho thuê"}
+          </div>
+          <div className="mt-1 text-sm text-gray-500">
+            Điền theo từng bước để tin đăng đầy đủ và dễ duyệt.
+          </div>
+          <div className="mt-2 text-xs text-gray-500">
+            Bản nháp tự lưu theo thời gian. Ảnh không được lưu trong bản nháp.
+          </div>
         </div>
-        <div className="mt-1 text-sm text-gray-500">
-          Điền theo từng bước để tin đăng đầy đủ và dễ duyệt.
+        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+          {draftSavedAt ? (
+            <span className="rounded-full border border-gray-200 bg-white px-3 py-1 font-semibold text-gray-600">
+              Đã lưu {formatDraftTimestamp(draftSavedAt)}
+            </span>
+          ) : (
+            <span className="rounded-full border border-gray-200 bg-white px-3 py-1 font-semibold text-gray-600">
+              Chưa có bản nháp
+            </span>
+          )}
+          {draftSavedAt ? (
+            <button
+              type="button"
+              onClick={handleDiscardDraft}
+              className="rounded-full border border-gray-200 bg-white px-3 py-1 font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Bỏ bản nháp
+            </button>
+          ) : null}
         </div>
       </div>
 
