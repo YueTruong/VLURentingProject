@@ -10,6 +10,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { UsersModule } from './users/user.module';
 import { ChatModule } from './chat/chat.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { ChatModule } from './chat/chat.module';
     AdminModule,
     ReviewsModule,
     ChatModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

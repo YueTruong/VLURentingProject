@@ -13,6 +13,7 @@ import { PostImageEntity } from 'src/database/entities/post-image.entity';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { SearchPostDto } from './dto/search-post.dto';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Injectable()
 export class PostsService {
@@ -23,6 +24,7 @@ export class PostsService {
     private readonly categoryRepository: Repository<CategoryEntity>,
     @InjectRepository(AmenityEntity)
     private readonly amenityRepository: Repository<AmenityEntity>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // Tạo tin đăng mới
@@ -328,12 +330,37 @@ export class PostsService {
 
     post.status = status;
 
+    let notifTitle = '';
+    let notifMessage = '';
+
     if (status === 'approved') {
       post.rejectionReason = null;
       post.resubmittedAt = null;
+      notifTitle = 'Tin đăng của bạn đã được duyệt! 🎉';
+      notifMessage = `Tin "${post.title}" đã được duyệt và hiển thị công khai.`;
     } else if (status === 'rejected') {
       post.rejectionReason = rejectionReason || 'Bài đăng vi phạm quy định';
+      notifTitle = 'Tin đăng bị từ chối 😞';
+      notifMessage = `Tin "${post.title}" bị từ chối. Lý do: ${post.rejectionReason}`;
     }
+
+    // Gọi service tạo thông báo
+    if (notifTitle) {
+      await this.notificationsService.createNotification(
+        post.userId, // ID chủ trọ
+        notifTitle,
+        notifMessage,
+        'listing', // type
+        post.id, // relatedId
+      );
+    }
+
+    // if (status === 'approved') {
+    //   post.rejectionReason = null;
+    //   post.resubmittedAt = null;
+    // } else if (status === 'rejected') {
+    //   post.rejectionReason = rejectionReason || 'Bài đăng vi phạm quy định';
+    // }
 
     return this.postRepository.save(post);
   }

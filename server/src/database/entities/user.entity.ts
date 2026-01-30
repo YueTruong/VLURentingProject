@@ -12,6 +12,7 @@ import {
 import { RoleEntity } from './role.entity';
 import { UserProfileEntity } from './user-profile.entity';
 import { PostEntity } from './post.entity';
+import { NotificationEntity } from './notification.entity';
 
 @Entity({ name: 'users' })
 export class UserEntity {
@@ -56,4 +57,8 @@ export class UserEntity {
 
   // @Column({ nullable: true, default: 'local' }) // Cho phép null hoặc mặc định là local
   // provider: string;
+
+  // Mối quan hệ với NotificationEntity
+  @OneToMany(() => NotificationEntity, (notification) => notification.user)
+  notifications: NotificationEntity[];
 }
