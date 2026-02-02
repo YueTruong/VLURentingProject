@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { toggleFavorite, useFavorites } from "@/app/services/favorites";
 
 export type RoomCardData = {
   id: number;
@@ -19,6 +22,9 @@ interface RoomProps {
 }
 
 export default function RoomCard({ data, className }: RoomProps) {
+  const favorites = useFavorites();
+  const isSaved = favorites.some((item) => item.id === data.id);
+
   return (
     <div
       className={`group relative flex h-full w-full max-w-[360px] flex-col overflow-hidden rounded-[20px] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(0,0,0,0.14)] flex-none ${className ?? ""}`}
@@ -32,15 +38,18 @@ export default function RoomCard({ data, className }: RoomProps) {
         />
         <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/25 via-black/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         <button
+          type="button"
           className="
           absolute top-3 right-3
           bg-white w-9 h-9 rounded-full shadow
           flex items-center justify-center text-gray-700
           hover:bg-red-50 hover:text-red-500 transition-colors
         "
+          onClick={() => toggleFavorite(data)}
           aria-label="Yêu thích"
+          aria-pressed={isSaved}
         >
-          ♥
+          <span className={isSaved ? "text-red-500" : ""}>♥</span>
         </button>
       </div>
 
@@ -107,3 +116,4 @@ export default function RoomCard({ data, className }: RoomProps) {
     </div>
   );
 }
+

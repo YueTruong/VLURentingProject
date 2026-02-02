@@ -1,79 +1,38 @@
-"use client";
+﻿"use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import RoomCard from "@/app/homepage/components/RoomCard";
 import UserPageShell from "@/app/homepage/components/UserPageShell";
-
-const favoriteRooms = [
-  {
-    id: 101,
-    title: "Căn hộ studio view sông",
-    image: "/images/House.svg",
-    location: "Quận 7, TP.HCM",
-    beds: 1,
-    baths: 1,
-    wifi: true,
-    area: "32m²",
-    price: "4.8 triệu",
-  },
-  {
-    id: 102,
-    title: "Phòng trọ gần cơ sở 3",
-    image: "/images/House.svg",
-    location: "Quận Gò Vấp, TP.HCM",
-    beds: 1,
-    baths: 1,
-    wifi: true,
-    area: "28m²",
-    price: "3.9 triệu",
-  },
-  {
-    id: 103,
-    title: "Nhà nguyên căn 3 phòng",
-    image: "/images/House.svg",
-    location: "Thủ Đức, TP.HCM",
-    beds: 3,
-    baths: 2,
-    wifi: true,
-    area: "96m²",
-    price: "11.5 triệu",
-  },
-  {
-    id: 104,
-    title: "Căn hộ 2PN full nội thất",
-    image: "/images/House.svg",
-    location: "Quận Bình Thạnh",
-    beds: 2,
-    baths: 2,
-    wifi: true,
-    area: "70m²",
-    price: "8.2 triệu",
-  },
-  {
-    id: 105,
-    title: "Phòng trọ có ban công",
-    image: "/images/House.svg",
-    location: "Quận 10, TP.HCM",
-    beds: 1,
-    baths: 1,
-    wifi: false,
-    area: "22m²",
-    price: "3.2 triệu",
-  },
-  {
-    id: 106,
-    title: "Co-living gần cơ sở 2",
-    image: "/images/House.svg",
-    location: "Quận Phú Nhuận, TP.HCM",
-    beds: 4,
-    baths: 2,
-    wifi: true,
-    area: "54m²",
-    price: "2.6 triệu",
-  },
-];
+import { clearFavorites, useFavorites } from "@/app/services/favorites";
 
 export default function FavoritesPage() {
+  const favorites = useFavorites();
+  const favoriteRooms = useMemo(() => {
+    return [...favorites].sort((a, b) => {
+      const ta = new Date(a.savedAt).getTime();
+      const tb = new Date(b.savedAt).getTime();
+      return tb - ta;
+    });
+  }, [favorites]);
+
+  const recentCount = useMemo(() => {
+    const now = Date.now();
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    return favoriteRooms.filter((room) => {
+      const ts = new Date(room.savedAt).getTime();
+      return Number.isFinite(ts) && now - ts <= weekMs;
+    }).length;
+  }, [favoriteRooms]);
+
+  const areaSummary = useMemo(() => {
+    const areas = favoriteRooms
+      .map((room) => room.location.split(",")[0]?.trim())
+      .filter((item) => Boolean(item));
+    const unique = Array.from(new Set(areas));
+    return unique.slice(0, 3).join(", ") || "Chưa có";
+  }, [favoriteRooms]);
+
   return (
     <UserPageShell
       title="Danh sách yêu thích"
@@ -92,14 +51,14 @@ export default function FavoritesPage() {
             <p className="text-xs text-gray-500">Nhận thông báo khi tin thay đổi.</p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-500">Tin đã lưu</p>
-            <div className="mt-2 text-3xl font-extrabold text-gray-900">4</div>
-            <p className="text-xs text-gray-500">Đã mở chi tiết hoặc đặt lịch xem.</p>
+            <p className="text-sm text-gray-500">Mới lưu 7 ngày</p>
+            <div className="mt-2 text-3xl font-extrabold text-gray-900">{recentCount}</div>
+            <p className="text-xs text-gray-500">Những tin được lưu gần đây.</p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <p className="text-sm text-gray-500">Gợi ý theo khu vực</p>
-            <div className="mt-2 text-2xl font-extrabold text-gray-900">Quận 3, 5, Bình Thạnh</div>
-            <p className="text-xs text-gray-500">Dựa trên lượt lưu gần đây.</p>
+            <div className="mt-2 text-2xl font-extrabold text-gray-900">{areaSummary}</div>
+            <p className="text-xs text-gray-500">Dựa trên khu vực bạn ưa thích.</p>
           </div>
         </div>
 
@@ -112,7 +71,11 @@ export default function FavoritesPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 active:scale-95">
+              <button
+                onClick={() => clearFavorites()}
+                disabled={favoriteRooms.length === 0}
+                className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+              >
                 Xóa hết
               </button>
               <Link
@@ -136,11 +99,17 @@ export default function FavoritesPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {favoriteRooms.map((room) => (
-            <RoomCard key={room.id} data={room} />
-          ))}
-        </div>
+        {favoriteRooms.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-600 shadow-sm">
+            Chưa có tin yêu thích. Hãy khám phá các phòng trên hệ thống và nhấn ♥ để lưu.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {favoriteRooms.map((room) => (
+              <RoomCard key={room.id} data={room} />
+            ))}
+          </div>
+        )}
 
         {/* <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 flex flex-wrap items-center justify-between gap-3 shadow-sm">
           <div>
