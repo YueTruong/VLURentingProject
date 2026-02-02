@@ -26,8 +26,8 @@ export class ReviewEntity {
   @Column({ name: 'user_id' })
   userId: number;
 
-  @Column({ name: 'post_id' })
-  postId: number;
+  @Column({ name: 'post_id', nullable: true })
+  postId: number | null;
 
   // Liên kết với User (Sinh viên viết đánh giá)
   @ManyToOne(() => UserEntity)
@@ -35,7 +35,10 @@ export class ReviewEntity {
   user: UserEntity;
 
   // Liên kết với Post (Bài đăng được đánh giá)
-  @ManyToOne(() => PostEntity, (post) => post.reviews, { onDelete: 'CASCADE' })
+  @ManyToOne(() => PostEntity, (post) => post.reviews, {
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
   @JoinColumn({ name: 'post_id' })
-  post: PostEntity;
+  post?: PostEntity | null;
 }
