@@ -47,6 +47,13 @@ const kpiIcons: Record<string, ReactNode> = {
   "success-rate": <TargetIcon className="h-5 w-5" />,
 };
 
+const getRoleTone = (role: string) => {
+  if (role === "ADMIN") return "blue";
+  if (role === "LANDLORD") return "yellow";
+  if (role === "STUDENT") return "green";
+  return "gray";
+};
+
 function formatDateTime(value: string) {
   const parsed = new Date(value.replace(" ", "T"));
   if (Number.isNaN(parsed.getTime())) return value;
@@ -206,7 +213,7 @@ export default function AdminDashboardPage() {
       header: "Role",
       sortable: true,
       render: (row) => (
-        <StatusBadge label={row.role} tone={row.role === "ADMIN" ? "blue" : "gray"} />
+        <StatusBadge label={row.role} tone={getRoleTone(row.role)} />
       ),
       sortValue: (row) => row.role,
     },
