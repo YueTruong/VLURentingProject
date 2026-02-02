@@ -161,7 +161,6 @@ export default function RoomListBody() {
 
   useEffect(() => {
     let active = true;
-    setLoadError(false);
     getApprovedPosts()
       .then((posts) => {
         if (!active) return;
