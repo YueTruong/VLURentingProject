@@ -66,29 +66,24 @@ export default function UsersPage() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
   const [rows, setRows] = useState<AdminUserRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [lastFetchToken, setLastFetchToken] = useState<string | null>(null);
 
   const { data: session, status: sessionStatus } = useSession();
+  const accessToken = session?.user?.accessToken;
+  const role = session?.user?.role;
+
+  const authError = useMemo(() => {
+    if (sessionStatus === "loading") return null;
+    if (!accessToken) return "auth_failed";
+    if (role && role !== "admin") return "forbidden";
+    return null;
+  }, [accessToken, role, sessionStatus]);
 
   useEffect(() => {
     if (sessionStatus === "loading") return;
-    const accessToken = session?.user?.accessToken;
-    const role = session?.user?.role;
-    if (!accessToken) {
-      setLoadError("auth_failed");
-      setLoading(false);
-      return;
-    }
-    if (role && role !== "admin") {
-      setLoadError("forbidden");
-      setLoading(false);
-      return;
-    }
-
+    if (authError || !accessToken) return;
     let active = true;
-    setLoadError(null);
-    setLoading(true);
     getAdminUsers(accessToken)
       .then((data) => {
         if (!active) return;
@@ -96,25 +91,24 @@ export default function UsersPage() {
           .map(mapUserToRow)
           .sort((a, b) => b.createdAtValue - a.createdAtValue);
         setRows(mapped);
+        setFetchError(null);
+        setLastFetchToken(accessToken);
       })
       .catch((err) => {
         if (!active) return;
         if (axios.isAxiosError(err) && err.response?.status === 403) {
-          setLoadError("forbidden");
+          setFetchError("forbidden");
         } else {
           console.error("Failed to load admin users:", err);
-          setLoadError("load_failed");
+          setFetchError("load_failed");
         }
+        setLastFetchToken(accessToken);
       })
-      .finally(() => {
-        if (!active) return;
-        setLoading(false);
-      });
 
     return () => {
       active = false;
     };
-  }, [session, sessionStatus]);
+  }, [accessToken, authError, sessionStatus]);
 
   const statusOptions = [
     { value: "all", label: "All status"},
@@ -182,6 +176,11 @@ export default function UsersPage() {
       sortValue: (r) => r.createdAtValue,
     },
   ];
+
+  const loading =
+    sessionStatus === "loading" ? true : authError ? false : lastFetchToken !== accessToken;
+  const loadError =
+    authError ?? (lastFetchToken === accessToken ? fetchError : null);
 
   const emptyText = loading
     ? "Loading users..."
