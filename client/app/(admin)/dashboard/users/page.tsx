@@ -1,15 +1,120 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
+import axios from "axios";
 import SectionCard from "../../components/SectionCard";
 import FiltersBar from "../../components/FiltersBar";
 import DataTable, { Column } from "../../components/DataTable";
 import StatusBadge from "../../components/StatusBadge";
-import { users, type UserRow } from "../../components/mock/data";
+import { getAdminUsers, type AdminUser } from "@/app/services/admin-users";
+
+type AdminUserRow = {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+  status: "ACTIVE" | "BLOCKED" | "PENDING";
+  verified: boolean | null;
+  createdAt: string;
+  createdAtValue: number;
+};
+
+const formatDate = (value?: string) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "-";
+  return date.toLocaleDateString("vi-VN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+};
+
+const mapUserToRow = (user: AdminUser): AdminUserRow => {
+  const displayName =
+    user.profile?.full_name?.trim() ||
+    user.username?.trim() ||
+    user.email?.trim() ||
+    "Unknown";
+  const email = user.email?.trim() || "-";
+  const createdSource = user.createdAt ?? user.updatedAt ?? "";
+  const createdAtValue = createdSource ? new Date(createdSource).getTime() : 0;
+  const roleName = (user.role?.name || "unknown").toUpperCase();
+  const status = user.is_active === false ? "BLOCKED" : "ACTIVE";
+
+  return {
+    id: user.id,
+    username: displayName,
+    email,
+    role: roleName,
+    status,
+    verified: null,
+    createdAt: formatDate(createdSource),
+    createdAtValue,
+  };
+};
+
+const getRoleTone = (role: string) => {
+  if (role === "ADMIN") return "blue";
+  if (role === "LANDLORD") return "yellow";
+  if (role === "STUDENT") return "green";
+  return "gray";
+};
 
 export default function UsersPage() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
+  const [rows, setRows] = useState<AdminUserRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const { data: session, status: sessionStatus } = useSession();
+
+  useEffect(() => {
+    if (sessionStatus === "loading") return;
+    const accessToken = session?.user?.accessToken;
+    const role = session?.user?.role;
+    if (!accessToken) {
+      setLoadError("auth_failed");
+      setLoading(false);
+      return;
+    }
+    if (role && role !== "admin") {
+      setLoadError("forbidden");
+      setLoading(false);
+      return;
+    }
+
+    let active = true;
+    setLoadError(null);
+    setLoading(true);
+    getAdminUsers(accessToken)
+      .then((data) => {
+        if (!active) return;
+        const mapped = data
+          .map(mapUserToRow)
+          .sort((a, b) => b.createdAtValue - a.createdAtValue);
+        setRows(mapped);
+      })
+      .catch((err) => {
+        if (!active) return;
+        if (axios.isAxiosError(err) && err.response?.status === 403) {
+          setLoadError("forbidden");
+        } else {
+          console.error("Failed to load admin users:", err);
+          setLoadError("load_failed");
+        }
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [session, sessionStatus]);
 
   const statusOptions = [
     { value: "all", label: "All status"},
@@ -20,29 +125,29 @@ export default function UsersPage() {
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
-    return users.filter((u) => {
+    return rows.filter((u) => {
       const okQ =
         !qq || u.username.toLowerCase().includes(qq) || u.email.toLowerCase().includes(qq);
       const okS = status === "all" ? true : u.status === status;
       return okQ && okS;
     });
-  }, [q, status]);
+  }, [q, status, rows]);
   
-  const cols: Column<UserRow>[] = [
+  const cols: Column<AdminUserRow>[] = [
     { key: "username", header: "Username", sortable: true },
     { key: "email", header: "Email" },
     {
       key: "role",
       header: "Role",
       sortable: true,
-      render: (r) => <StatusBadge label={r.role} tone={r.role === "ADMIN" ? "blue" : "gray"} />,
+      render: (r) => <StatusBadge label={r.role} tone={getRoleTone(r.role)} />,
       sortValue: (r) => r.role,
     },
     {
       key: "verified",
       header: "Verification",
       render: (r) => {
-        if (r.role !== "LANDLORD") {
+        if (r.role !== "LANDLORD" || r.verified === null) {
           return <StatusBadge label="N/A" tone="gray" />;
         }
         return (
@@ -52,10 +157,15 @@ export default function UsersPage() {
           />
         );
       },
-      sortValue: (r) => (r.role === "LANDLORD" ? (r.verified ? "verified" : "unverified") : "na"),
+      sortValue: (r) =>
+        r.role === "LANDLORD" && r.verified !== null
+          ? r.verified
+            ? "verified"
+            : "unverified"
+          : "na",
     },
     {
-      key: "stauts",
+      key: "status",
       header: "Status",
       sortable: true,
       render: (r) => (
@@ -65,25 +175,41 @@ export default function UsersPage() {
         />
       ),
     },
-    { key: "createdAt", header: "Created", sortable: true },
+    {
+      key: "createdAt",
+      header: "Created",
+      sortable: true,
+      sortValue: (r) => r.createdAtValue,
+    },
   ];
+
+  const emptyText = loading
+    ? "Loading users..."
+    : loadError === "auth_failed"
+      ? "Please sign in again."
+      : loadError === "forbidden"
+        ? "Access denied."
+      : loadError
+        ? "Failed to load users."
+        : "No data";
   
   return (
     <div className="space-y-6">
       <SectionCard
         title="Users"
         subtitle="Manage accounts, roles, and status"
-        right={
-          <button className="rounded-xl bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800">
-            Add user
-          </button>
-        }
       >
         <FiltersBar q={q} onQ={setQ} status={status} onStatus={setStatus} statusOptions={statusOptions} />
       </SectionCard>
 
-      <SectionCard title="User List" subtitle={`${filtered.length}results`}>
-        <DataTable<UserRow> rows={filtered} columns={cols} pageSize={8} rowKey={(r) => r.id} />
+      <SectionCard title="User List" subtitle={`${filtered.length} results`} contentClassName="p-0">
+        <DataTable<AdminUserRow>
+          rows={filtered}
+          columns={cols}
+          pageSize={8}
+          rowKey={(r) => String(r.id)}
+          emptyText={emptyText}
+        />
       </SectionCard>
     </div>
   );
