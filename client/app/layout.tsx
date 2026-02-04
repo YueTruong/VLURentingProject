@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import SessionProviderWrapper from "./homepage/components/SessionProviderWrapper";
+import { ThemeProvider } from "./theme/ThemeProvider";
 
 export const metadata: Metadata = {
   title: "VLU Renting",
@@ -13,11 +14,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="overflow-x-hidden">
-       <SessionProviderWrapper>
-          {children}
-       </SessionProviderWrapper>
+        <ThemeProvider>
+          <SessionProviderWrapper>{children}</SessionProviderWrapper>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSession, signIn } from "next-auth/react";
 import UserMenu from "@/app/homepage/components/UserMenu";
+import ThemeToggleButton from "@/app/theme/ThemeToggleButton";
 
 export default function UserTopBar() {
   const { data: session, status } = useSession();
@@ -52,8 +53,14 @@ export default function UserTopBar() {
   }, [session, status]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-10">
+    <header className="sticky top-0 z-40 border-b border-[color:var(--surface-navy-border)] text-white backdrop-blur relative">
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage: "linear-gradient(to right, var(--surface-navy-900), var(--surface-navy-800), var(--surface-navy-700))",
+        }}
+      />
+      <div className="relative mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-10">
         
         {/* Logo Section */}
         <div className="flex items-center gap-3">
@@ -66,22 +73,26 @@ export default function UserTopBar() {
               className="object-contain" 
             />
           </Link>
-          <div className="hidden sm:block text-xs text-gray-500">
+          <div className="hidden text-xs text-white/70 sm:block">
             Trang web giúp sinh viên Văn Lang tìm nhà trọ phù hợp
           </div>
         </div>
 
         {/* Actions Section */}
         <div className="flex items-center gap-3">
+          <ThemeToggleButton
+            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20 active:scale-95"
+            iconClassName="h-5 w-5"
+          />
           {session ? (
             <>
               {/* Nút Chat */}
               <Link
                 href="/chat"
-                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 active:scale-95"
+                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20 active:scale-95"
                 aria-label="Trò chuyện"
               >
-                <Image src="/icons/Chat.svg" alt="Chat" width={22} height={22} />
+                <Image src="/icons/Chat.svg" alt="Chat" width={22} height={22} className="icon-adapt-dark" />
                 {/* Ghi chú: Hiện tại hệ thống Notification đã bao gồm cả tin nhắn chat.
                    Nếu em muốn tách riêng số tin nhắn chưa đọc ở đây, cần thêm API đếm chat riêng.
                    Tạm thời user sẽ nhìn vào Thông báo để biết có tin nhắn mới.
@@ -91,14 +102,14 @@ export default function UserTopBar() {
               {/* Nút Thông báo (Có Badge đỏ) */}
               <Link
                 href="/notifications"
-                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 active:scale-95"
+                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20 active:scale-95"
                 aria-label="Thông báo"
               >
-                <Image src="/icons/Notification.svg" alt="Thông báo" width={22} height={22} />
+                <Image src="/icons/Notification.svg" alt="Thông báo" width={22} height={22} className="icon-adapt-dark" />
                 
                 {/* 👇 Hiển thị số đỏ nếu có thông báo */}
                 {unreadCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#D51F35] px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[color:var(--brand-accent)] px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-[color:var(--surface-navy-900)]">
                     {unreadCount > 99 ? "99+" : unreadCount}
                   </span>
                 )}
@@ -110,7 +121,7 @@ export default function UserTopBar() {
           ) : (
             <button
               onClick={() => signIn()}
-              className="rounded-full bg-[#D51F35] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b01628] active:scale-95"
+              className="rounded-full bg-[color:var(--brand-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[color:var(--brand-accent-strong)] active:scale-95"
             >
               Đăng nhập
             </button>

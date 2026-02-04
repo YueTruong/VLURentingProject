@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import UserMenu from "@/app/homepage/components/UserMenu";
+import ThemeToggleButton from "@/app/theme/ThemeToggleButton";
 
 export default function Topbar() {
   const tagline =
@@ -26,19 +27,23 @@ export default function Topbar() {
         </div>
 
         <div className="flex items-center gap-3">
+          <ThemeToggleButton
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50 active:scale-95"
+            iconClassName="h-5 w-5"
+          />
           <Link
             href="/chat"
             className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50 active:scale-95"
             aria-label="Chat"
           >
-            <Image src="/icons/Chat.svg" alt="Chat" width={20} height={20} />
+            <Image src="/icons/Chat.svg" alt="Chat" width={20} height={20} className="icon-adapt-dark" />
           </Link>
           <Link
             href="/notifications"
             className="relative flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-50 active:scale-95"
             aria-label="Notifications"
           >
-            <Image src="/icons/Notification.svg" alt="Notifications" width={20} height={20} />
+            <Image src="/icons/Notification.svg" alt="Notifications" width={20} height={20} className="icon-adapt-dark" />
             <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-emerald-500" />
           </Link>
 

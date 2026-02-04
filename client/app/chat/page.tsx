@@ -110,39 +110,39 @@ type Message = {
 function UserProfileModal({ user, onClose }: { user: User; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl relative z-101">
+      <div className="relative z-101 w-full max-w-sm rounded-3xl border border-[color:var(--theme-border)] bg-[color:var(--theme-surface)] p-6 text-[color:var(--theme-text)] shadow-2xl">
         <div className="flex justify-end">
-          <button onClick={onClose} className="rounded-full p-1 hover:bg-gray-100 text-gray-500 transition">
+          <button onClick={onClose} className="rounded-full p-1 text-[color:var(--theme-text-subtle)] transition hover:bg-[color:var(--theme-surface-muted)]">
             <Cross2Icon className="h-6 w-6" />
           </button>
         </div>
         <div className="flex flex-col items-center gap-4">
-          <div className="relative h-24 w-24 overflow-hidden rounded-full border-4 border-white shadow-lg bg-gray-100 flex items-center justify-center">
+          <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-[color:var(--theme-surface)] bg-[color:var(--theme-surface-muted)] shadow-lg">
             {user.avatar_url ? (
               <Image src={user.avatar_url} alt="Avatar" fill className="object-cover" unoptimized />
             ) : (
-              <span className="text-4xl font-bold text-gray-400">{user.full_name?.charAt(0).toUpperCase() || "U"}</span>
+              <span className="text-4xl font-bold text-[color:var(--theme-text-subtle)]">{user.full_name?.charAt(0).toUpperCase() || "U"}</span>
             )}
           </div>
           <div className="text-center">
-            <h2 className="text-xl font-bold text-gray-900">{user.full_name || "Người dùng"}</h2>
-            <p className="text-sm text-gray-500">Thành viên VLU Renting</p>
+            <h2 className="text-xl font-bold text-[color:var(--theme-text)]">{user.full_name || "Người dùng"}</h2>
+            <p className="text-sm text-[color:var(--theme-text-muted)]">Thành viên VLU Renting</p>
           </div>
           
           <div className="w-full space-y-3 mt-2">
-            <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-3 border border-gray-100">
-              <EnvelopeClosedIcon className="h-5 w-5 text-gray-400" />
+            <div className="flex items-center gap-3 rounded-xl border border-[color:var(--theme-border)] bg-[color:var(--theme-surface-muted)] p-3">
+              <EnvelopeClosedIcon className="h-5 w-5 text-[color:var(--theme-text-subtle)]" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-400 font-medium uppercase">Email</p>
-                <p className="text-sm text-gray-700 truncate">{user.email}</p>
+                <p className="text-xs font-medium uppercase text-[color:var(--theme-text-subtle)]">Email</p>
+                <p className="text-sm truncate text-[color:var(--theme-text-muted)]">{user.email}</p>
               </div>
             </div>
             {user.phone_number && (
-                <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-3 border border-gray-100">
-                <PersonIcon className="h-5 w-5 text-gray-400" />
+                <div className="flex items-center gap-3 rounded-xl border border-[color:var(--theme-border)] bg-[color:var(--theme-surface-muted)] p-3">
+                <PersonIcon className="h-5 w-5 text-[color:var(--theme-text-subtle)]" />
                 <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-400 font-medium uppercase">Số điện thoại</p>
-                    <p className="text-sm text-gray-700 truncate">{user.phone_number}</p>
+                    <p className="text-xs font-medium uppercase text-[color:var(--theme-text-subtle)]">Số điện thoại</p>
+                    <p className="text-sm truncate text-[color:var(--theme-text-muted)]">{user.phone_number}</p>
                 </div>
                 </div>
             )}
@@ -150,7 +150,7 @@ function UserProfileModal({ user, onClose }: { user: User; onClose: () => void }
 
           <button 
             onClick={onClose}
-            className="mt-4 w-full rounded-full bg-[#0b1a57] py-2.5 text-sm font-semibold text-white hover:bg-[#0a1647] transition shadow-md active:scale-95"
+            className="mt-4 w-full rounded-full bg-[color:var(--brand-accent)] py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[color:var(--brand-accent-strong)] active:scale-95"
           >
             Đóng
           </button>
@@ -163,8 +163,8 @@ function UserProfileModal({ user, onClose }: { user: User; onClose: () => void }
 function ConversationItem({ convo, active, onSelect }: { convo: Conversation; active: boolean; onSelect: () => void }) {
   // Tính toán style dựa trên trạng thái active
   const containerClass = active 
-    ? "bg-blue-50/80 shadow-sm border border-blue-100 ring-1 ring-blue-100" 
-    : "hover:bg-gray-50 border border-transparent hover:border-gray-100";
+    ? "border border-[color:var(--theme-border)] bg-[color:var(--brand-primary-soft)] shadow-sm ring-1 ring-[color:var(--theme-border)]" 
+    : "border border-transparent hover:border-[color:var(--theme-border)] hover:bg-[color:var(--theme-surface-muted)]";
 
   return (
     <button
@@ -172,7 +172,7 @@ function ConversationItem({ convo, active, onSelect }: { convo: Conversation; ac
       className={`group flex w-full items-center gap-3 rounded-xl p-3 mb-1 transition-all duration-200 ${containerClass}`}
     >
       <div className="relative h-12 w-12 shrink-0">
-        <div className="h-full w-full overflow-hidden rounded-full border border-gray-200 bg-gray-100 flex items-center justify-center text-gray-500 font-bold text-lg">
+        <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-[color:var(--theme-border)] bg-[color:var(--theme-surface-muted)] text-lg font-bold text-[color:var(--theme-text-subtle)]">
             {convo.display_avatar ? (
                 <Image src={convo.display_avatar} alt="Avatar" fill className="object-cover" unoptimized />
             ) : (
@@ -183,14 +183,14 @@ function ConversationItem({ convo, active, onSelect }: { convo: Conversation; ac
       
       <div className="flex-1 min-w-0 text-left">
         <div className="flex items-center justify-between mb-0.5">
-          <p className={`text-sm truncate ${active ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
+          <p className={`text-sm truncate ${active ? "font-bold text-[color:var(--theme-text)]" : "font-semibold text-[color:var(--theme-text-muted)]"}`}>
             {convo.display_name}
           </p>
-          <span className={`text-[10px] whitespace-nowrap ${active ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>
+          <span className={`text-[10px] whitespace-nowrap ${active ? "font-medium text-[color:var(--brand-primary-text)]" : "text-[color:var(--theme-text-subtle)]"}`}>
             {formatRelativeTime(convo.last_time)}
           </span>
         </div>
-        <p className={`text-xs truncate ${active ? 'text-gray-700 font-medium' : 'text-gray-500'}`}>
+        <p className={`text-xs truncate ${active ? "font-medium text-[color:var(--theme-text-muted)]" : "text-[color:var(--theme-text-subtle)]"}`}>
           {convo.last_message || "Chưa có tin nhắn"}
         </p>
       </div>
@@ -204,7 +204,7 @@ function MessageBubble({ msg, isMe }: { msg: Message; isMe: boolean }) {
   return (
     <div className={`flex items-end gap-2 mb-4 group ${isMe ? "justify-end" : "justify-start"}`}>
       {!isMe && (
-         <div className="h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600 shrink-0 mb-1 shadow-sm">
+         <div className="mb-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[color:var(--theme-surface-muted)] text-[10px] font-bold text-[color:var(--theme-text-muted)] shadow-sm">
              Bot
          </div>
       )}
@@ -214,12 +214,12 @@ function MessageBubble({ msg, isMe }: { msg: Message; isMe: boolean }) {
             className={`px-4 py-2.5 text-[15px] shadow-sm leading-relaxed whitespace-pre-wrap wrap-break-word ${
             isMe 
                 ? "bg-[#D51F35] text-white rounded-2xl rounded-tr-sm" 
-                : "bg-white text-gray-900 border border-gray-100 rounded-2xl rounded-tl-sm"
+                : "rounded-2xl rounded-tl-sm border border-[color:var(--theme-border)] bg-[color:var(--theme-surface)] text-[color:var(--theme-text)]"
             }`}
         >
             {msg.content}
         </div>
-        <span className={`text-[10px] mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none ${isMe ? "text-gray-400 text-right" : "text-gray-400"}`}>
+        <span className={`text-[10px] mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none ${isMe ? "text-right text-[color:var(--theme-text-subtle)]" : "text-[color:var(--theme-text-subtle)]"}`}>
             {timeStr}
         </span>
       </div>
@@ -420,7 +420,7 @@ export default function ChatPage() {
   const currentConv = conversations.find(c => c.id === selectedId);
 
   return (
-    <div className="flex h-screen flex-col bg-white overflow-hidden">
+    <div className="flex h-screen flex-col overflow-hidden bg-[color:var(--theme-bg)] text-[color:var(--theme-text)]">
       
       <div className="flex-none z-50">
         <UserTopBar />
@@ -429,24 +429,24 @@ export default function ChatPage() {
       <div className="flex flex-1 overflow-hidden">
         
         {/* === SIDEBAR === */}
-        <aside className="w-80 flex flex-col border-r border-gray-100 bg-white z-40">
+        <aside className="z-40 flex w-80 flex-col border-r border-[color:var(--theme-border)] bg-[color:var(--theme-surface)]">
           
           <div className="flex-none px-5 pt-6 pb-2">
             <div className="flex items-center justify-between mb-5">
-                <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Đoạn chat</h1>
-                <button className="rounded-full p-2 bg-gray-50 hover:bg-gray-100 text-gray-600 transition">
+                <h1 className="text-2xl font-bold tracking-tight text-[color:var(--theme-text)]">Đoạn chat</h1>
+                <button className="rounded-full bg-[color:var(--theme-surface-muted)] p-2 text-[color:var(--theme-text-muted)] transition hover:brightness-95">
                     <Pencil2Icon className="h-5 w-5" />
                 </button>
             </div>
             
             <div className="relative group">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition" />
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--theme-text-subtle)] transition group-focus-within:text-[color:var(--brand-primary-text)]" />
                 <input 
                     type="text" 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Tìm kiếm cuộc trò chuyện..." 
-                    className="w-full rounded-2xl bg-gray-100 py-3 pl-10 pr-4 text-sm text-gray-700 outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 transition duration-200 border border-transparent focus:border-blue-200" 
+                    className="w-full rounded-2xl border border-transparent bg-[color:var(--theme-surface-muted)] py-3 pl-10 pr-4 text-sm text-[color:var(--theme-text)] outline-none transition duration-200 placeholder:text-[color:var(--theme-text-subtle)] focus:border-[color:var(--theme-border-strong)] focus:bg-[color:var(--theme-surface)] focus:ring-2 focus:ring-[color:var(--brand-primary-soft)]" 
                 />
             </div>
           </div>
@@ -464,7 +464,7 @@ export default function ChatPage() {
             </div>
             {filteredConversations.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-40 text-center px-4 opacity-60">
-                    <p className="text-sm font-medium text-gray-500">
+                    <p className="text-sm font-medium text-[color:var(--theme-text-muted)]">
                         {searchTerm ? "Không tìm thấy kết quả" : "Chưa có tin nhắn nào"}
                     </p>
                 </div>
@@ -473,29 +473,29 @@ export default function ChatPage() {
         </aside>
 
         {/* === MAIN CHAT === */}
-        <section className="flex-1 flex flex-col bg-white relative min-w-0">
+        <section className="relative flex min-w-0 flex-1 flex-col bg-[color:var(--theme-bg)]">
           {currentConv ? (
              <>
                 {/* Header Chat */}
-                <header className="flex-none flex items-center justify-between border-b border-gray-100 px-6 py-3 bg-white/80 backdrop-blur z-30">
+                <header className="z-30 flex flex-none items-center justify-between border-b border-[color:var(--theme-border)] bg-[color:var(--theme-surface)]/85 px-6 py-3 backdrop-blur">
                     <div className="flex items-center gap-3.5">
-                        <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center font-bold text-gray-500 text-lg shadow-sm">
+                        <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[color:var(--theme-border)] bg-[color:var(--theme-surface-muted)] text-lg font-bold text-[color:var(--theme-text-subtle)] shadow-sm">
                             {currentConv.display_avatar ? (
                                 <Image src={currentConv.display_avatar} alt="Avt" fill className="object-cover" unoptimized />
                             ) : (
                                 currentConv.display_name?.charAt(0).toUpperCase()
                             )}
-                            <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-white"></span>
+                            <span className="absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[color:var(--theme-surface)] bg-green-500"></span>
                         </div>
                         <div>
-                            <h2 className="text-[17px] font-bold text-gray-900 leading-tight">{currentConv.display_name}</h2>
+                            <h2 className="text-[17px] font-bold leading-tight text-[color:var(--theme-text)]">{currentConv.display_name}</h2>
                             <p className="text-xs text-green-600 font-medium mt-0.5">Đang hoạt động</p>
                         </div>
                     </div>
                     <div>
                         <button 
                             onClick={() => setShowProfile(true)}
-                            className="p-2.5 rounded-full hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition duration-200"
+                            className="rounded-full p-2.5 text-[color:var(--theme-text-subtle)] transition duration-200 hover:bg-[color:var(--theme-surface-muted)] hover:text-[color:var(--brand-primary-text)]"
                         >
                             <InfoCircledIcon className="h-6 w-6" />
                         </button>
@@ -503,9 +503,9 @@ export default function ChatPage() {
                 </header>
 
                 {/* Nội dung Chat */}
-                <div className="flex-1 overflow-y-auto px-6 py-6 bg-[#fafafa]">
+                <div className="flex-1 overflow-y-auto bg-[color:var(--theme-bg)] px-6 py-6">
                     <div className="flex justify-center mb-8">
-                        <div className="bg-gray-200/50 text-gray-500 text-[11px] uppercase tracking-wider px-4 py-1.5 rounded-full font-semibold shadow-sm backdrop-blur">
+                        <div className="rounded-full bg-[color:var(--theme-surface-muted)] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-[color:var(--theme-text-subtle)] shadow-sm backdrop-blur">
                             Bắt đầu cuộc trò chuyện
                         </div>
                     </div>
@@ -517,24 +517,24 @@ export default function ChatPage() {
                 </div>
 
                 {/* Input Chat (Đẹp hơn) */}
-                <div className="flex-none px-6 py-5 bg-white border-t border-gray-100">
+                <div className="flex-none border-t border-[color:var(--theme-border)] bg-[color:var(--theme-surface)] px-6 py-5">
                     <form onSubmit={handleSend} className="flex items-end gap-3 max-w-5xl mx-auto relative">
-                        <button type="button" className="mb-2 p-2 rounded-full text-gray-400 hover:bg-gray-100 transition">
+                        <button type="button" className="mb-2 rounded-full p-2 text-[color:var(--theme-text-subtle)] transition hover:bg-[color:var(--theme-surface-muted)]">
                             <ImageIcon className="h-6 w-6" />
                         </button>
                         
-                        <div className="flex-1 relative shadow-sm rounded-3xl bg-gray-50 border border-gray-200 focus-within:ring-2 focus-within:ring-red-100 focus-within:border-red-300 focus-within:bg-white transition-all duration-200">
+                        <div className="relative flex-1 rounded-3xl border border-[color:var(--theme-border)] bg-[color:var(--theme-surface-muted)] shadow-sm transition-all duration-200 focus-within:border-[color:var(--brand-accent)] focus-within:bg-[color:var(--theme-surface)] focus-within:ring-2 focus-within:ring-[color:var(--brand-accent-soft)]">
                             <input
                                 type="text"
                                 value={inputVal}
                                 onChange={(e) => setInputVal(e.target.value)}
                                 placeholder="Nhập tin nhắn..."
-                                className="w-full bg-transparent px-5 py-3.5 pr-12 text-[15px] text-gray-800 placeholder-gray-400 outline-none rounded-3xl"
+                                className="w-full rounded-3xl bg-transparent px-5 py-3.5 pr-12 text-[15px] text-[color:var(--theme-text)] placeholder:text-[color:var(--theme-text-subtle)] outline-none"
                             />
                             <button
                                 type="submit"
                                 disabled={!inputVal.trim()}
-                                className="absolute right-2 bottom-1.5 p-2 rounded-full bg-[#D51F35] text-white shadow-md hover:bg-[#b01628] disabled:bg-gray-300 disabled:shadow-none transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center"
+                                className="absolute bottom-1.5 right-2 flex items-center justify-center rounded-full bg-[color:var(--brand-accent)] p-2 text-white shadow-md transition-all hover:scale-105 hover:bg-[color:var(--brand-accent-strong)] active:scale-95 disabled:bg-[color:var(--theme-surface-muted)] disabled:text-[color:var(--theme-text-subtle)] disabled:shadow-none"
                             >
                                 <PaperPlaneIcon className="h-5 w-5 -ml-0.5 mt-0.5 transform -rotate-45" />
                             </button>
@@ -548,12 +548,12 @@ export default function ChatPage() {
                 )}
              </>
           ) : (
-             <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-gray-50/30">
-                 <div className="h-28 w-28 bg-blue-50/50 rounded-full flex items-center justify-center mb-6 animate-pulse">
+             <div className="flex h-full flex-col items-center justify-center bg-[color:var(--theme-bg)] text-[color:var(--theme-text-subtle)]">
+                 <div className="mb-6 flex h-28 w-28 items-center justify-center rounded-full bg-[color:var(--brand-primary-soft)] animate-pulse">
                     <span className="text-5xl">💬</span>
                  </div>
-                 <p className="text-2xl font-bold text-gray-800">Chào mừng đến với VLU Renting Chat</p>
-                 <p className="text-base text-gray-500 mt-2 max-w-md text-center leading-relaxed">
+                 <p className="text-2xl font-bold text-[color:var(--theme-text)]">Chào mừng đến với VLU Renting Chat</p>
+                 <p className="mt-2 max-w-md text-center text-base leading-relaxed text-[color:var(--theme-text-muted)]">
                     Khám phá, kết nối và trao đổi thông tin thuê trọ dễ dàng. Chọn một cuộc hội thoại để bắt đầu.
                  </p>
              </div>
