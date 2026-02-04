@@ -71,10 +71,10 @@ export default function HorizontalCarousel({ items }: CarouselProps) {
         className="flex w-full flex-nowrap gap-5 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-5 pl-12 pr-14 md:pl-14 md:pr-16 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       >
         {items.map((room) => (
-          <div key={room.id} className="snap-start">
+          <div key={room.id} className="snap-start flex-none">
             <RoomCard
               data={room}
-              className="w-[330px] min-w-[330px] lg:w-[350px] lg:min-w-[350px]"
+              className="w-[clamp(260px,28vw,380px)] min-w-[clamp(260px,28vw,380px)]"
             />
           </div>
         ))}

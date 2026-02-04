@@ -10,15 +10,24 @@ type SectionRowProps = {
 
 export default function SectionRow({ title, subtitle, items }: SectionRowProps) {
   return (
-    <div className="w-full overflow-hidden rounded-[24px] border border-gray-200 bg-white shadow-sm p-4 md:p-6">
-      <div className="grid gap-6 md:grid-cols-[260px_1fr] items-start">
+    <div className="w-full overflow-hidden rounded-[24px] border border-[color:var(--theme-border)] bg-[color:var(--theme-surface)] p-4 shadow-sm md:p-6">
+      <div className="grid items-start gap-6 md:grid-cols-[260px_1fr]">
         <div className="relative">
-          <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-white via-white to-gray-50 shadow-[0_10px_30px_rgba(0,0,0,0.06)] p-5 h-full flex flex-col justify-between">
+          <div
+            className="flex h-full flex-col justify-between rounded-2xl border border-[color:var(--theme-border)] p-5 shadow-[0_10px_30px_rgba(0,0,0,0.06)]"
+            style={{
+              backgroundImage:
+                "linear-gradient(135deg, var(--theme-surface) 0%, var(--theme-surface-muted) 100%)",
+            }}
+          >
             <div className="space-y-2">
-              <h3 className="text-2xl font-bold text-gray-800 leading-tight">{title}</h3>
-              {subtitle ? <p className="text-sm text-gray-500">{subtitle}</p> : null}
+              <h3 className="text-2xl font-bold leading-tight text-[color:var(--theme-text)]">{title}</h3>
+              {subtitle ? <p className="text-sm text-[color:var(--theme-text-muted)]">{subtitle}</p> : null}
             </div>
-            <Link href="/listings" className="text-blue-600 font-semibold hover:underline flex items-center gap-1">
+            <Link
+              href="/listings"
+              className="flex items-center gap-1 font-semibold text-[color:var(--brand-accent)] hover:text-[color:var(--brand-accent-strong)]"
+            >
               Xem tất cả →
             </Link>
           </div>

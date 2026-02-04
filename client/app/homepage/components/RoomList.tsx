@@ -126,6 +126,11 @@ const mapPostToRoom = (post: Post): RoomCardData => {
   };
 };
 
+const isApprovedPost = (status?: string | null) => {
+  if (!status) return true;
+  return status.toLowerCase() === "approved";
+};
+
 const sections = [
   {
     id: "featured",
@@ -164,7 +169,8 @@ export default function RoomListBody() {
     getApprovedPosts()
       .then((posts) => {
         if (!active) return;
-        setItems(posts.map(mapPostToRoom));
+        const approvedPosts = (posts ?? []).filter((post) => isApprovedPost(post.status));
+        setItems(approvedPosts.map(mapPostToRoom));
       })
       .catch(() => {
         if (!active) return;

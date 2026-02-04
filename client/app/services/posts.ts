@@ -149,6 +149,29 @@ export async function getMyPosts(token: string) {
   return res.data;
 }
 
+export async function getMySavedPostIds(token: string): Promise<number[]> {
+  const res = await axios.get<number[]>(`${getBaseUrl()}/posts/saved/ids`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function savePost(postId: number, token: string) {
+  const res = await axios.post(
+    `${getBaseUrl()}/posts/${postId}/save`,
+    undefined,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  return res.data;
+}
+
+export async function unsavePost(postId: number, token: string) {
+  const res = await axios.delete(`${getBaseUrl()}/posts/${postId}/save`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
+}
+
 export async function updatePost(id: number, payload: UpdatePostPayload, token: string) {
   // Thay vì dùng biến 'api' chung chung, ta cấu hình trực tiếp để chắc chắn có Header
   const res = await axios.patch(
