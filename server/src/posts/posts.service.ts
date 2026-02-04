@@ -10,6 +10,7 @@ import { PostEntity } from 'src/database/entities/post.entity';
 import { CategoryEntity } from 'src/database/entities/category.entity';
 import { AmenityEntity } from 'src/database/entities/amenity.entity';
 import { PostImageEntity } from 'src/database/entities/post-image.entity';
+import { SavedPostEntity } from 'src/database/entities/saved-post.entity';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { SearchPostDto } from './dto/search-post.dto';
@@ -24,8 +25,18 @@ export class PostsService {
     private readonly categoryRepository: Repository<CategoryEntity>,
     @InjectRepository(AmenityEntity)
     private readonly amenityRepository: Repository<AmenityEntity>,
+    @InjectRepository(SavedPostEntity)
+    private readonly savedPostRepository: Repository<SavedPostEntity>,
     private readonly notificationsService: NotificationsService,
   ) {}
+
+  private getRequesterId(user: any): number {
+    const requesterId = Number(user?.userId ?? user?.id);
+    if (!requesterId || Number.isNaN(requesterId)) {
+      throw new ForbiddenException('Không thể xác định người dùng hiện tại');
+    }
+    return requesterId;
+  }
 
   // Tạo tin đăng mới
   async create(createPostDto: CreatePostDto, user: any) {
@@ -375,6 +386,44 @@ export class PostsService {
     }
 
     return query.getMany();
+  }
+
+  async getMySavedPostIds(user: any) {
+    const userId = this.getRequesterId(user);
+    const savedItems = await this.savedPostRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+    });
+
+    return savedItems.map((item) => item.postId);
+  }
+
+  async savePost(postId: number, user: any) {
+    const userId = this.getRequesterId(user);
+
+    const post = await this.postRepository.findOneBy({ id: postId });
+    if (!post || post.status !== 'approved') {
+      throw new NotFoundException('Không tìm thấy tin đăng để lưu');
+    }
+
+    const existed = await this.savedPostRepository.findOneBy({
+      userId,
+      postId,
+    });
+    if (existed) {
+      return { postId, saved: true };
+    }
+
+    const savedPost = this.savedPostRepository.create({ userId, postId });
+    await this.savedPostRepository.save(savedPost);
+    return { postId, saved: true };
+  }
+
+  async unsavePost(postId: number, user: any) {
+    const userId = this.getRequesterId(user);
+
+    await this.savedPostRepository.delete({ userId, postId });
+    return { postId, saved: false };
   }
 
   // Hàm xóa tin đăng theo ID

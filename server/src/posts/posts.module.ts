@@ -6,6 +6,7 @@ import { PostEntity } from 'src/database/entities/post.entity';
 import { CategoryEntity } from 'src/database/entities/category.entity';
 import { AmenityEntity } from 'src/database/entities/amenity.entity';
 import { PostImageEntity } from 'src/database/entities/post-image.entity';
+import { SavedPostEntity } from 'src/database/entities/saved-post.entity';
 import { NotificationsModule } from 'src/notifications/notifications.module';
 
 @Module({
@@ -16,6 +17,7 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
       CategoryEntity,
       AmenityEntity,
       PostImageEntity,
+      SavedPostEntity,
     ]),
     NotificationsModule,
   ],

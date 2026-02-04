@@ -1,40 +1,35 @@
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Patch,
-  Param,
+  Controller,
   Delete,
-  UseGuards,
-  Req,
-  Query,
-  ParseIntPipe,
+  Get,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
-import { PostsService } from './posts.service';
-import { CreatePostDto } from './dto/create-post.dto';
-import { UpdatePostDto } from './dto/update-post.dto';
-import { SearchPostDto } from './dto/search-post.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-// 👇 Em kiểm tra lại đường dẫn import này cho đúng với dự án của em
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../auth/dto/register.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { RolesGuard } from '../common/guards/roles.guard';
+import { CreatePostDto } from './dto/create-post.dto';
+import { SearchPostDto } from './dto/search-post.dto';
+import { UpdatePostDto } from './dto/update-post.dto';
+import { PostsService } from './posts.service';
 
-@ApiTags('Posts - Quản lý Tin đăng')
+@ApiTags('Posts')
 @Controller('posts')
 export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
-  // ==================================================================
-  // 🟢 NHÓM 1: CÁC ROUTE CỦA ADMIN & STATIC (ƯU TIÊN CAO NHẤT)
-  // ==================================================================
-
-  @Get('admin') // 👈 QUAN TRỌNG: Route này phải nằm trên cùng
-  @ApiOperation({ summary: 'Lấy danh sách tin cho Admin (Xem được tất cả)' })
+  @Get('admin')
+  @ApiOperation({ summary: 'Get posts for admin' })
   @ApiBearerAuth()
   @Roles(UserRole.ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -42,19 +37,27 @@ export class PostsController {
     return this.postsService.findAllForAdmin(status);
   }
 
-  @Get('me') // 👈 Route 'me' cũng phải nằm trên ':id'
+  @Get('me')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Lấy danh sách tin của chính mình (Chủ trọ)' })
+  @ApiOperation({ summary: 'Get my posts' })
   @Roles(UserRole.LANDLORD, UserRole.ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
   async findMine(@Req() req: any) {
     return this.postsService.findMine(req.user);
   }
 
-  // API Duyệt tin (Admin) - Đặt đường dẫn rõ ràng để tránh nhầm lẫn
+  @Get('saved/ids')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get my saved post ids' })
+  @Roles(UserRole.STUDENT, UserRole.LANDLORD, UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async getMySavedPostIds(@Req() req: any) {
+    return this.postsService.getMySavedPostIds(req.user);
+  }
+
   @Patch('admin/:id/approve')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Duyệt/Từ chối tin đăng' })
+  @ApiOperation({ summary: 'Approve/reject/hide post' })
   @Roles(UserRole.ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
   async approvePost(
@@ -65,13 +68,9 @@ export class PostsController {
     return this.postsService.approve(id, status, rejectionReason);
   }
 
-  // ==================================================================
-  // 🟡 NHÓM 2: CÁC ROUTE CHỨC NĂNG CƠ BẢN
-  // ==================================================================
-
   @Post()
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Tạo tin đăng mới' })
+  @ApiOperation({ summary: 'Create post' })
   @HttpCode(HttpStatus.CREATED)
   @Roles(UserRole.LANDLORD)
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -80,24 +79,39 @@ export class PostsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Lấy danh sách tin đăng (Public Search)' })
+  @ApiOperation({ summary: 'Get public approved posts' })
   async findAll(@Query() searchPostDto: SearchPostDto) {
     return this.postsService.findAll(searchPostDto);
   }
 
-  // ==================================================================
-  // 🔴 NHÓM 3: CÁC ROUTE CÓ PARAM ID (ĐỘNG) - PHẢI ĐỂ DƯỚI CÙNG
-  // ==================================================================
+  @Post(':id/save')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Save post to favorites' })
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.STUDENT, UserRole.LANDLORD, UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async savePost(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.postsService.savePost(id, req.user);
+  }
 
-  @Get(':id') // 👈 Route này "ăn tạp" nhất, phải cho xuống đáy
-  @ApiOperation({ summary: 'Lấy chi tiết tin đăng theo ID' })
+  @Delete(':id/save')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Remove post from favorites' })
+  @Roles(UserRole.STUDENT, UserRole.LANDLORD, UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async unsavePost(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.postsService.unsavePost(id, req.user);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get post by id' })
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return this.postsService.findOne(id);
   }
 
   @Patch(':id')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Cập nhật tin đăng (Chủ trọ)' })
+  @ApiOperation({ summary: 'Update post' })
   @Roles(UserRole.LANDLORD)
   @UseGuards(JwtAuthGuard, RolesGuard)
   async update(
@@ -110,7 +124,7 @@ export class PostsController {
 
   @Delete(':id')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Xoá tin đăng' })
+  @ApiOperation({ summary: 'Delete post' })
   @Roles(UserRole.LANDLORD, UserRole.ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
   async delete(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
