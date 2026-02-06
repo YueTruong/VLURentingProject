@@ -69,7 +69,52 @@ export class ReviewsService {
       relations: ['user', 'user.profile'],
     });
 
-    return reviews.map((review) => ({
+    return reviews.map((review) => this.serializeReview(review));
+  }
+
+  async findByPostId(postId: number, limit = 10) {
+    if (!Number.isFinite(postId) || postId <= 0) {
+      throw new BadRequestException('postId khong hop le');
+    }
+
+    const post = await this.postRepository.findOneBy({ id: postId });
+    if (!post) {
+      throw new NotFoundException('Tin dang khong ton tai');
+    }
+
+    const safeLimit = Number.isFinite(limit)
+      ? Math.min(Math.max(Math.floor(limit), 1), 50)
+      : 10;
+
+    const summary = await this.reviewRepository
+      .createQueryBuilder('review')
+      .select('COALESCE(AVG(review.rating), 0)', 'avg')
+      .addSelect('COUNT(review.id)', 'count')
+      .where('review.post_id = :postId', { postId })
+      .getRawOne<{ avg?: string; count?: string }>();
+
+    const reviews = await this.reviewRepository.find({
+      where: { postId },
+      order: { createdAt: 'DESC' },
+      take: safeLimit,
+      relations: ['user', 'user.profile'],
+    });
+
+    const averageRating = Number(summary?.avg ?? 0);
+    const totalReviews = Number(summary?.count ?? 0);
+
+    return {
+      postId,
+      averageRating: Number.isFinite(averageRating)
+        ? Number(averageRating.toFixed(1))
+        : 0,
+      totalReviews: Number.isFinite(totalReviews) ? totalReviews : 0,
+      reviews: reviews.map((review) => this.serializeReview(review)),
+    };
+  }
+
+  private serializeReview(review: ReviewEntity) {
+    return {
       id: review.id,
       rating: review.rating,
       comment: review.comment ?? '',
@@ -87,6 +132,6 @@ export class ReviewsService {
               : undefined,
           }
         : undefined,
-    }));
+    };
   }
 }
