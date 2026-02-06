@@ -14,21 +14,17 @@ type Listing = {
   title: string;
   location: string;
   price: string;
+  priceValue: number;
   image: string;
   category: string;
   area: string;
+  areaValue: number;
   beds: number;
   baths: number;
   wifi: boolean;
   updatedLabel: string;
+  createdAtValue: number;
   tags: string[];
-};
-
-type Review = {
-  name: string;
-  date: string;
-  rating: number;
-  content: string;
 };
 
 const toNumber = (value: number | string | undefined | null) => {
@@ -69,45 +65,17 @@ const formatUpdatedLabel = (value?: string | null) => {
   return `Cập nhật ${days} ngày trước`;
 };
 
+const formatMonthYear = (timestamp?: number | null) => {
+  if (!timestamp || !Number.isFinite(timestamp)) return "--/--";
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return "--/--";
+  return `${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
+};
+
 const getAmenityNames = (post: Post) =>
   (post.amenities ?? [])
     .map((amenity) => amenity?.name?.trim())
     .filter((name): name is string => Boolean(name));
-
-const user = {
-  name: "Nguyễn Văn A",
-  role: "Chủ trọ đã xác minh",
-  location: "TP. Hồ Chí Minh, Việt Nam",
-  joined: "01/2026",
-  avatar: "/images/Admins.png",
-  bio:
-    "Tôi chuyên hỗ trợ sinh viên Văn Lang tìm phòng phù hợp. Ưu tiên phản hồi nhanh, minh bạch hợp đồng và chăm sóc sau thuê.",
-  verified: ["CCCD/CMND", "Số điện thoại", "Email", "Giấy tờ sở hữu"],
-};
-
-const stats = [
-  { label: "Thời gian tham gia", value: "4 năm", icon: "calendar" },
-  { label: "Tỉ lệ phản hồi", value: "98%", icon: "bolt" },
-  { label: "Đánh giá", value: "4.9/5", icon: "star" },
-  { label: "Hợp đồng thành công", value: "42", icon: "key" },
-];
-
-const reviews: Review[] = [
-  {
-    name: "Trần Minh",
-    date: "01/2026",
-    rating: 5,
-    content:
-      "Chủ trọ hỗ trợ nhiệt tình, phòng đúng như mô tả. Hợp đồng rõ ràng và phản hồi nhanh chóng.",
-  },
-  {
-    name: "Lê Ngọc",
-    date: "12/2025",
-    rating: 4,
-    content:
-      "Khu vực yên tĩnh, phòng sạch sẽ. Hơi thiếu chỗ gửi xe nhưng nhìn chung rất ổn.",
-  },
-];
 
 const navItems = [
   { label: "Hồ sơ", icon: "user", active: true },
@@ -118,13 +86,16 @@ const mapPostToListing = (post: Post): Listing => ({
   title: post.title,
   location: post.address || "Chưa cập nhật",
   price: formatPrice(post.price),
+  priceValue: toNumber(post.price),
   image: post.images?.[0]?.image_url || "/images/House.svg",
   category: post.category?.name || "Phòng trọ",
   area: formatArea(post.area),
+  areaValue: toNumber(post.area),
   beds: Math.max(1, Math.round(toNumber(post.max_occupancy ?? 1) || 1)),
   baths: 1,
   wifi: getAmenityNames(post).join(" ").toLowerCase().includes("wifi"),
   updatedLabel: formatUpdatedLabel(post.updatedAt ?? post.createdAt),
+  createdAtValue: new Date(post.createdAt ?? post.updatedAt ?? Date.now()).getTime(),
   tags: getAmenityNames(post).slice(0, 5),
 });
 
@@ -341,27 +312,6 @@ function ListingCard({
   );
 }
 
-function ReviewCard({ name, date, rating, content }: Review) {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-sm font-semibold text-gray-900">{name}</div>
-          <div className="text-xs text-gray-500">Đánh giá vào {date}</div>
-        </div>
-        <div className="flex items-center gap-1 text-[#F59E0B]">
-          {Array.from({ length: 5 }).map((_, idx) => (
-            <span key={idx} className={idx < rating ? "opacity-100" : "opacity-30"}>
-              ★
-            </span>
-          ))}
-        </div>
-      </div>
-      <p className="mt-3 text-sm text-gray-600">“{content}”</p>
-    </div>
-  );
-}
-
 export default function ProfilePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -482,6 +432,72 @@ export default function ProfilePage() {
     return `Đang hiển thị ${userListings.length} tin nổi bật.`;
   }, [filteredUserListings.length, listingError, listingSearch, loadingListings, userListings.length]);
 
+  const displayName = session?.user?.name?.trim() || "Người dùng";
+  const avatarUrl = session?.user?.image || "/images/Admins.png";
+  const roleKey = session?.user?.role?.toString().toLowerCase() || "student";
+  const roleLabelMap: Record<string, string> = {
+    admin: "Quản trị viên",
+    landlord: "Chủ trọ",
+    student: "Sinh viên",
+  };
+  const roleLabel = roleLabelMap[roleKey] ?? "Người dùng";
+  const listingLocation =
+    userListings.length > 0
+      ? userListings[0].location
+      : "Chưa cập nhật khu vực";
+  const joinedLabel = useMemo(() => {
+    if (userListings.length === 0) return "--/--";
+    const firstCreatedAt = Math.min(...userListings.map((item) => item.createdAtValue));
+    return formatMonthYear(firstCreatedAt);
+  }, [userListings]);
+  const profileBio = useMemo(() => {
+    if (userListings.length === 0) {
+      return "Hiện chưa có tin cho thuê được duyệt trên hệ thống.";
+    }
+    return `Hiện đang có ${userListings.length} tin cho thuê đã được duyệt và hiển thị công khai.`;
+  }, [userListings.length]);
+  const verifiedItems = useMemo(() => {
+    const items: string[] = [];
+    if (session?.user?.email) items.push("Email");
+    if (session?.user?.name) items.push("Họ tên");
+    if (session?.user?.image) items.push("Ảnh đại diện");
+    return items;
+  }, [session?.user?.email, session?.user?.image, session?.user?.name]);
+  const profileStats = useMemo(() => {
+    const totalListings = userListings.length;
+    const averagePrice =
+      totalListings > 0
+        ? userListings.reduce((sum, listing) => sum + listing.priceValue, 0) / totalListings
+        : 0;
+    const averageArea =
+      totalListings > 0
+        ? userListings.reduce((sum, listing) => sum + listing.areaValue, 0) / totalListings
+        : 0;
+    return [
+      {
+        label: "Tin đã duyệt",
+        value: String(totalListings),
+        icon: "calendar",
+      },
+      {
+        label: "Tin đã lưu",
+        value: String(savedPostIds.length),
+        icon: "heart",
+      },
+      {
+        label: "Giá trung bình",
+        value: totalListings > 0 ? formatPrice(averagePrice) : "--",
+        icon: "bolt",
+      },
+      {
+        label: "Diện tích TB",
+        value: totalListings > 0 ? formatArea(averageArea) : "--",
+        icon: "key",
+      },
+    ];
+  }, [savedPostIds.length, userListings]);
+  const recentListings = useMemo(() => userListings.slice(0, 3), [userListings]);
+
   return (
     <div className="relative min-h-screen bg-gray-50 text-gray-900">
       <UserTopBar />
@@ -524,8 +540,8 @@ export default function ProfilePage() {
 
             <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="text-xs uppercase tracking-wide text-white/50">Tài khoản</div>
-              <div className="mt-2 text-sm font-semibold">{user.name}</div>
-              <div className="text-xs text-white/60">Tham gia {user.joined}</div>
+              <div className="mt-2 text-sm font-semibold">{displayName}</div>
+              <div className="text-xs text-white/60">Tin đầu tiên từ {joinedLabel}</div>
               <button className="mt-3 w-full rounded-xl bg-white/15 px-3 py-2 text-xs font-semibold text-white">
                 Quản lý tài khoản
               </button>
@@ -546,26 +562,34 @@ export default function ProfilePage() {
             <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap items-center gap-4">
                 <div className="relative h-20 w-20 overflow-hidden rounded-2xl border border-gray-200">
-                  <Image src={user.avatar} alt={user.name} fill className="object-cover" />
+                  <Image src={avatarUrl} alt={displayName} fill className="object-cover" />
                 </div>
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="text-2xl font-semibold text-gray-900">{user.name}</h1>
+                    <h1 className="text-2xl font-semibold text-gray-900">{displayName}</h1>
                     <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-600">
-                      {user.role}
+                      {roleLabel}
                     </span>
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-sm text-gray-600">
                     <span className="inline-flex h-2 w-2 rounded-full bg-[color:var(--brand-accent)]" />
-                    {user.location}
+                    {listingLocation}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <span className="rounded-full bg-[color:var(--brand-primary-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--brand-primary-text)]">
-                      ID đã xác minh
-                    </span>
-                    <span className="rounded-full bg-[color:var(--brand-primary-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--brand-primary-text)]">
-                      SĐT đã xác minh
-                    </span>
+                    {verifiedItems.length > 0 ? (
+                      verifiedItems.map((item) => (
+                        <span
+                          key={item}
+                          className="rounded-full bg-[color:var(--brand-primary-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--brand-primary-text)]"
+                        >
+                          {item} đã xác minh
+                        </span>
+                      ))
+                    ) : (
+                      <span className="rounded-full bg-[color:var(--brand-primary-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--brand-primary-text)]">
+                        Tài khoản đã đăng nhập
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -587,7 +611,7 @@ export default function ProfilePage() {
           </section>
 
           <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {stats.map((stat) => (
+            {profileStats.map((stat) => (
               <StatCard key={stat.label} {...stat} />
             ))}
           </section>
@@ -599,17 +623,17 @@ export default function ProfilePage() {
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[color:var(--brand-accent-soft)] text-[color:var(--brand-accent)]">
                     <Icon name="user" />
                   </span>
-                  Về {user.name.split(" ").slice(-1)}
+                  Về {displayName}
                 </div>
-                <p className="mt-3 text-sm text-gray-600">{user.bio}</p>
+                <p className="mt-3 text-sm text-gray-600">{profileBio}</p>
                 <div className="mt-4 space-y-2 text-sm text-gray-600">
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    Hỗ trợ tiếng Việt, tiếng Anh
+                    Đang hiển thị {userListings.length} tin đã duyệt
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    Phản hồi trong vòng 1 giờ
+                    Đã lưu {savedPostIds.length} tin yêu thích
                   </div>
                 </div>
               </div>
@@ -622,15 +646,19 @@ export default function ProfilePage() {
                   Thông tin đã xác minh
                 </div>
                 <div className="mt-4 space-y-3">
-                  {user.verified.map((item) => (
-                    <div key={item} className="flex items-center justify-between text-sm text-gray-600">
-                      <span>{item}</span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-1 text-xs font-semibold text-emerald-600">
-                        <Icon name="check" />
-                        Đã kiểm tra
-                      </span>
-                    </div>
-                  ))}
+                  {verifiedItems.length > 0 ? (
+                    verifiedItems.map((item) => (
+                      <div key={item} className="flex items-center justify-between text-sm text-gray-600">
+                        <span>{item}</span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-1 text-xs font-semibold text-emerald-600">
+                          <Icon name="check" />
+                          Đã kiểm tra
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-500">Chưa có thông tin xác minh bổ sung.</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -688,29 +716,33 @@ export default function ProfilePage() {
               <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Đánh giá & nhận xét</h3>
-                    <p className="text-sm text-gray-500">Tổng điểm 4.9 • {reviews.length} đánh giá gần nhất</p>
+                    <h3 className="text-lg font-semibold text-gray-900">Tin cập nhật gần đây</h3>
+                    <p className="text-sm text-gray-500">Dữ liệu lấy trực tiếp từ danh sách tin đã duyệt.</p>
                   </div>
-                  <div className="flex items-center gap-2 text-[#F59E0B]">
-                    <span className="text-2xl font-semibold text-gray-900">4.9</span>
-                    <span className="text-sm text-gray-500">/ 5</span>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: 5 }).map((_, idx) => (
-                        <span key={idx}>★</span>
-                      ))}
-                    </div>
+                  <div className="text-sm text-gray-500">
+                    {recentListings.length} / {userListings.length} tin gần nhất
                   </div>
                 </div>
 
                 <div className="mt-4 space-y-3">
-                  {reviews.map((review) => (
-                    <ReviewCard key={review.name} {...review} />
-                  ))}
+                  {recentListings.length > 0 ? (
+                    recentListings.map((listing) => (
+                      <div key={listing.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                        <div className="text-sm font-semibold text-gray-900">{listing.title}</div>
+                        <div className="mt-1 text-xs text-gray-500">{listing.location}</div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                          <span className="rounded-full bg-gray-100 px-2 py-1">{listing.updatedLabel}</span>
+                          <span className="rounded-full bg-gray-100 px-2 py-1">{listing.price}</span>
+                          <span className="rounded-full bg-gray-100 px-2 py-1">{listing.area}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500">
+                      Chưa có tin đăng nào để hiển thị lịch sử cập nhật.
+                    </div>
+                  )}
                 </div>
-
-                <button className="mt-4 w-full rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                  Xem thêm đánh giá
-                </button>
               </div>
             </div>
           </section>

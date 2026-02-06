@@ -155,14 +155,14 @@ export default function LoginPage() {
                 <button 
                   type="submit"
                   className="
-                    w-full h-[42px]
-                    bg-gray-800 hover:bg-black
+                    w-full h-[44px]
+                    bg-[color:var(--brand-accent)] hover:bg-[color:var(--brand-accent-strong)]
                     text-white rounded-lg
-                    text-sm font-bold uppercase tracking-wider
+                    text-sm font-semibold
                     transition-all duration-300 active:scale-95
-                    shadow-lg hover:shadow-xl
+                    shadow-md hover:shadow-lg
                   ">
-                  Login
+                  Đăng nhập
                 </button>
               </form>
             </div>

@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState, useRef, FormEvent, useMemo, useCallback } from "react";
+import { useEffect, useState, useRef, FormEvent, useMemo, useCallback, ChangeEvent } from "react";
 import io, { Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
 import UserTopBar from "@/app/homepage/components/UserTopBar";
+import { uploadImages } from "@/app/services/posts";
 import { useSearchParams, useRouter } from 'next/navigation';
 
 import {
@@ -20,6 +21,7 @@ import {
 
 // --- CẤU HÌNH ---
 const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+const IMAGE_PREFIX = "[[image]]";
 let socket: Socket;
 
 // --- UTILS FORMAT THỜI GIAN (Đã sửa lỗi lệch 7 tiếng) ---
@@ -67,6 +69,38 @@ const formatRelativeTime = (dateString?: string) => {
   
   // Quá 7 ngày thì hiện ngày/tháng/năm
   return date.toLocaleDateString("vi-VN", { day: '2-digit', month: '2-digit' });
+};
+
+const splitMessageContent = (content: string) => {
+  const raw = (content || "").trim();
+  if (!raw.startsWith(IMAGE_PREFIX)) {
+    return {
+      imageUrl: null as string | null,
+      text: content,
+    };
+  }
+
+  const payload = raw.slice(IMAGE_PREFIX.length);
+  const [urlLine, ...textLines] = payload.split("\n");
+  return {
+    imageUrl: urlLine?.trim() || null,
+    text: textLines.join("\n").trim(),
+  };
+};
+
+const buildMessageContent = (text: string, imageUrl: string | null) => {
+  const normalizedText = text.trim();
+  if (!imageUrl) return normalizedText;
+  if (!normalizedText) return `${IMAGE_PREFIX}${imageUrl}`;
+  return `${IMAGE_PREFIX}${imageUrl}\n${normalizedText}`;
+};
+
+const getMessagePreview = (content: string) => {
+  const { imageUrl, text } = splitMessageContent(content);
+  if (imageUrl && text) return `Hinh anh: ${text}`;
+  if (imageUrl) return "Hinh anh";
+  const normalized = (text || "").trim();
+  return normalized || "Chua co tin nhan";
 };
 
 // --- TYPES ---
@@ -191,7 +225,7 @@ function ConversationItem({ convo, active, onSelect }: { convo: Conversation; ac
           </span>
         </div>
         <p className={`text-xs truncate ${active ? "font-medium text-[color:var(--theme-text-muted)]" : "text-[color:var(--theme-text-subtle)]"}`}>
-          {convo.last_message || "Chưa có tin nhắn"}
+          {getMessagePreview(convo.last_message)}
         </p>
       </div>
     </button>
@@ -200,6 +234,7 @@ function ConversationItem({ convo, active, onSelect }: { convo: Conversation; ac
 
 function MessageBubble({ msg, isMe }: { msg: Message; isMe: boolean }) {
   const timeStr = formatTime(msg.created_at);
+  const { imageUrl, text } = splitMessageContent(msg.content);
 
   return (
     <div className={`flex items-end gap-2 mb-4 group ${isMe ? "justify-end" : "justify-start"}`}>
@@ -217,7 +252,24 @@ function MessageBubble({ msg, isMe }: { msg: Message; isMe: boolean }) {
                 : "rounded-2xl rounded-tl-sm border border-[color:var(--theme-border)] bg-[color:var(--theme-surface)] text-[color:var(--theme-text)]"
             }`}
         >
-            {msg.content}
+            {imageUrl ? (
+              <a
+                href={imageUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mb-2 block overflow-hidden rounded-xl border border-white/20"
+              >
+                <Image
+                  src={imageUrl}
+                  alt="Anh dinh kem"
+                  width={320}
+                  height={320}
+                  unoptimized
+                  className="h-auto w-full object-cover"
+                />
+              </a>
+            ) : null}
+            {text ? <span>{text}</span> : null}
         </div>
         <span className={`text-[10px] mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none ${isMe ? "text-right text-[color:var(--theme-text-subtle)]" : "text-[color:var(--theme-text-subtle)]"}`}>
             {timeStr}
@@ -239,10 +291,14 @@ export default function ChatPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputVal, setInputVal] = useState("");
+  const [pendingImageUrl, setPendingImageUrl] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showProfile, setShowProfile] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const partnerIdFromUrl = searchParams.get('partnerId');
@@ -396,18 +452,56 @@ export default function ChatPage() {
       messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
   }, [messages]);
 
+  useEffect(() => {
+    setPendingImageUrl(null);
+    setUploadError("");
+    if (imageInputRef.current) {
+      imageInputRef.current.value = "";
+    }
+  }, [selectedId]);
+
+  const handleImageChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadError("");
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Chi ho tro tep hinh anh.");
+      event.target.value = "";
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const uploaded = await uploadImages([file]);
+      const firstUrl = uploaded[0];
+      if (!firstUrl) {
+        setUploadError("Tai anh that bai. Vui long thu lai.");
+      } else {
+        setPendingImageUrl(firstUrl);
+      }
+    } catch {
+      setUploadError("Tai anh that bai. Vui long thu lai.");
+    } finally {
+      setIsUploadingImage(false);
+      event.target.value = "";
+    }
+  };
+
   // 4. Send
   const handleSend = (e: FormEvent) => {
       e.preventDefault();
-      if (!inputVal.trim() || !selectedId || !currentUserId) return;
+      if ((!inputVal.trim() && !pendingImageUrl) || !selectedId || !currentUserId || isUploadingImage) return;
 
       const payload = {
           conversationId: selectedId,
           senderId: currentUserId,
-          content: inputVal
+          content: buildMessageContent(inputVal, pendingImageUrl)
       };
       socket.emit("send_message", payload);
       setInputVal("");
+      setPendingImageUrl(null);
+      setUploadError("");
   };
 
   const filteredConversations = useMemo(() => {
@@ -518,26 +612,67 @@ export default function ChatPage() {
 
                 {/* Input Chat (Đẹp hơn) */}
                 <div className="flex-none border-t border-[color:var(--theme-border)] bg-[color:var(--theme-surface)] px-6 py-5">
-                    <form onSubmit={handleSend} className="flex items-end gap-3 max-w-5xl mx-auto relative">
-                        <button type="button" className="mb-2 rounded-full p-2 text-[color:var(--theme-text-subtle)] transition hover:bg-[color:var(--theme-surface-muted)]">
-                            <ImageIcon className="h-6 w-6" />
-                        </button>
-                        
-                        <div className="relative flex-1 rounded-3xl border border-[color:var(--theme-border)] bg-[color:var(--theme-surface-muted)] shadow-sm transition-all duration-200 focus-within:border-[color:var(--brand-accent)] focus-within:bg-[color:var(--theme-surface)] focus-within:ring-2 focus-within:ring-[color:var(--brand-accent-soft)]">
-                            <input
-                                type="text"
-                                value={inputVal}
-                                onChange={(e) => setInputVal(e.target.value)}
-                                placeholder="Nhập tin nhắn..."
-                                className="w-full rounded-3xl bg-transparent px-5 py-3.5 pr-12 text-[15px] text-[color:var(--theme-text)] placeholder:text-[color:var(--theme-text-subtle)] outline-none"
+                    <form onSubmit={handleSend} className="max-w-5xl mx-auto space-y-3">
+                        <input
+                            ref={imageInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            className="hidden"
+                        />
+
+                        {pendingImageUrl ? (
+                          <div className="inline-flex items-center gap-3 rounded-2xl border border-[color:var(--theme-border)] bg-[color:var(--theme-surface-muted)] px-3 py-2">
+                            <Image
+                              src={pendingImageUrl}
+                              alt="Anh sap gui"
+                              width={56}
+                              height={56}
+                              unoptimized
+                              className="h-14 w-14 rounded-xl object-cover"
                             />
                             <button
-                                type="submit"
-                                disabled={!inputVal.trim()}
-                                className="absolute bottom-1.5 right-2 flex items-center justify-center rounded-full bg-[color:var(--brand-accent)] p-2 text-white shadow-md transition-all hover:scale-105 hover:bg-[color:var(--brand-accent-strong)] active:scale-95 disabled:bg-[color:var(--theme-surface-muted)] disabled:text-[color:var(--theme-text-subtle)] disabled:shadow-none"
+                              type="button"
+                              onClick={() => setPendingImageUrl(null)}
+                              className="rounded-full p-1 text-[color:var(--theme-text-subtle)] transition hover:bg-[color:var(--theme-surface)]"
+                              aria-label="Xoa anh"
                             >
-                                <PaperPlaneIcon className="h-5 w-5 -ml-0.5 mt-0.5 transform -rotate-45" />
+                              <Cross2Icon className="h-4 w-4" />
                             </button>
+                          </div>
+                        ) : null}
+
+                        {uploadError ? (
+                          <p className="text-xs font-medium text-red-500">{uploadError}</p>
+                        ) : null}
+
+                        <div className="flex items-end gap-3">
+                          <button
+                            type="button"
+                            onClick={() => imageInputRef.current?.click()}
+                            disabled={isUploadingImage}
+                            className="mb-2 rounded-full p-2 text-[color:var(--theme-text-subtle)] transition hover:bg-[color:var(--theme-surface-muted)] disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label="Them hinh anh"
+                          >
+                            <ImageIcon className="h-6 w-6" />
+                          </button>
+
+                          <div className="relative flex-1 rounded-3xl border border-[color:var(--theme-border)] bg-[color:var(--theme-surface-muted)] shadow-sm transition-all duration-200 focus-within:border-[color:var(--brand-accent)] focus-within:bg-[color:var(--theme-surface)] focus-within:ring-2 focus-within:ring-[color:var(--brand-accent-soft)]">
+                              <input
+                                  type="text"
+                                  value={inputVal}
+                                  onChange={(e) => setInputVal(e.target.value)}
+                                  placeholder={isUploadingImage ? "Dang tai hinh anh..." : "Nhap tin nhan..."}
+                                  className="w-full rounded-3xl bg-transparent px-5 py-3.5 pr-12 text-[15px] text-[color:var(--theme-text)] placeholder:text-[color:var(--theme-text-subtle)] outline-none"
+                              />
+                              <button
+                                  type="submit"
+                                  disabled={(!inputVal.trim() && !pendingImageUrl) || isUploadingImage}
+                                  className="absolute bottom-1.5 right-2 flex items-center justify-center rounded-full bg-[color:var(--brand-accent)] p-2 text-white shadow-md transition-all hover:scale-105 hover:bg-[color:var(--brand-accent-strong)] active:scale-95 disabled:bg-[color:var(--theme-surface-muted)] disabled:text-[color:var(--theme-text-subtle)] disabled:shadow-none"
+                              >
+                                  <PaperPlaneIcon className="h-5 w-5 -ml-0.5 mt-0.5 transform -rotate-45" />
+                              </button>
+                          </div>
                         </div>
                     </form>
                 </div>

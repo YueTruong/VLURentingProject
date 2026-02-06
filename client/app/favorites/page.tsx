@@ -17,12 +17,7 @@ export default function FavoritesPage() {
   }, [favorites]);
 
   const recentCount = useMemo(() => {
-    const now = Date.now();
-    const weekMs = 7 * 24 * 60 * 60 * 1000;
-    return favoriteRooms.filter((room) => {
-      const ts = new Date(room.savedAt).getTime();
-      return Number.isFinite(ts) && now - ts <= weekMs;
-    }).length;
+    return favoriteRooms.filter((room) => Number.isFinite(new Date(room.savedAt).getTime())).length;
   }, [favoriteRooms]);
 
   const areaSummary = useMemo(() => {
@@ -31,6 +26,13 @@ export default function FavoritesPage() {
       .filter((item) => Boolean(item));
     const unique = Array.from(new Set(areas));
     return unique.slice(0, 3).join(", ") || "Chưa có";
+  }, [favoriteRooms]);
+
+  const areaTags = useMemo(() => {
+    const areas = favoriteRooms
+      .map((room) => room.location.split(",")[0]?.trim())
+      .filter((item): item is string => Boolean(item));
+    return Array.from(new Set(areas)).slice(0, 4);
   }, [favoriteRooms]);
 
   return (
@@ -51,9 +53,9 @@ export default function FavoritesPage() {
             <p className="text-xs text-gray-500">Nhận thông báo khi tin thay đổi.</p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-500">Mới lưu 7 ngày</p>
+            <p className="text-sm text-gray-500">Tin có thời gian lưu</p>
             <div className="mt-2 text-3xl font-extrabold text-gray-900">{recentCount}</div>
-            <p className="text-xs text-gray-500">Những tin được lưu gần đây.</p>
+            <p className="text-xs text-gray-500">Dữ liệu hợp lệ để theo dõi lịch sử lưu.</p>
           </div>
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <p className="text-sm text-gray-500">Gợi ý theo khu vực</p>
@@ -87,16 +89,18 @@ export default function FavoritesPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {["Gần trường", "Giá < 5 triệu", "Có ban công", "Cho nuôi thú cưng"].map((tag) => (
-              <button
-                key={tag}
-                className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-100 active:scale-95"
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
+          {areaTags.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {areaTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         {favoriteRooms.length === 0 ? (
