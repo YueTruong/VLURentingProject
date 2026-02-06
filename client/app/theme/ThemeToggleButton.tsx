@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import { useSyncExternalStore } from "react";
 import { useTheme } from "./ThemeProvider";
 
 type ThemeToggleButtonProps = {
@@ -27,7 +28,13 @@ function MoonIcon({ className }: { className?: string }) {
 
 export default function ThemeToggleButton({ className, iconClassName = "h-5 w-5", label }: ThemeToggleButtonProps) {
   const { theme, toggleTheme } = useTheme();
-  const isDark = theme === "dark";
+  const mounted = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
+
+  const isDark = mounted ? theme === "dark" : false;
   const base = "inline-flex items-center justify-center gap-2 transition active:scale-95";
   const buttonClass = [base, className].filter(Boolean).join(" ");
   const nextLabel = isDark ? "sáng" : "tối";
