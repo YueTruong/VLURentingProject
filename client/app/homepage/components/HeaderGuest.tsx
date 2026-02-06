@@ -55,22 +55,20 @@ function TopHeader() {
             className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20"
             iconClassName="h-5 w-5"
           />
-          <Link href="/login">
-            <button
-              type="button"
-              className="
-                group relative flex h-10 sm:h-11 w-[130px] sm:w-[150px] items-center justify-center gap-2.5 
-                rounded-full bg-white text-[color:var(--surface-navy-900)] 
-                font-bold text-xs sm:text-sm shadow-md transition-all duration-300
-                hover:shadow-[0_0_15px_rgba(255,255,255,0.4)] hover:-translate-y-0.5
-                active:scale-95
-              "
-            >
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[color:var(--brand-primary-soft)] text-[color:var(--surface-navy-900)] transition-colors group-hover:bg-[color:var(--brand-accent)] group-hover:text-white">
-                <PersonIcon className="h-4 w-4" />
-              </div>
+          <Link
+            href="/login"
+            className="
+              group relative flex h-10 sm:h-11 w-[130px] sm:w-[150px] items-center justify-center gap-2.5 
+              rounded-full bg-[#ffffff] text-[#010433]
+              font-bold text-xs sm:text-sm shadow-md transition-all duration-300
+              hover:shadow-[0_0_15px_rgba(255,255,255,0.4)] hover:-translate-y-0.5
+              active:scale-95
+            "
+          >
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#e6ebff] text-[#010433] transition-colors group-hover:bg-[color:var(--brand-accent)] group-hover:text-white">
+              <PersonIcon className="h-4 w-4" />
+            </div>
               <span>Thành viên</span>
-            </button>
           </Link>
         </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import RoomCard, { RoomCardData } from "./RoomCard";
+import RoomCard, { type RoomCardData } from "./RoomCard";
 
 type CarouselProps = {
   items: RoomCardData[];
@@ -7,68 +7,67 @@ type CarouselProps = {
 
 export default function HorizontalCarousel({ items }: CarouselProps) {
   const sliderRef = useRef<HTMLDivElement>(null);
-  const [hiểnThịPrev, setHiểnThịPrev] = useState(false);
-  const [hiểnThịNext, setHiểnThịNext] = useState(true);
-
-  // Cập nhật hiển thị nút dựa trên vị trí cuộn hiện tại
-  const cậpNhậtTrạngTháiNút = () => {
-    const node = sliderRef.current;
-    if (!node) return;
-    const { scrollLeft, scrollWidth, clientWidth } = node;
-    setHiểnThịPrev(scrollLeft > 4);
-    setHiểnThịNext(scrollLeft + clientWidth < scrollWidth - 4);
-  };
-
-  const cuộn = (hướng: "trái" | "phải") => {
-    const node = sliderRef.current;
-    if (!node) return;
-    const khoảngCách = node.clientWidth * 0.9;
-    node.scrollBy({
-      left: hướng === "trái" ? -khoảngCách : khoảngCách,
-      behavior: "smooth",
-    });
-  };
+  const [showPrev, setShowPrev] = useState(false);
+  const [showNext, setShowNext] = useState(false);
 
   useEffect(() => {
     const node = sliderRef.current;
     if (!node) return;
-    cậpNhậtTrạngTháiNút();
-    node.addEventListener("scroll", cậpNhậtTrạngTháiNút, { passive: true });
-    return () => {
-      node.removeEventListener("scroll", cậpNhậtTrạngTháiNút);
+
+    const updateButtons = () => {
+      const { scrollLeft, scrollWidth, clientWidth } = node;
+      setShowPrev(scrollLeft > 4);
+      setShowNext(scrollLeft + clientWidth < scrollWidth - 4);
     };
-  }, []);
+
+    updateButtons();
+    node.addEventListener("scroll", updateButtons, { passive: true });
+    window.addEventListener("resize", updateButtons);
+
+    return () => {
+      node.removeEventListener("scroll", updateButtons);
+      window.removeEventListener("resize", updateButtons);
+    };
+  }, [items.length]);
+
+  const scrollByDirection = (direction: "left" | "right") => {
+    const node = sliderRef.current;
+    if (!node) return;
+
+    const distance = node.clientWidth * 0.9;
+    node.scrollBy({
+      left: direction === "left" ? -distance : distance,
+      behavior: "smooth",
+    });
+  };
 
   return (
-    <div className="relative group/row w-full overflow-hidden">
-      {/* Nút Prev đặt ngoài danh sách, chỉ hiển thị khi đã cuộn */}
-      {hiểnThịPrev ? (
+    <div className="group/row relative w-full overflow-hidden">
+      {showPrev ? (
         <button
           type="button"
-          onClick={() => cuộn("trái")}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 rounded-full border border-gray-200 bg-white text-gray-700 shadow-md h-11 w-11 flex items-center justify-center transition hover:bg-gray-50 active:scale-95 opacity-0 group-hover/row:opacity-100"
+          onClick={() => scrollByDirection("left")}
+          className="absolute left-0 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 opacity-0 shadow-md transition hover:bg-gray-50 active:scale-95 group-hover/row:opacity-100"
           aria-label="Cuộn trái"
         >
           ←
         </button>
       ) : null}
 
-      {/* Nút Next đặt ngoài danh sách, ẩn khi tới cuối */}
-      {hiểnThịNext ? (
+      {showNext ? (
         <button
           type="button"
-          onClick={() => cuộn("phải")}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 rounded-full border border-gray-200 bg-white text-gray-700 shadow-md h-11 w-11 flex items-center justify-center transition hover:bg-gray-50 active:scale-95 opacity-0 group-hover/row:opacity-100"
+          onClick={() => scrollByDirection("right")}
+          className="absolute right-0 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 opacity-0 shadow-md transition hover:bg-gray-50 active:scale-95 group-hover/row:opacity-100"
           aria-label="Cuộn phải"
         >
           →
         </button>
       ) : null}
 
-      {/* Vùng scroll chính, chừa padding hai bên để nút không che card */}
       <div
         ref={sliderRef}
-        className="flex w-full flex-nowrap gap-5 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-5 pl-12 pr-14 md:pl-14 md:pr-16 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        className="flex w-full snap-x snap-mandatory flex-nowrap gap-5 overflow-x-auto scroll-smooth pb-5 pl-12 pr-14 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden md:pl-14 md:pr-16"
       >
         {items.map((room) => (
           <div key={room.id} className="snap-start flex-none">

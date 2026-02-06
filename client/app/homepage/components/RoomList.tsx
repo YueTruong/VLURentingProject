@@ -3,77 +3,7 @@
 import { useEffect, useState } from "react";
 import { getApprovedPosts, type Post } from "@/app/services/posts";
 import SectionRow from "./SectionRow";
-import { RoomCardData } from "./RoomCard";
-
-// Dữ liệu phòng giữ nguyên như hiện có
-const roomsData: RoomCardData[] = [
-  {
-    id: 1,
-    title: "Căn hộ mini 2 phòng ngủ rộng rãi",
-    image: "/images/House.svg",
-    location: "Bình Thạnh, TP.HCM",
-    beds: 2,
-    baths: 1,
-    wifi: true,
-    area: "60m²",
-    price: "5.5tr",
-  },
-  {
-    id: 2,
-    title: "Phòng trọ cao cấp gần đại học Hutech",
-    image: "/images/House.svg",
-    location: "Bình Thạnh, TP.HCM",
-    beds: 1,
-    baths: 1,
-    wifi: true,
-    area: "35m²",
-    price: "4.2tr",
-  },
-  {
-    id: 3,
-    title: "Studio full nội thất Landmark 81",
-    image: "/images/House.svg",
-    location: "Bình Thạnh, TP.HCM",
-    beds: 1,
-    baths: 1,
-    wifi: true,
-    area: "45m²",
-    price: "8.5tr",
-  },
-  {
-    id: 4,
-    title: "Nhà nguyên căn hầm xe hơi",
-    image: "/images/House.svg",
-    location: "Gò Vấp, TP.HCM",
-    beds: 3,
-    baths: 2,
-    wifi: true,
-    area: "100m²",
-    price: "12tr",
-  },
-  {
-    id: 5,
-    title: "Dormitory giường tầng giá rẻ",
-    image: "/images/House.svg",
-    location: "Quận 10, TP.HCM",
-    beds: 6,
-    baths: 2,
-    wifi: true,
-    area: "50m²",
-    price: "1.8tr",
-  },
-  {
-    id: 6,
-    title: "Căn hộ dịch vụ view sông",
-    image: "/images/House.svg",
-    location: "Thảo Điền, Quận 2",
-    beds: 2,
-    baths: 2,
-    wifi: false,
-    area: "75m²",
-    price: "15tr",
-  },
-];
+import type { RoomCardData } from "./RoomCard";
 
 const toNumber = (value: number | string | undefined | null) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -113,6 +43,7 @@ const mapPostToRoom = (post: Post): RoomCardData => {
   const amenityText = getAmenityText(post);
   const image = post.images?.[0]?.image_url || "/images/House.svg";
   const maxPeople = toNumber(post.max_occupancy ?? 1);
+
   return {
     id: post.id,
     title: post.title,
@@ -166,39 +97,54 @@ export default function RoomListBody() {
 
   useEffect(() => {
     let active = true;
+
     getApprovedPosts()
       .then((posts) => {
         if (!active) return;
         const approvedPosts = (posts ?? []).filter((post) => isApprovedPost(post.status));
         setItems(approvedPosts.map(mapPostToRoom));
+        setLoadError(false);
       })
       .catch(() => {
         if (!active) return;
+        setItems([]);
         setLoadError(true);
       })
       .finally(() => {
         if (!active) return;
         setLoaded(true);
       });
+
     return () => {
       active = false;
     };
   }, []);
 
-  const displayItems = !loaded || loadError ? roomsData : items;
-
   return (
-    <section className="py-10 bg-gray-50 min-h-screen w-full">
-      <div className="w-full px-4 md:px-6 space-y-8 overflow-hidden">
-        {sections.map((section) => (
-          <SectionRow
-            key={section.id}
-            title={section.title}
-            subtitle={section.subtitle}
-            items={displayItems}
-          />
-        ))}
-
+    <section className="min-h-screen w-full bg-gray-50 py-10">
+      <div className="w-full space-y-8 overflow-hidden px-4 md:px-6">
+        {!loaded ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm">
+            Đang tải dữ liệu phòng từ hệ thống...
+          </div>
+        ) : loadError ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm">
+            Không thể tải danh sách phòng từ hệ thống.
+          </div>
+        ) : items.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm">
+            Chưa có dữ liệu phòng được duyệt.
+          </div>
+        ) : (
+          sections.map((section) => (
+            <SectionRow
+              key={section.id}
+              title={section.title}
+              subtitle={section.subtitle}
+              items={items}
+            />
+          ))
+        )}
       </div>
     </section>
   );

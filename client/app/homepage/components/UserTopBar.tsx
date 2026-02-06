@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSession, signIn } from "next-auth/react";
+import { BellIcon, ChatBubbleIcon } from "@radix-ui/react-icons";
 import UserMenu from "@/app/homepage/components/UserMenu";
 import ThemeToggleButton from "@/app/theme/ThemeToggleButton";
 
@@ -92,7 +93,7 @@ export default function UserTopBar() {
                 className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20 active:scale-95"
                 aria-label="Trò chuyện"
               >
-                <Image src="/icons/Chat.svg" alt="Chat" width={22} height={22} className="icon-adapt-dark" />
+                <ChatBubbleIcon className="h-5 w-5" />
                 {/* Ghi chú: Hiện tại hệ thống Notification đã bao gồm cả tin nhắn chat.
                    Nếu em muốn tách riêng số tin nhắn chưa đọc ở đây, cần thêm API đếm chat riêng.
                    Tạm thời user sẽ nhìn vào Thông báo để biết có tin nhắn mới.
@@ -105,7 +106,7 @@ export default function UserTopBar() {
                 className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20 active:scale-95"
                 aria-label="Thông báo"
               >
-                <Image src="/icons/Notification.svg" alt="Thông báo" width={22} height={22} className="icon-adapt-dark" />
+                <BellIcon className="h-5 w-5" />
                 
                 {/* 👇 Hiển thị số đỏ nếu có thông báo */}
                 {unreadCount > 0 && (
