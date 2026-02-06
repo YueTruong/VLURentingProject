@@ -5,13 +5,9 @@ import UserPageShell from "@/app/homepage/components/UserPageShell";
 import ListingCard from "./components/ListingCard";
 import { getApprovedPosts, type Post } from "@/app/services/posts";
 import {
-  listings,
   Listing,
   formatArea,
   formatPrice,
-  campusOptions,
-  districtOptions,
-  typeOptions,
 } from "./data/listings";
 
 type Message = {
@@ -126,12 +122,6 @@ const extractLastSegment = (value: string) => {
   return parts.length > 0 ? parts[parts.length - 1] : value;
 };
 
-const matchOption = (value: string, options: string[]) => {
-  const normalized = normalizeText(value);
-  const matched = options.find((option) => normalizeText(option) === normalized);
-  return matched ?? value;
-};
-
 const buildUpdatedLabelFrom = (value?: string | null) => {
   if (!value) return "Vừa cập nhật";
   const timestamp = new Date(value).getTime();
@@ -152,7 +142,7 @@ const mapPostToListing = (post: Post): Listing => {
   const amenityText = normalizeText(amenityNames.join(" "));
   const price = toPriceMillionValue(post.price);
   const area = toNumberValue(post.area);
-  const campusFallback = campusOptions[1] ?? campusOptions[0] ?? "Campus";
+  const campusFallback = "Chưa xác định";
   const categoryName = post.category?.name ?? "Unknown";
   const districtRaw = extractLastSegment(post.address || "");
   const updatedSource = post.updatedAt ?? post.createdAt ?? "";
@@ -163,9 +153,9 @@ const mapPostToListing = (post: Post): Listing => {
     title: post.title,
     image: post.images?.[0]?.image_url || "/images/House.svg",
     location: post.address || "Unknown",
-    district: matchOption(districtRaw, districtOptions),
+    district: districtRaw || "Chưa cập nhật",
     campus: campusFallback,
-    type: matchOption(categoryName, typeOptions),
+    type: categoryName,
     beds: Math.max(1, Math.round(toNumberValue(post.max_occupancy ?? 1))),
     baths: 1,
     wifi: amenityText.includes("wifi"),
@@ -184,7 +174,7 @@ const mapPostToListing = (post: Post): Listing => {
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const extractQuery = (input: string, normalized: string) => {
+const extractQuery = (input: string, normalized: string, districtOptions: string[]) => {
   const quotedMatch = input.match(/["“”'‘’]([^"“”'‘’]+)["“”'‘’]/);
   if (quotedMatch) return quotedMatch[1].trim();
 
@@ -218,7 +208,10 @@ const extractQuery = (input: string, normalized: string) => {
 
   return candidate.length >= 2 ? candidate : undefined;
 };
-const parseCriteria = (input: string): Criteria => {
+const parseCriteria = (
+  input: string,
+  districtOptions: string[],
+): Criteria => {
   const normalized = normalizeText(input);
   const criteria: Criteria = {};
 
@@ -320,7 +313,7 @@ const parseCriteria = (input: string): Criteria => {
     [criteria.areaMin, criteria.areaMax] = [criteria.areaMax, criteria.areaMin];
   }
 
-  const extractedQuery = extractQuery(input, normalized);
+  const extractedQuery = extractQuery(input, normalized, districtOptions);
   if (extractedQuery) {
     criteria.query = extractedQuery;
   } else if (Object.keys(criteria).length === 0 && input.trim()) {
@@ -412,14 +405,15 @@ const isResetCommand = (input: string) => {
 };
 
 export default function ListingsPage() {
+  const allOption = "Tất cả";
   const [remoteListings, setRemoteListings] = useState<Listing[]>([]);
   const [remoteLoaded, setRemoteLoaded] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
-  const [campus, setCampus] = useState("Tất cả");
-  const [district, setDistrict] = useState("Tất cả");
-  const [type, setType] = useState("Tất cả");
+  const [campus, setCampus] = useState(allOption);
+  const [district, setDistrict] = useState(allOption);
+  const [type, setType] = useState(allOption);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [minBeds, setMinBeds] = useState("Bất kỳ");
@@ -470,13 +464,25 @@ export default function ListingsPage() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sourceListings = remoteLoaded && !remoteError ? remoteListings : listings;
+  const sourceListings = remoteListings;
+  const campusFilterOptions = useMemo(
+    () => [allOption, ...Array.from(new Set(sourceListings.map((item) => item.campus).filter(Boolean)))],
+    [allOption, sourceListings],
+  );
+  const districtFilterOptions = useMemo(
+    () => [allOption, ...Array.from(new Set(sourceListings.map((item) => item.district).filter(Boolean)))],
+    [allOption, sourceListings],
+  );
+  const typeFilterOptions = useMemo(
+    () => [allOption, ...Array.from(new Set(sourceListings.map((item) => item.type).filter(Boolean)))],
+    [allOption, sourceListings],
+  );
 
   const applyCriteriaToFilters = (criteria: Criteria) => {
     setQuery(criteria.query ?? "");
-    setCampus(criteria.campus ?? campusOptions[0]);
-    setDistrict(criteria.district ?? districtOptions[0]);
-    setType(criteria.type ?? typeOptions[0]);
+    setCampus(criteria.campus ?? allOption);
+    setDistrict(criteria.district ?? allOption);
+    setType(criteria.type ?? allOption);
     setMinPrice(criteria.priceMin !== undefined ? String(criteria.priceMin) : "");
     setMaxPrice(criteria.priceMax !== undefined ? String(criteria.priceMax) : "");
     setMinBeds(criteria.bedsMin !== undefined ? String(criteria.bedsMin) : "Bất kỳ");
@@ -490,9 +496,9 @@ export default function ListingsPage() {
     const parsedMinPrice = parseNumber(minPrice);
     const parsedMaxPrice = parseNumber(maxPrice);
 
-    if (campus !== "Tất cả") criteria.campus = campus;
-    if (district !== "Tất cả") criteria.district = district;
-    if (type !== "Tất cả") criteria.type = type;
+    if (campus !== allOption) criteria.campus = campus;
+    if (district !== allOption) criteria.district = district;
+    if (type !== allOption) criteria.type = type;
 
     if (parsedMinPrice !== undefined) criteria.priceMin = parsedMinPrice;
     if (parsedMaxPrice !== undefined) criteria.priceMax = parsedMaxPrice;
@@ -507,7 +513,7 @@ export default function ListingsPage() {
     if (furnishedOnly) criteria.furnished = true;
 
     return criteria;
-  }, [campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, type, wifiOnly]);
+  }, [allOption, campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, type, wifiOnly]);
 
   const assistantExtras = useMemo(() => {
     if (!assistantCriteria) return null;
@@ -566,9 +572,9 @@ export default function ListingsPage() {
   const manualBadges = useMemo(() => {
     const items = [];
     if (query.trim()) items.push(`Tìm kiếm: ${query.trim()}`);
-    if (campus !== "Tất cả") items.push(`Cơ sở: ${campus}`);
-    if (district !== "Tất cả") items.push(`Khu vực: ${district}`);
-    if (type !== "Tất cả") items.push(`Loại: ${type}`);
+    if (campus !== allOption) items.push(`Cơ sở: ${campus}`);
+    if (district !== allOption) items.push(`Khu vực: ${district}`);
+    if (type !== allOption) items.push(`Loại: ${type}`);
     if (minPrice.trim()) items.push(`Giá từ: ${minPrice} triệu`);
     if (maxPrice.trim()) items.push(`Giá đến: ${maxPrice} triệu`);
     if (minBeds !== "Bất kỳ") items.push(`Giường: ${minBeds}+`);
@@ -576,7 +582,7 @@ export default function ListingsPage() {
     if (parkingOnly) items.push("Có bãi xe");
     if (furnishedOnly) items.push("Đầy đủ nội thất");
     return items;
-  }, [campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, query, type, wifiOnly]);
+  }, [allOption, campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, query, type, wifiOnly]);
 
 
   const assistantExtraBadges = useMemo(() => {
@@ -595,7 +601,7 @@ export default function ListingsPage() {
       time: formatTime(),
     };
 
-    const parsed = parseCriteria(trimmed);
+    const parsed = parseCriteria(trimmed, districtFilterOptions);
     const summary = buildSummary(parsed);
     let assistantText = "";
     const resetRequested = isResetCommand(trimmed);
@@ -646,10 +652,10 @@ export default function ListingsPage() {
   };
 
   const resetFilters = () => {
-    setQuery("");
-    setCampus("Tất cả");
-    setDistrict("Tất cả");
-    setType("Tất cả");
+      setQuery("");
+      setCampus(allOption);
+      setDistrict(allOption);
+      setType(allOption);
     setMinPrice("");
     setMaxPrice("");
     setMinBeds("Bất kỳ");
@@ -792,7 +798,7 @@ export default function ListingsPage() {
                   onChange={(event) => setDistrict(event.target.value)}
                   className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
                 >
-                  {districtOptions.map((option) => (
+                  {districtFilterOptions.map((option) => (
                     <option key={option} value={option}>
                       {option}
                     </option>
@@ -810,7 +816,7 @@ export default function ListingsPage() {
                   onChange={(event) => setCampus(event.target.value)}
                   className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
                 >
-                  {campusOptions.map((option) => (
+                  {campusFilterOptions.map((option) => (
                     <option key={option} value={option}>
                       {option}
                     </option>
@@ -828,7 +834,7 @@ export default function ListingsPage() {
                   onChange={(event) => setType(event.target.value)}
                   className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
                 >
-                  {typeOptions.map((option) => (
+                  {typeFilterOptions.map((option) => (
                     <option key={option} value={option}>
                       {option}
                     </option>
@@ -956,7 +962,17 @@ export default function ListingsPage() {
               </div>
             </div>
 
-            {filtered.length === 0 ? (
+            {!remoteLoaded ? (
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
+                <p className="text-lg font-semibold text-gray-900">Đang tải dữ liệu từ hệ thống</p>
+                <p className="mt-2 text-sm text-gray-600">Vui lòng đợi trong giây lát.</p>
+              </div>
+            ) : remoteError ? (
+              <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
+                <p className="text-lg font-semibold text-gray-900">Không thể tải danh sách tin đăng</p>
+                <p className="mt-2 text-sm text-gray-600">Vui lòng thử lại sau.</p>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
                 <p className="text-lg font-semibold text-gray-900">Không tìm thấy tin phù hợp</p>
                 <p className="mt-2 text-sm text-gray-600">Hãy thử đổi khu vực, mức giá hoặc tiện ích.</p>

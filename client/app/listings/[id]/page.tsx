@@ -1,12 +1,13 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation"; // Thêm useRouter
 import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react"; // Thêm useSession
 import UserTopBar from "@/app/homepage/components/UserTopBar";
 import { getPostById, type Post } from "@/app/services/posts";
+import { createReview, getPostReviews, type PublicReview } from "@/app/services/reviews";
 
 // --- 1. Cập nhật Type Listing (Thêm ID chủ trọ) ---
 type Listing = {
@@ -35,6 +36,20 @@ type Listing = {
   };
   images: string[];
   mapQuery: string;
+};
+
+type ListingReview = {
+  id: number;
+  rating: number;
+  comment: string;
+  createdAt?: string;
+  userName: string;
+  userAvatar: string;
+};
+
+type ListingReviewSummary = {
+  averageRating: number;
+  totalReviews: number;
 };
 
 // --- Helper Functions (Giữ nguyên) ---
@@ -77,6 +92,42 @@ const getAmenityNames = (post: Post) =>
   (post.amenities ?? [])
     .map((amenity) => (amenity?.name ?? "").trim())
     .filter(Boolean);
+
+const formatReviewDate = (value?: string) => {
+  if (!value) return "Mới đăng";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "Mới đăng";
+  return parsed.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
+
+const mapPublicReview = (review: PublicReview): ListingReview => {
+  const userName =
+    review.user?.profile?.full_name ||
+    review.user?.username ||
+    review.user?.email ||
+    "Người dùng";
+
+  return {
+    id: review.id,
+    rating: Number.isFinite(review.rating) ? review.rating : 0,
+    comment: (review.comment ?? "").trim() || "Không có nội dung đánh giá.",
+    createdAt: review.createdAt,
+    userName,
+    userAvatar: review.user?.profile?.avatar_url || "/images/Admins.png",
+  };
+};
+
+const getSubmitErrorMessage = (error: unknown) => {
+  const anyError = error as { response?: { data?: { message?: string | string[] } } };
+  const message = anyError?.response?.data?.message;
+  if (Array.isArray(message)) return message.join(", ");
+  if (typeof message === "string" && message.trim()) return message;
+  return "Không thể gửi đánh giá. Vui lòng thử lại.";
+};
 
 // --- 2. Cập nhật Mapper (Lấy ID chủ trọ từ Post) ---
 const mapPostToListing = (post: Post): Listing => {
@@ -165,6 +216,26 @@ function AmenityTag({ text }: { text: string }) {
   );
 }
 
+function ReviewStars({ rating, showValue = false }: { rating: number; showValue?: boolean }) {
+  const safeRating = Number.isFinite(rating) ? rating : 0;
+  const fullStars = Math.max(0, Math.min(5, Math.round(safeRating)));
+
+  return (
+    <div className="flex items-center gap-1">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <span key={index} className={index < fullStars ? "text-yellow-500" : "text-gray-300"}>
+          ★
+        </span>
+      ))}
+      {showValue ? (
+        <span className="ml-1 text-sm font-semibold text-gray-700">
+          {safeRating.toFixed(1)}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 // --- MAIN COMPONENT ---
 export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -180,8 +251,24 @@ export default function ListingDetailPage() {
   
   // State xử lý nút Chat loading
   const [isChatting, setIsChatting] = useState(false);
+  const [reviews, setReviews] = useState<ListingReview[]>([]);
+  const [reviewSummary, setReviewSummary] = useState<ListingReviewSummary>({
+    averageRating: 0,
+    totalReviews: 0,
+  });
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewsError, setReviewsError] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewSubmitError, setReviewSubmitError] = useState("");
+  const [reviewSubmitSuccess, setReviewSubmitSuccess] = useState("");
 
   const imageCount = listing?.images.length ?? 0;
+  const postId = useMemo(() => {
+    const parsed = Number(id);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }, [id]);
 
   // --- 3. Hàm xử lý bắt đầu Chat ---
   const handleStartChat = async () => {
@@ -272,6 +359,92 @@ export default function ListingDetailPage() {
     };
   }, [id]);
 
+  useEffect(() => {
+    if (!postId) {
+      setReviews([]);
+      setReviewSummary({ averageRating: 0, totalReviews: 0 });
+      setReviewsLoading(false);
+      setReviewsError(false);
+      return;
+    }
+
+    let active = true;
+    setReviewsLoading(true);
+    setReviewsError(false);
+
+    getPostReviews(postId, 20)
+      .then((data) => {
+        if (!active) return;
+        setReviewSummary({
+          averageRating: Number.isFinite(data.averageRating) ? data.averageRating : 0,
+          totalReviews: Number.isFinite(data.totalReviews) ? data.totalReviews : 0,
+        });
+        setReviews((data.reviews ?? []).map(mapPublicReview));
+      })
+      .catch(() => {
+        if (!active) return;
+        setReviews([]);
+        setReviewSummary({ averageRating: 0, totalReviews: 0 });
+        setReviewsError(true);
+      })
+      .finally(() => {
+        if (!active) return;
+        setReviewsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [postId]);
+
+  const handleSubmitReview = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!postId) return;
+    if (!currentUserId) {
+      setReviewSubmitError("Vui lòng đăng nhập để gửi đánh giá.");
+      return;
+    }
+    if (!reviewComment.trim()) {
+      setReviewSubmitError("Vui lòng nhập nội dung đánh giá.");
+      return;
+    }
+    if (!Number.isFinite(reviewRating) || reviewRating < 1 || reviewRating > 5) {
+      setReviewSubmitError("Số sao phải từ 1 đến 5.");
+      return;
+    }
+
+    setReviewSubmitError("");
+    setReviewSubmitSuccess("");
+    setReviewSubmitting(true);
+    try {
+      await createReview({
+        postId,
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+      });
+
+      const refreshed = await getPostReviews(postId, 20);
+      setReviewSummary({
+        averageRating: Number.isFinite(refreshed.averageRating)
+          ? refreshed.averageRating
+          : 0,
+        totalReviews: Number.isFinite(refreshed.totalReviews)
+          ? refreshed.totalReviews
+          : 0,
+      });
+      setReviews((refreshed.reviews ?? []).map(mapPublicReview));
+
+      setReviewComment("");
+      setReviewRating(5);
+      setReviewSubmitSuccess("Gửi đánh giá thành công.");
+    } catch (error) {
+      setReviewSubmitError(getSubmitErrorMessage(error));
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f5f7fb]">
@@ -315,7 +488,9 @@ export default function ListingDetailPage() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 uppercase">{listing.campus}</span>
-                <span className="text-gray-600">Đánh giá {listing.rating} ({listing.reviews})</span>
+                <span className="text-gray-600">
+                  Đánh giá {reviewSummary.averageRating.toFixed(1)} ({reviewSummary.totalReviews})
+                </span>
               </div>
               <h1 className="text-2xl lg:text-3xl font-extrabold text-gray-900">{listing.title}</h1>
               <p className="text-sm text-gray-600">{listing.address}</p>
@@ -436,6 +611,119 @@ export default function ListingDetailPage() {
                 <li>• Cho phép thú cưng nhỏ, giữ vệ sinh chung.</li>
                 <li>• Ưu tiên sinh viên VLU, kiểm tra giấy tờ khi vào ở.</li>
               </ul>
+            </section>
+
+            <section className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Đánh giá người thuê</h2>
+                  <p className="text-sm text-gray-500">
+                    Chia sẻ trải nghiệm thực tế của người dùng về tin đăng này.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-right">
+                  <ReviewStars rating={reviewSummary.averageRating} showValue />
+                  <p className="text-xs text-gray-500">{reviewSummary.totalReviews} đánh giá</p>
+                </div>
+              </div>
+
+              {reviewsLoading ? (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-600">
+                  Đang tải đánh giá...
+                </div>
+              ) : reviewsError ? (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-600">
+                  Không thể tải đánh giá cho tin đăng này.
+                </div>
+              ) : reviews.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-600">
+                  Chưa có đánh giá nào. Hãy là người đầu tiên chia sẻ trải nghiệm.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {reviews.map((review) => (
+                    <article key={review.id} className="rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="relative h-9 w-9 overflow-hidden rounded-full border border-gray-200">
+                            <Image
+                              src={review.userAvatar}
+                              alt={review.userName}
+                              fill
+                              unoptimized
+                              className="object-cover"
+                            />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{review.userName}</p>
+                            <p className="text-xs text-gray-500">{formatReviewDate(review.createdAt)}</p>
+                          </div>
+                        </div>
+                        <ReviewStars rating={review.rating} />
+                      </div>
+                      <p className="mt-3 text-sm leading-6 text-gray-700">{review.comment}</p>
+                    </article>
+                  ))}
+                </div>
+              )}
+
+              <div className="border-t border-gray-200 pt-4">
+                {!session ? (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                    Bạn cần{" "}
+                    <Link href="/login" className="font-semibold text-[color:var(--brand-accent)] hover:underline">
+                      đăng nhập
+                    </Link>{" "}
+                    để viết đánh giá.
+                  </div>
+                ) : (
+                  <form className="space-y-3" onSubmit={handleSubmitReview}>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-700">Chọn số sao</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {[1, 2, 3, 4, 5].map((value) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setReviewRating(value)}
+                            className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                              reviewRating === value
+                                ? "border-yellow-400 bg-yellow-50 text-yellow-700"
+                                : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            {value} ★
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <textarea
+                      value={reviewComment}
+                      onChange={(event) => setReviewComment(event.target.value)}
+                      placeholder="Chia sẻ trải nghiệm của bạn về tin đăng này..."
+                      className="min-h-[110px] w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-800 outline-none focus:border-[color:var(--brand-accent)]"
+                    />
+
+                    {reviewSubmitError ? (
+                      <p className="text-sm font-semibold text-red-500">{reviewSubmitError}</p>
+                    ) : null}
+                    {reviewSubmitSuccess ? (
+                      <p className="text-sm font-semibold text-emerald-600">{reviewSubmitSuccess}</p>
+                    ) : null}
+
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={reviewSubmitting}
+                        className="rounded-full bg-[color:var(--brand-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[color:var(--brand-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {reviewSubmitting ? "Đang gửi..." : "Gửi đánh giá"}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
             </section>
           </div>
 
