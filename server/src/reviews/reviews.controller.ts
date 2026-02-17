@@ -7,9 +7,11 @@ import {
   Get,
   Param,
   Query,
+  Patch,
 } from '@nestjs/common';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { UpdateReviewDto } from './dto/update-review.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 
@@ -26,6 +28,16 @@ export class ReviewsController {
     return this.reviewsService.findLatest(safeLimit);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  @ApiOperation({ summary: 'Lay danh gia cua toi' })
+  async findMine(@Request() req: any, @Query('limit') limit?: string) {
+    const parsedLimit = Number.parseInt(limit ?? '', 10);
+    const safeLimit = Number.isFinite(parsedLimit) ? parsedLimit : 20;
+    const userId = Number(req?.user?.userId ?? req?.user?.id);
+    return this.reviewsService.findByUserId(userId, safeLimit);
+  }
+
   @Get('post/:postId')
   @ApiOperation({ summary: 'Lay danh gia theo bai dang' })
   async findByPost(
@@ -36,6 +48,18 @@ export class ReviewsController {
     const parsedLimit = Number.parseInt(limit ?? '', 10);
     const safeLimit = Number.isFinite(parsedLimit) ? parsedLimit : 10;
     return this.reviewsService.findByPostId(parsedPostId, safeLimit);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id')
+  @ApiOperation({ summary: 'Cap nhat danh gia' })
+  async update(
+    @Param('id') id: string,
+    @Body() updateReviewDto: UpdateReviewDto,
+    @Request() req: any,
+  ) {
+    const reviewId = Number.parseInt(id, 10);
+    return this.reviewsService.update(reviewId, updateReviewDto, req.user);
   }
 
   @UseGuards(JwtAuthGuard)
