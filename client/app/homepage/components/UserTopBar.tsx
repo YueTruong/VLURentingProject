@@ -12,34 +12,63 @@ export default function UserTopBar() {
   const { data: session, status } = useSession();
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const resolveApiUrl = () => {
+    const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
+    if (envUrl) return envUrl;
+    if (typeof window !== "undefined" && window.location.hostname === "localhost") {
+      return "http://localhost:3001";
+    }
+    return "";
+  };
+
   // Logic gọi API lấy số thông báo chưa đọc
   useEffect(() => {
     // Chỉ chạy khi đã đăng nhập
-    if (status !== "authenticated") return;
+    if (status !== "authenticated") {
+      setUnreadCount(0);
+      return;
+    }
+
+    let active = true;
+    let controller: AbortController | null = null;
 
     const fetchUnread = async () => {
       try {
         const token = session?.user?.accessToken;
 
-        console.log("Token sending to API:", token);
+        if (!token || !active) return;
 
-        if (!token) return;
+        const apiUrl = resolveApiUrl();
+        if (!apiUrl) return;
+        if (typeof window !== "undefined" && window.location.protocol === "https:" && apiUrl.startsWith("http://")) {
+          return;
+        }
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+        controller?.abort();
+        controller = new AbortController();
         
         const res = await fetch(`${apiUrl}/notifications/unread-count`, {
           headers: { Authorization: `Bearer ${token}` },
           // Thêm cache: 'no-store' để đảm bảo luôn lấy dữ liệu mới nhất
-          cache: 'no-store' 
+          cache: 'no-store',
+          signal: controller.signal,
         });
+
+        if (!active) return;
 
         if (res.ok) {
           const data = await res.json();
           // data.count trả về từ backend
-          setUnreadCount(data.count);
+          const nextCount = Number(data?.count ?? 0);
+          setUnreadCount(Number.isFinite(nextCount) ? nextCount : 0);
         }
       } catch (error) {
-        console.error("Lỗi lấy số thông báo:", error);
+        if (!active) return;
+        const anyError = error as { name?: string };
+        if (anyError?.name === "AbortError") return;
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Lỗi lấy số thông báo:", error);
+        }
       }
     };
 
@@ -50,7 +79,11 @@ export default function UserTopBar() {
     const intervalId = setInterval(fetchUnread, 15000);
 
     // Dọn dẹp khi component unmount
-    return () => clearInterval(intervalId);
+    return () => {
+      active = false;
+      controller?.abort();
+      clearInterval(intervalId);
+    };
   }, [session, status]);
 
   return (
