@@ -16,10 +16,34 @@ export type PublicReview = {
   };
 };
 
+export type ReviewPostSummary = {
+  id: number;
+  title?: string;
+  address?: string;
+  status?: string;
+  category?: {
+    id: number;
+    name?: string;
+  };
+};
+
+export type MyReviewItem = {
+  id: number;
+  rating: number;
+  comment?: string | null;
+  createdAt?: string;
+  post?: ReviewPostSummary;
+};
+
 export type CreateReviewPayload = {
   postId?: number;
   rating: number;
   comment: string;
+};
+
+export type UpdateReviewPayload = {
+  rating?: number;
+  comment?: string;
 };
 
 export type PostReviewsResponse = {
@@ -34,8 +58,18 @@ export async function getLatestReviews(limit = 3): Promise<PublicReview[]> {
   return res.data ?? [];
 }
 
+export async function getMyReviews(limit = 20): Promise<MyReviewItem[]> {
+  const res = await api.get<MyReviewItem[]>("/reviews/me", { params: { limit } });
+  return Array.isArray(res.data) ? res.data : [];
+}
+
 export async function createReview(payload: CreateReviewPayload) {
   const res = await api.post("/reviews", payload);
+  return res.data;
+}
+
+export async function updateReview(reviewId: number, payload: UpdateReviewPayload) {
+  const res = await api.patch(`/reviews/${reviewId}`, payload);
   return res.data;
 }
 

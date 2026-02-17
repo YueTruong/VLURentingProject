@@ -6,15 +6,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react"; // Thêm useSession
 import UserTopBar from "@/app/homepage/components/UserTopBar";
+import type { RoomCardData } from "@/app/homepage/components/RoomCard";
+import { toggleFavorite, useFavorites } from "@/app/services/favorites";
 import { getPostById, type Post } from "@/app/services/posts";
-import { createReview, getPostReviews, type PublicReview } from "@/app/services/reviews";
+import { getPostReviews, updateReview, type PublicReview } from "@/app/services/reviews";
 
 // --- 1. Cập nhật Type Listing (Thêm ID chủ trọ) ---
 type Listing = {
   id: string;
   title: string;
   price: string;
+  rawPrice: number;
   area: string;
+  rawArea: number;
   address: string;
   campus: string;
   rating: string;
@@ -43,6 +47,7 @@ type ListingReview = {
   rating: number;
   comment: string;
   createdAt?: string;
+  userId?: number;
   userName: string;
   userAvatar: string;
 };
@@ -81,11 +86,25 @@ const formatPriceText = (value: number | string | undefined | null) => {
   return `${trimmed} triệu / tháng`;
 };
 
+const formatPriceShort = (value: number | string | undefined | null) => {
+  const price = toPriceMillion(value);
+  if (!price) return "0";
+  const trimmed = Number.isInteger(price) ? price.toFixed(0) : price.toFixed(1);
+  return `${trimmed}tr`;
+};
+
 const formatAreaText = (value: number | string | undefined | null) => {
   const area = toNumberValue(value);
   if (!area) return "0 m²";
   const trimmed = Number.isInteger(area) ? area.toFixed(0) : area.toFixed(1);
   return `${trimmed} m²`;
+};
+
+const formatAreaShort = (value: number | string | undefined | null) => {
+  const area = toNumberValue(value);
+  if (!area) return "0m2";
+  const trimmed = Number.isInteger(area) ? area.toFixed(0) : area.toFixed(1);
+  return `${trimmed}m2`;
 };
 
 const getAmenityNames = (post: Post) =>
@@ -116,6 +135,7 @@ const mapPublicReview = (review: PublicReview): ListingReview => {
     rating: Number.isFinite(review.rating) ? review.rating : 0,
     comment: (review.comment ?? "").trim() || "Không có nội dung đánh giá.",
     createdAt: review.createdAt,
+    userId: review.user?.id,
     userName,
     userAvatar: review.user?.profile?.avatar_url || "/images/Admins.png",
   };
@@ -126,7 +146,7 @@ const getSubmitErrorMessage = (error: unknown) => {
   const message = anyError?.response?.data?.message;
   if (Array.isArray(message)) return message.join(", ");
   if (typeof message === "string" && message.trim()) return message;
-  return "Không thể gửi đánh giá. Vui lòng thử lại.";
+  return "Không thể cập nhật đánh giá. Vui lòng thử lại.";
 };
 
 // --- 2. Cập nhật Mapper (Lấy ID chủ trọ từ Post) ---
@@ -159,7 +179,9 @@ const mapPostToListing = (post: Post): Listing => {
     id: String(post.id),
     title: post.title || "Chưa có tiêu đề",
     price: formatPriceText(post.price),
+    rawPrice: toNumberValue(post.price),
     area: formatAreaText(post.area),
+    rawArea: toNumberValue(post.area),
     address: post.address || "",
     campus: post.category?.name ?? "Chưa rõ",
     rating: "0",
@@ -241,6 +263,7 @@ export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter(); // ✅ Init Router
   const { data: session } = useSession(); // ✅ Lấy session
+  const favorites = useFavorites();
   const currentUserId = session?.user ? Number(session.user.id) : null;
 
   const [listing, setListing] = useState<Listing | null>(null);
@@ -258,17 +281,52 @@ export default function ListingDetailPage() {
   });
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [reviewsError, setReviewsError] = useState(false);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState("");
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  const [reviewSubmitError, setReviewSubmitError] = useState("");
-  const [reviewSubmitSuccess, setReviewSubmitSuccess] = useState("");
+  const [editRating, setEditRating] = useState(5);
+  const [editComment, setEditComment] = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [editSuccess, setEditSuccess] = useState("");
+  const [isEditingReview, setIsEditingReview] = useState(false);
 
   const imageCount = listing?.images.length ?? 0;
   const postId = useMemo(() => {
     const parsed = Number(id);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }, [id]);
+  const myReview = useMemo(() => {
+    if (!currentUserId) return null;
+    return reviews.find((review) => review.userId === currentUserId) ?? null;
+  }, [reviews, currentUserId]);
+  const favoritePayload = useMemo<RoomCardData | null>(() => {
+    if (!listing || !postId) return null;
+    return {
+      id: postId,
+      title: listing.title,
+      image: listing.images?.[0] ?? "/images/House.svg",
+      location: listing.address || "Unknown",
+      beds: listing.beds,
+      baths: listing.baths,
+      wifi: listing.wifi,
+      area: formatAreaShort(listing.rawArea),
+      price: formatPriceShort(listing.rawPrice),
+    };
+  }, [listing, postId]);
+  const isSaved = useMemo(() => {
+    if (!postId) return false;
+    return favorites.some((item) => item.id === postId);
+  }, [favorites, postId]);
+
+  const resetEditForm = () => {
+    if (!myReview) {
+      setEditRating(5);
+      setEditComment("");
+    } else {
+      setEditRating(Number.isFinite(myReview.rating) ? myReview.rating : 5);
+      setEditComment(myReview.comment ?? "");
+    }
+    setEditError("");
+    setEditSuccess("");
+  };
 
   // --- 3. Hàm xử lý bắt đầu Chat ---
   const handleStartChat = async () => {
@@ -365,6 +423,7 @@ export default function ListingDetailPage() {
       setReviewSummary({ averageRating: 0, totalReviews: 0 });
       setReviewsLoading(false);
       setReviewsError(false);
+      setIsEditingReview(false);
       return;
     }
 
@@ -397,31 +456,48 @@ export default function ListingDetailPage() {
     };
   }, [postId]);
 
-  const handleSubmitReview = async (event: FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (!myReview) {
+      setEditRating(5);
+      setEditComment("");
+      setEditError("");
+      setEditSuccess("");
+      setIsEditingReview(false);
+      return;
+    }
+    setEditRating(Number.isFinite(myReview.rating) ? myReview.rating : 5);
+    setEditComment(myReview.comment ?? "");
+  }, [myReview]);
+
+  const handleToggleSave = () => {
+    if (!favoritePayload) return;
+    toggleFavorite(favoritePayload);
+  };
+
+  const handleUpdateReview = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!postId) return;
+    if (!postId || !myReview) return;
     if (!currentUserId) {
-      setReviewSubmitError("Vui lòng đăng nhập để gửi đánh giá.");
+      setEditError("Vui lòng đăng nhập để chỉnh sửa đánh giá.");
       return;
     }
-    if (!reviewComment.trim()) {
-      setReviewSubmitError("Vui lòng nhập nội dung đánh giá.");
+    if (!editComment.trim()) {
+      setEditError("Vui lòng nhập nội dung đánh giá.");
       return;
     }
-    if (!Number.isFinite(reviewRating) || reviewRating < 1 || reviewRating > 5) {
-      setReviewSubmitError("Số sao phải từ 1 đến 5.");
+    if (!Number.isFinite(editRating) || editRating < 1 || editRating > 5) {
+      setEditError("Số sao phải từ 1 đến 5.");
       return;
     }
 
-    setReviewSubmitError("");
-    setReviewSubmitSuccess("");
-    setReviewSubmitting(true);
+    setEditError("");
+    setEditSuccess("");
+    setEditSubmitting(true);
     try {
-      await createReview({
-        postId,
-        rating: reviewRating,
-        comment: reviewComment.trim(),
+      await updateReview(myReview.id, {
+        rating: editRating,
+        comment: editComment.trim(),
       });
 
       const refreshed = await getPostReviews(postId, 20);
@@ -435,13 +511,11 @@ export default function ListingDetailPage() {
       });
       setReviews((refreshed.reviews ?? []).map(mapPublicReview));
 
-      setReviewComment("");
-      setReviewRating(5);
-      setReviewSubmitSuccess("Gửi đánh giá thành công.");
+      setEditSuccess("Cập nhật đánh giá thành công.");
     } catch (error) {
-      setReviewSubmitError(getSubmitErrorMessage(error));
+      setEditError(getSubmitErrorMessage(error));
     } finally {
-      setReviewSubmitting(false);
+      setEditSubmitting(false);
     }
   };
 
@@ -662,70 +736,104 @@ export default function ListingDetailPage() {
                         <ReviewStars rating={review.rating} />
                       </div>
                       <p className="mt-3 text-sm leading-6 text-gray-700">{review.comment}</p>
-                    </article>
-                  ))}
+                  </article>
+                ))}
+              </div>
+            )}
+
+            <div className="border-t border-gray-200 pt-4">
+              {!session ? (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                  Bạn cần{" "}
+                  <Link href="/login" className="font-semibold text-[color:var(--brand-accent)] hover:underline">
+                    đăng nhập
+                  </Link>{" "}
+                  để chỉnh sửa đánh giá.
+                </div>
+              ) : !myReview ? (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                  Bạn chưa có đánh giá để chỉnh sửa cho tin đăng này.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-gray-600">Bạn đã gửi đánh giá cho tin đăng này.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!isEditingReview) {
+                          resetEditForm();
+                        }
+                        setIsEditingReview((value) => !value);
+                      }}
+                      className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 active:scale-95"
+                    >
+                      {isEditingReview ? "Đóng chỉnh sửa" : "Chỉnh sửa đánh giá"}
+                    </button>
+                  </div>
+
+                  {isEditingReview ? (
+                    <form className="space-y-3" onSubmit={handleUpdateReview}>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-700">Chỉnh sửa số sao</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {[1, 2, 3, 4, 5].map((value) => (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => setEditRating(value)}
+                              className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                                editRating === value
+                                  ? "border-yellow-400 bg-yellow-50 text-yellow-700"
+                                  : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                              }`}
+                            >
+                              {value} ★
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <textarea
+                        value={editComment}
+                        onChange={(event) => setEditComment(event.target.value)}
+                        placeholder="Cập nhật nội dung đánh giá của bạn..."
+                        className="min-h-[110px] w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-800 outline-none focus:border-[color:var(--brand-accent)]"
+                      />
+
+                      {editError ? (
+                        <p className="text-sm font-semibold text-red-500">{editError}</p>
+                      ) : null}
+                      {editSuccess ? (
+                        <p className="text-sm font-semibold text-emerald-600">{editSuccess}</p>
+                      ) : null}
+
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            resetEditForm();
+                            setIsEditingReview(false);
+                          }}
+                          className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 active:scale-95"
+                        >
+                          Hủy
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={editSubmitting}
+                          className="rounded-full bg-[color:var(--brand-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[color:var(--brand-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {editSubmitting ? "Đang lưu..." : "Cập nhật đánh giá"}
+                        </button>
+                      </div>
+                    </form>
+                  ) : null}
                 </div>
               )}
-
-              <div className="border-t border-gray-200 pt-4">
-                {!session ? (
-                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-                    Bạn cần{" "}
-                    <Link href="/login" className="font-semibold text-[color:var(--brand-accent)] hover:underline">
-                      đăng nhập
-                    </Link>{" "}
-                    để viết đánh giá.
-                  </div>
-                ) : (
-                  <form className="space-y-3" onSubmit={handleSubmitReview}>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-700">Chọn số sao</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {[1, 2, 3, 4, 5].map((value) => (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => setReviewRating(value)}
-                            className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
-                              reviewRating === value
-                                ? "border-yellow-400 bg-yellow-50 text-yellow-700"
-                                : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                            }`}
-                          >
-                            {value} ★
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <textarea
-                      value={reviewComment}
-                      onChange={(event) => setReviewComment(event.target.value)}
-                      placeholder="Chia sẻ trải nghiệm của bạn về tin đăng này..."
-                      className="min-h-[110px] w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-800 outline-none focus:border-[color:var(--brand-accent)]"
-                    />
-
-                    {reviewSubmitError ? (
-                      <p className="text-sm font-semibold text-red-500">{reviewSubmitError}</p>
-                    ) : null}
-                    {reviewSubmitSuccess ? (
-                      <p className="text-sm font-semibold text-emerald-600">{reviewSubmitSuccess}</p>
-                    ) : null}
-
-                    <div className="flex justify-end">
-                      <button
-                        type="submit"
-                        disabled={reviewSubmitting}
-                        className="rounded-full bg-[color:var(--brand-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[color:var(--brand-accent-strong)] disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {reviewSubmitting ? "Đang gửi..." : "Gửi đánh giá"}
-                      </button>
-                    </div>
-                  </form>
-                )}
-              </div>
-            </section>
-          </div>
+            </div>
+          </section>
+        </div>
 
           <aside className="space-y-4">
             <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-3">
@@ -770,8 +878,16 @@ export default function ListingDetailPage() {
                 <button className="rounded-full bg-[#d51f35] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b01628] active:scale-95">
                   Đặt lịch 15:00 hôm nay
                 </button>
-                <button className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 active:scale-95">
-                  Lưu tin
+                <button
+                  onClick={handleToggleSave}
+                  disabled={!favoritePayload}
+                  className={`rounded-full border px-4 py-2 text-sm font-semibold active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 ${
+                    isSaved
+                      ? "border-[#d51f35] bg-[#d51f35] text-white hover:bg-[#b01628]"
+                      : "border-gray-200 bg-white text-gray-900 hover:bg-gray-50"
+                  }`}
+                >
+                  {isSaved ? "Đã lưu" : "Lưu tin"}
                 </button>
                 <button className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 active:scale-95">
                   Chia sẻ
