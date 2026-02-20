@@ -24,33 +24,57 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BA
 const IMAGE_PREFIX = "[[image]]";
 let socket: Socket;
 
-// --- UTILS FORMAT THỜI GIAN ---
-const formatTime = (dateString: string) => {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return "";
+// --- UTILS FORMAT THỜI GIAN CHUẨN ---
+// Hàm này giải quyết triệt để lỗi mất chữ Z (Múi giờ UTC) từ Database trả về
+const parseSafeDate = (dateString?: string) => {
+  if (!dateString) return null;
+  // Xử lý chuỗi để ép trình duyệt hiểu đúng múi giờ UTC
+  let safeString = dateString.replace(' ', 'T');
+  if (!safeString.endsWith('Z') && !safeString.match(/[+-]\d\d:?\d\d$/)) {
+    safeString += 'Z';
+  }
+  const date = new Date(safeString);
+  if (isNaN(date.getTime())) return null;
+  date.setHours(date.getHours() + 7);
+  const now = new Date();
+  if (date.getTime() > now.getTime()) {
+    return now;
+  }
+  return date;
+};
+
+const formatTime = (dateString?: string) => {
+  const date = parseSafeDate(dateString);
+  if (!date) return "";
   return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit", hour12: false });
 };
 
 const formatRelativeTime = (dateString?: string) => {
-  if (!dateString) return "";
-  const date = new Date(dateString);
+  const date = parseSafeDate(dateString);
+  if (!date) return "";
+  
   const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
+  
+  // Xóa bỏ Giờ/Phút/Giây, chỉ giữ lại đúng Ngày/Tháng/Năm để so sánh
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  
+  // Tính chính xác khoảng cách bao nhiêu ngày
+  const dayDiff = Math.floor((today.getTime() - targetDay.getTime()) / (1000 * 60 * 60 * 24));
 
-  if (seconds < 60) return "Vừa xong";
-  if (minutes < 60) return `${minutes} phút`;
-  if (hours < 24) {
-    if (date.getDate() === now.getDate()) return formatTime(dateString);
+  if (dayDiff === 0) {
+    // Nếu gửi trong cùng ngày hôm nay -> Chỉ hiện giờ (VD: 00:23)
+    return formatTime(dateString);
+  } else if (dayDiff === 1) {
+    // Ngày hôm qua
     return "Hôm qua";
+  } else if (dayDiff > 1 && dayDiff <= 7) {
+    // Trong vòng 1 tuần
+    return `${dayDiff} ngày trước`;
+  } else {
+    // Quá lâu thì hiện Ngày/Tháng
+    return date.toLocaleDateString("vi-VN", { day: '2-digit', month: '2-digit' });
   }
-  if (days === 1) return "Hôm qua";
-  if (days < 7) return `${days} ngày`;
-  return date.toLocaleDateString("vi-VN", { day: '2-digit', month: '2-digit' });
 };
 
 const splitMessageContent = (content: string) => {
@@ -92,7 +116,8 @@ interface RawConversation {
   student: User;
   landlord: User;
   messages: Message[];
-  updated_at: string;
+  created_at: string; // Thêm trường này
+  updated_at?: string;
 }
 
 type Conversation = {
@@ -132,7 +157,6 @@ function UserProfileModal({ user, onClose, isOnline }: { user: User; onClose: ()
             ) : (
               <span className="text-4xl font-bold text-(--theme-text-subtle)">{user.full_name?.charAt(0).toUpperCase() || "U"}</span>
             )}
-            {/* Chấm Online to trong modal */}
             {isOnline && (
               <span className="absolute bottom-1 right-1 h-5 w-5 rounded-full border-4 border-(--theme-surface) bg-green-500"></span>
             )}
@@ -193,7 +217,6 @@ function ConversationItem({ convo, active, onSelect, isOnline }: { convo: Conver
                 <span>{convo.display_name?.charAt(0).toUpperCase()}</span>
             )}
         </div>
-        {/* 👇 HIỂN THỊ CHẤM ONLINE NẾU USER ĐÓ ĐANG ONLINE */}
         {isOnline && (
             <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-(--theme-surface) bg-green-500"></span>
         )}
@@ -268,8 +291,6 @@ export default function ChatPage() {
   const [uploadError, setUploadError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [showProfile, setShowProfile] = useState(false);
-
-  // 👇 MẢNG LƯU TRỮ ID CÁC USER ĐANG ONLINE
   const [onlineUsers, setOnlineUsers] = useState<number[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -280,8 +301,11 @@ export default function ChatPage() {
 
   const mapConversation = useCallback((c: RawConversation): Conversation => {
     const otherUser = c.student.id === currentUserId ? c.landlord : c.student;
+    
     let lastMsg = "";
-    let lastTime = c.updated_at || new Date().toISOString(); 
+    // 👇 FIX: Dùng created_at của hội thoại, tránh lấy giờ hiện tại khiến tất cả update cùng lúc
+    let lastTime = c.created_at || ""; 
+    
     if (c.messages && c.messages.length > 0) {
         const last = c.messages[c.messages.length - 1];
         lastMsg = last.content;
@@ -334,10 +358,8 @@ export default function ChatPage() {
     // --- SETUP SOCKET ---
     socket = io(SOCKET_URL);
     
-    // Báo cho server biết mình đã online
     socket.emit("user_connected", currentUserId);
 
-    // Lắng nghe có người online
     socket.on("user_online", (userId: number) => {
       setOnlineUsers(prev => {
         if (!prev.includes(userId)) return [...prev, userId];
@@ -345,12 +367,10 @@ export default function ChatPage() {
       });
     });
 
-    // Lắng nghe có người offline
     socket.on("user_offline", (userId: number) => {
       setOnlineUsers(prev => prev.filter(id => id !== userId));
     });
 
-    // Lắng nghe kết quả khi chủ động check status
     socket.on("online_status_result", (data: { userId: number, isOnline: boolean }) => {
       if (data.isOnline) {
         setOnlineUsers(prev => prev.includes(data.userId) ? prev : [...prev, data.userId]);
@@ -359,17 +379,17 @@ export default function ChatPage() {
       }
     });
 
-    // Lắng nghe tin nhắn mới
     socket.on("new_message", (newMsg: Message) => {
+        // Gán thời gian chuẩn (UTC) nếu socket không có để tránh lỗi sai múi giờ
         if (!newMsg.created_at) newMsg.created_at = new Date().toISOString();
+        
         setConversations(prev => {
             const index = prev.findIndex(c => c.id === newMsg.conversation.id);
+            if (index === -1) return prev; // Chặn lỗi không tìm thấy
+            
             const newArr = [...prev];
-            let updatedConvo;
-            if (index !== -1) {
-                updatedConvo = { ...newArr[index], last_message: newMsg.content, last_time: newMsg.created_at };
-                newArr.splice(index, 1);
-            } else return prev; 
+            const updatedConvo = { ...newArr[index], last_message: newMsg.content, last_time: newMsg.created_at };
+            newArr.splice(index, 1);
             newArr.unshift(updatedConvo);
             return newArr;
         });
@@ -380,17 +400,15 @@ export default function ChatPage() {
 
   // UI update cho tin nhắn mới của Chat đang mở
   useEffect(() => {
+    if (!socket) return;
     const handleNewMsg = (newMsg: Message) => {
         if (selectedId === newMsg.conversation.id) {
             setMessages(prev => [...prev, newMsg]);
             setTimeout(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, 100);
         }
     };
-    if (socket) {
-        socket.off("new_message_ui"); 
-        socket.on("new_message", handleNewMsg);
-    }
-    return () => { if (socket) socket.off("new_message", handleNewMsg); }
+    socket.on("new_message", handleNewMsg);
+    return () => { socket.off("new_message", handleNewMsg); }
   }, [selectedId]);
 
 
@@ -402,8 +420,6 @@ export default function ChatPage() {
       
       if (socket) {
         socket.emit("join_conversation", selectedId);
-        
-        // Hỏi server xem người kia có online không
         if (currentConv) {
           socket.emit("check_online_status", currentConv.partner.id);
         }
@@ -415,7 +431,7 @@ export default function ChatPage() {
       .then(res => res.json())
       .then(setMessages)
       .catch(console.error);
-  }, [selectedId, accessToken, conversations]); // Phụ thuộc thêm conversation để lấy id người kia
+  }, [selectedId, accessToken, conversations]);
 
   useEffect(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
@@ -475,18 +491,15 @@ export default function ChatPage() {
   }, [conversations, searchTerm]);
 
   const currentConv = conversations.find(c => c.id === selectedId);
-  // Kiểm tra xem đối tác của cuộc trò chuyện hiện tại có trong mảng online không
   const isCurrentPartnerOnline = currentConv ? onlineUsers.includes(currentConv.partner.id) : false;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-(--theme-bg) text-(--theme-text)">
-      
       <div className="flex-none z-50">
         <UserTopBar />
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        
         {/* === SIDEBAR === */}
         <aside className="z-40 flex w-80 flex-col border-r border-(--theme-border) bg-(--theme-surface)">
           <div className="flex-none px-5 pt-6 pb-2">
@@ -517,7 +530,6 @@ export default function ChatPage() {
                     convo={c} 
                     active={c.id === selectedId} 
                     onSelect={() => setSelectedId(c.id)}
-                    // Truyền prop isOnline vào component
                     isOnline={onlineUsers.includes(c.partner.id)} 
                 />
                 ))}
@@ -544,8 +556,6 @@ export default function ChatPage() {
                             ) : (
                                 currentConv.display_name?.charAt(0).toUpperCase()
                             )}
-                            
-                            {/* Chấm xanh góc avatar header */}
                             {isCurrentPartnerOnline && (
                                 <span className="absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 border-(--theme-surface) bg-green-500"></span>
                             )}
@@ -585,7 +595,6 @@ export default function ChatPage() {
                             ref={imageInputRef} type="file" accept="image/*"
                             onChange={handleImageChange} className="hidden"
                         />
-
                         {pendingImageUrl ? (
                           <div className="inline-flex items-center gap-3 rounded-2xl border border-(--theme-border) bg-(--theme-surface-muted) px-3 py-2">
                             <Image
@@ -600,9 +609,7 @@ export default function ChatPage() {
                             </button>
                           </div>
                         ) : null}
-
                         {uploadError ? <p className="text-xs font-medium text-red-500">{uploadError}</p> : null}
-
                         <div className="flex items-end gap-3">
                           <button
                             type="button" onClick={() => imageInputRef.current?.click()}
@@ -611,7 +618,6 @@ export default function ChatPage() {
                           >
                             <ImageIcon className="h-6 w-6" />
                           </button>
-
                           <div className="relative flex-1 rounded-3xl border border-(--theme-border) bg-(--theme-surface-muted) shadow-sm transition-all duration-200 focus-within:border-(--brand-accent) focus-within:bg-(--theme-surface) focus-within:ring-2 focus-within:ring-(--brand-accent-soft)">
                               <input
                                   type="text" value={inputVal} onChange={(e) => setInputVal(e.target.value)}
@@ -633,7 +639,7 @@ export default function ChatPage() {
                     <UserProfileModal 
                         user={currentConv.partner} 
                         onClose={() => setShowProfile(false)} 
-                        isOnline={isCurrentPartnerOnline} // Truyền cờ online vào modal
+                        isOnline={isCurrentPartnerOnline}
                     />
                 )}
              </>

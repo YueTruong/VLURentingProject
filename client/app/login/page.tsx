@@ -155,8 +155,8 @@ export default function LoginPage() {
                 <button 
                   type="submit"
                   className="
-                    w-full h-[44px]
-                    bg-[color:var(--brand-accent)] hover:bg-[color:var(--brand-accent-strong)]
+                    w-full h-11
+                    bg-(--brand-accent) hover:bg-(--brand-accent-strong)
                     text-white rounded-lg
                     text-sm font-semibold
                     transition-all duration-300 active:scale-95
