@@ -26,7 +26,7 @@ function ChevronRight() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-5 w-5 text-[color:var(--theme-text-subtle)]"
+      className="h-5 w-5 text-(--theme-text-subtle)"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -66,8 +66,8 @@ function Icon({ children, danger = false }: { children: ReactNode; danger?: bool
     <span
       className={`grid h-9 w-9 place-items-center rounded-xl ${
         danger
-          ? "bg-[color:var(--brand-accent-soft)] text-[color:var(--brand-accent)]"
-          : "bg-[color:var(--theme-surface-muted)] text-[color:var(--theme-text)]"
+          ? "bg-(--brand-accent-soft) text-(--brand-accent)"
+          : "bg-(--theme-surface-muted) text-(--theme-text)"
       }`}
     >
       {children}
@@ -113,7 +113,7 @@ function MenuItem({ href, label, icon, onClick, danger }: MenuItemProps) {
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
-    <div className="bg-[color:var(--theme-surface-muted)] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[color:var(--theme-text-subtle)]">
+    <div className="bg-(--theme-surface-muted) px-4 py-2 text-xs font-semibold uppercase tracking-wider text-(--theme-text-subtle)">
       {children}
     </div>
   );
@@ -184,9 +184,9 @@ export default function UserMenu() {
           setIsVerified(readVerificationFlag());
           setIsOpen((value) => !value);
         }}
-        className="flex items-center gap-2 rounded-full border border-[color:var(--theme-border)] bg-[color:var(--theme-surface)] p-1 pl-3 text-[color:var(--theme-text)] transition hover:shadow-md active:scale-95"
+        className="flex items-center gap-2 rounded-full border border-(--theme-border) bg-(--theme-surface) p-1 pl-3 text-(--theme-text) transition hover:shadow-md active:scale-95"
       >
-        <div className="relative h-8 w-8 overflow-hidden rounded-full border border-[color:var(--theme-border)]">
+        <div className="relative h-8 w-8 overflow-hidden rounded-full border border-(--theme-border)">
           <Image src={userImage} alt="Avatar" fill className="object-cover" />
         </div>
 
@@ -206,30 +206,30 @@ export default function UserMenu() {
           viewBox="0 0 24 24"
           strokeWidth={2}
           stroke="currentColor"
-          className={`mr-1 h-4 w-4 text-[color:var(--theme-text-subtle)] transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`mr-1 h-4 w-4 text-(--theme-text-subtle) transition-transform ${isOpen ? "rotate-180" : ""}`}
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
         </svg>
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 z-50 mt-3 max-h-[calc(100vh-96px)] w-[320px] max-w-[90vw] overflow-hidden rounded-2xl border border-[color:var(--theme-border)] bg-[color:var(--theme-surface)] text-[color:var(--theme-text)] shadow-2xl">
+        <div className="absolute right-0 z-50 mt-3 max-h-[calc(100vh-96px)] w-[320px] max-w-[90vw] overflow-hidden rounded-2xl border border-(--theme-border) bg-(--theme-surface) text-(--theme-text) shadow-2xl">
           <div className="flex max-h-[calc(100vh-96px)] flex-col">
             <div className="flex flex-col items-center px-6 pb-4 pt-6">
-              <div className="relative h-16 w-16 overflow-hidden rounded-full ring-4 ring-[color:var(--theme-surface)] shadow-sm">
+              <div className="relative h-16 w-16 overflow-hidden rounded-full ring-4 ring-(--theme-surface) shadow-sm">
                 <Image src={userImage} alt="Avatar" fill className="object-cover" />
               </div>
 
               <div className="mt-3 text-center">
                 <div className="flex items-center justify-center gap-2">
-                  <p className="text-sm font-bold text-[color:var(--theme-text)]">{userName}</p>
-                  <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-[color:var(--theme-border)] bg-[color:var(--theme-surface-muted)] px-2.5 py-1 text-xs font-semibold text-[color:var(--theme-text-muted)]">
+                  <p className="text-sm font-bold text-(--theme-text)">{userName}</p>
+                  <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-(--theme-border) bg-(--theme-surface-muted) px-2.5 py-1 text-xs font-semibold text-(--theme-text-muted)">
                     {roleLabel}
                   </span>
                 </div>
 
                 {user.email ? (
-                  <p className="mt-1 max-w-[260px] truncate text-xs text-[color:var(--theme-text-muted)]">{user.email}</p>
+                  <p className="mt-1 max-w-[260px] truncate text-xs text-(--theme-text-muted)">{user.email}</p>
                 ) : null}
 
                 {isVerified ? (
@@ -245,7 +245,7 @@ export default function UserMenu() {
                 ) : null}
               </div>
 
-              <div className="mt-4 h-px w-full bg-[color:var(--theme-border)]" />
+              <div className="mt-4 h-px w-full bg-(--theme-border)" />
             </div>
 
             <div className="flex-1 overflow-y-auto">
@@ -389,15 +389,15 @@ export default function UserMenu() {
 
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 transition hover:bg-[color:var(--theme-surface-muted)] active:scale-[0.99]"
+                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 transition hover:bg-(--theme-surface-muted) active:scale-[0.99]"
                   onClick={toggleTheme}
                 >
                   <Icon>{isDark ? <SunIcon /> : <MoonIcon />}</Icon>
-                  <span className="flex-1 text-left text-sm font-medium text-[color:var(--theme-text)]">Giao diện</span>
-                  <span className="text-xs font-semibold text-[color:var(--theme-text-subtle)]">{isDark ? "Tối" : "Sáng"}</span>
+                  <span className="flex-1 text-left text-sm font-medium text-(--theme-text)">Giao diện</span>
+                  <span className="text-xs font-semibold text-(--theme-text-subtle)">{isDark ? "Tối" : "Sáng"}</span>
                 </button>
 
-                <div className="my-1 h-px bg-[color:var(--theme-border)]" />
+                <div className="my-1 h-px bg-(--theme-border)" />
 
                 <MenuItem
                   label="Đăng xuất"

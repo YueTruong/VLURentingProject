@@ -12,30 +12,30 @@ export default function UserTopBar() {
   const { data: session, status } = useSession();
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Logic gọi API lấy số thông báo chưa đọc
+  // Lấy role trực tiếp thông qua type đã mở rộng
+  const userRole = session?.user?.role?.toLowerCase();
+  
+  // Logic phân quyền
+  const canUseChatAndNotif = userRole === "student" || userRole === "landlord";
+
   useEffect(() => {
-    // Chỉ chạy khi đã đăng nhập
-    if (status !== "authenticated") return;
+    // Nếu chưa đăng nhập HOẶC không có quyền (là admin) thì không gọi API
+    if (status !== "authenticated" || !canUseChatAndNotif) return;
 
     const fetchUnread = async () => {
       try {
         const token = session?.user?.accessToken;
-
-        console.log("Token sending to API:", token);
-
         if (!token) return;
 
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
         
         const res = await fetch(`${apiUrl}/notifications/unread-count`, {
           headers: { Authorization: `Bearer ${token}` },
-          // Thêm cache: 'no-store' để đảm bảo luôn lấy dữ liệu mới nhất
           cache: 'no-store' 
         });
 
         if (res.ok) {
           const data = await res.json();
-          // data.count trả về từ backend
           setUnreadCount(data.count);
         }
       } catch (error) {
@@ -43,86 +43,84 @@ export default function UserTopBar() {
       }
     };
 
-    // 1. Gọi ngay lập tức khi load trang
     fetchUnread();
-
-    // 2. Thiết lập Polling: Tự động gọi lại mỗi 15 giây để cập nhật số mới
     const intervalId = setInterval(fetchUnread, 15000);
 
-    // Dọn dẹp khi component unmount
     return () => clearInterval(intervalId);
-  }, [session, status]);
+  }, [session, status, canUseChatAndNotif]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[color:var(--surface-navy-border)] text-white backdrop-blur relative">
+    <header className="sticky top-0 z-40 border-b border-(--surface-navy-border) text-white backdrop-blur shadow-sm">
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           backgroundImage: "linear-gradient(to right, var(--surface-navy-900), var(--surface-navy-800), var(--surface-navy-700))",
         }}
       />
-      <div className="relative mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-10">
+      
+      <div className="relative mx-auto flex h-16 w-full items-center justify-between px-4 sm:px-6 lg:px-10">
         
-        {/* Logo Section */}
+        {/* LOGO */}
         <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="shrink-0 transition-transform duration-300 hover:scale-105 z-10">
             <Image 
               src="/images/VLU-Renting-Logo.svg" 
               alt="VLU Renting" 
               width={140} 
               height={52} 
-              className="object-contain" 
+              className="object-contain"
+              priority
             />
           </Link>
-          <div className="hidden text-xs text-white/70 sm:block">
+          <div className="hidden text-xs font-medium text-gray-300 tracking-wide uppercase sm:block">
             Trang web giúp sinh viên Văn Lang tìm nhà trọ phù hợp
           </div>
         </div>
 
-        {/* Actions Section */}
-        <div className="flex items-center gap-3">
+        {/* ACTIONS */}
+        <div className="flex items-center gap-3 z-10">
+          
           <ThemeToggleButton
-            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20 active:scale-95"
+            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition-colors hover:bg-white/20 active:scale-95"
             iconClassName="h-5 w-5"
           />
+          
           {session ? (
             <>
-              {/* Nút Chat */}
-              <Link
-                href="/chat"
-                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20 active:scale-95"
-                aria-label="Trò chuyện"
-              >
-                <ChatBubbleIcon className="h-5 w-5" />
-                {/* Ghi chú: Hiện tại hệ thống Notification đã bao gồm cả tin nhắn chat.
-                   Nếu em muốn tách riêng số tin nhắn chưa đọc ở đây, cần thêm API đếm chat riêng.
-                   Tạm thời user sẽ nhìn vào Thông báo để biết có tin nhắn mới.
-                */}
-              </Link>
+              {/* CHỈ HIỆN CHAT & THÔNG BÁO CHO STUDENT VÀ LANDLORD */}
+              {canUseChatAndNotif && (
+                <>
+                  <Link
+                    href="/chat"
+                    className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-sm transition-all hover:bg-white hover:text-(--surface-navy-900) active:scale-95"
+                    aria-label="Trò chuyện"
+                  >
+                    <ChatBubbleIcon className="h-5 w-5" />
+                  </Link>
 
-              {/* Nút Thông báo (Có Badge đỏ) */}
-              <Link
-                href="/notifications"
-                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20 active:scale-95"
-                aria-label="Thông báo"
-              >
-                <BellIcon className="h-5 w-5" />
-                
-                {/* 👇 Hiển thị số đỏ nếu có thông báo */}
-                {unreadCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[color:var(--brand-accent)] px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-[color:var(--surface-navy-900)]">
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </span>
-                )}
-              </Link>
+                  <Link
+                    href="/notifications"
+                    className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-sm transition-all hover:bg-white hover:text-(--surface-navy-900) active:scale-95"
+                    aria-label="Thông báo"
+                  >
+                    <BellIcon className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-(--brand-accent) px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-(--surface-navy-900)">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
+                  </Link>
+                </>
+              )}
 
-              {/* Menu User */}
-              <UserMenu />
+              <div className="pl-1 border-l border-white/10 ml-1">
+                <UserMenu />
+              </div>
             </>
           ) : (
             <button
               onClick={() => signIn()}
-              className="rounded-full bg-[color:var(--brand-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[color:var(--brand-accent-strong)] active:scale-95"
+              className="rounded-full bg-(--brand-accent) px-5 py-2 text-sm font-semibold text-white shadow-md transition-all hover:bg-(--brand-accent-strong) active:scale-95"
             >
               Đăng nhập
             </button>
