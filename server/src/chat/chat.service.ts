@@ -111,7 +111,13 @@ export class ChatService {
   async getUserConversations(userId: number) {
     return await this.conversationRepo.find({
       where: [{ student: { id: userId } }, { landlord: { id: userId } }],
-      relations: ['student', 'landlord', 'messages'],
+      relations: [
+        'student',
+        'student.profile',
+        'landlord',
+        'landlord.profile',
+        'messages',
+      ],
       // 💡 Đổi thành updated_at để cuộc trò chuyện nào có tin nhắn mới nhất sẽ nằm trên cùng
       order: { updated_at: 'DESC' },
     });

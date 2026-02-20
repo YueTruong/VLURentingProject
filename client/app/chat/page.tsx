@@ -109,6 +109,11 @@ type User = {
   full_name?: string;
   avatar_url?: string;
   phone_number?: string;
+  profile?: {
+    full_name?: string;
+    avatar_url?: string;
+    phone_number?: string;
+  };
 };
 
 interface RawConversation {
@@ -141,7 +146,17 @@ type Message = {
 
 // --- COMPONENTS ---
 
-function UserProfileModal({ user, onClose, isOnline }: { user: User; onClose: () => void; isOnline: boolean }) {
+function UserProfileModal({ 
+  user, 
+  onClose, 
+  isOnline,
+  role // Thêm trường role
+}: { 
+  user: User; 
+  onClose: () => void; 
+  isOnline: boolean;
+  role: string;
+}) {
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="relative z-101 w-full max-w-sm rounded-3xl border border-(--theme-border) bg-(--theme-surface) p-6 text-(--theme-text) shadow-2xl">
@@ -150,7 +165,8 @@ function UserProfileModal({ user, onClose, isOnline }: { user: User; onClose: ()
             <Cross2Icon className="h-6 w-6" />
           </button>
         </div>
-        <div className="flex flex-col items-center gap-4">
+        
+        <div className="flex flex-col items-center gap-3">
           <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-(--theme-surface) bg-(--theme-surface-muted) shadow-lg">
             {user.avatar_url ? (
               <Image src={user.avatar_url} alt="Avatar" fill className="object-cover" unoptimized />
@@ -161,19 +177,28 @@ function UserProfileModal({ user, onClose, isOnline }: { user: User; onClose: ()
               <span className="absolute bottom-1 right-1 h-5 w-5 rounded-full border-4 border-(--theme-surface) bg-green-500"></span>
             )}
           </div>
+          
           <div className="text-center">
-            <h2 className="text-xl font-bold text-(--theme-text)">{user.full_name || "Người dùng"}</h2>
-            <p className={`text-sm font-medium ${isOnline ? "text-green-600" : "text-(--theme-text-muted)"}`}>
+            <h2 className="text-xl font-bold text-(--theme-text)">{user.full_name || "Người dùng ẩn danh"}</h2>
+            
+            {/* HIỂN THỊ VAI TRÒ (CHỦ TRỌ / SINH VIÊN) */}
+            <span className={`inline-block mt-1 px-3 py-1 rounded-full text-xs font-semibold ${
+              role === 'Chủ trọ' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
+            }`}>
+              {role}
+            </span>
+
+            <p className={`text-sm font-medium mt-2 ${isOnline ? "text-green-600" : "text-(--theme-text-muted)"}`}>
               {isOnline ? "Đang hoạt động" : "Ngoại tuyến"}
             </p>
           </div>
           
-          <div className="w-full space-y-3 mt-2">
+          <div className="w-full space-y-3 mt-4">
             <div className="flex items-center gap-3 rounded-xl border border-(--theme-border) bg-(--theme-surface-muted) p-3">
               <EnvelopeClosedIcon className="h-5 w-5 text-(--theme-text-subtle)" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium uppercase text-(--theme-text-subtle)">Email</p>
-                <p className="text-sm truncate text-(--theme-text-muted)">{user.email}</p>
+                <p className="text-sm truncate text-(--theme-text-muted)">{user.email || "Đang cập nhật..."}</p>
               </div>
             </div>
             {user.phone_number && (
@@ -181,7 +206,7 @@ function UserProfileModal({ user, onClose, isOnline }: { user: User; onClose: ()
                 <PersonIcon className="h-5 w-5 text-(--theme-text-subtle)" />
                 <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium uppercase text-(--theme-text-subtle)">Số điện thoại</p>
-                    <p className="text-sm truncate text-(--theme-text-muted)">{user.phone_number}</p>
+                    <p className="text-sm font-semibold truncate text-(--theme-text)">{user.phone_number}</p>
                 </div>
                 </div>
             )}
@@ -189,7 +214,7 @@ function UserProfileModal({ user, onClose, isOnline }: { user: User; onClose: ()
 
           <button 
             onClick={onClose}
-            className="mt-4 w-full rounded-full bg-(--brand-accent) py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-(--brand-accent-strong) active:scale-95"
+            className="mt-6 w-full rounded-full bg-(--brand-accent) py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-(--brand-accent-strong) active:scale-95"
           >
             Đóng
           </button>
@@ -300,10 +325,21 @@ export default function ChatPage() {
   const partnerIdFromUrl = searchParams.get('partnerId');
 
   const mapConversation = useCallback((c: RawConversation): Conversation => {
-    const otherUser = c.student.id === currentUserId ? c.landlord : c.student;
+    // 1. Xác định ai là người chat cùng mình
+    const rawPartner = c.student.id === currentUserId ? c.landlord : c.student;
+    
+    // 2. Lấy thông tin từ bảng profile một cách "danh chính ngôn thuận" không cần any
+    const partnerProfile = rawPartner.profile || {};
+    
+    // 3. Gộp dữ liệu lại cho gọn
+    const otherUser = {
+      ...rawPartner,
+      full_name: rawPartner.full_name || partnerProfile.full_name || rawPartner.email,
+      avatar_url: rawPartner.avatar_url || partnerProfile.avatar_url || "",
+      phone_number: rawPartner.phone_number || partnerProfile.phone_number || "",
+    };
     
     let lastMsg = "";
-    // 👇 FIX: Dùng created_at của hội thoại, tránh lấy giờ hiện tại khiến tất cả update cùng lúc
     let lastTime = c.created_at || ""; 
     
     if (c.messages && c.messages.length > 0) {
@@ -311,11 +347,17 @@ export default function ChatPage() {
         lastMsg = last.content;
         lastTime = last.created_at;
     }
+
     return {
-        id: c.id, student: c.student, landlord: c.landlord,
-        display_name: otherUser?.full_name || otherUser?.email || "Người dùng",
-        display_avatar: otherUser?.avatar_url || "", 
-        last_message: lastMsg, last_time: lastTime, partner: otherUser
+        id: c.id, 
+        student: c.student, 
+        landlord: c.landlord,
+        // 👇 Bây giờ display_name và display_avatar sẽ lấy chuẩn 100%
+        display_name: otherUser.full_name || "Người dùng",
+        display_avatar: otherUser.avatar_url || "", 
+        last_message: lastMsg, 
+        last_time: lastTime, 
+        partner: otherUser
     };
   }, [currentUserId]);
 
@@ -640,6 +682,7 @@ export default function ChatPage() {
                         user={currentConv.partner} 
                         onClose={() => setShowProfile(false)} 
                         isOnline={isCurrentPartnerOnline}
+                        role={currentConv.partner.id === currentConv.landlord.id ? "Chủ trọ" : "Sinh viên"}
                     />
                 )}
              </>
