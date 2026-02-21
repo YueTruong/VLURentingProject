@@ -10,10 +10,8 @@ import toast from "react-hot-toast";
 export default function FavoritesPage() {
   const favorites = useFavorites();
   
-  // State gốc do người dùng click chọn
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
 
-  // Sắp xếp tin mới lưu lên đầu
   const favoriteRooms = useMemo(() => {
     return [...favorites].sort((a, b) => {
       const ta = new Date(a.savedAt).getTime();
@@ -22,7 +20,6 @@ export default function FavoritesPage() {
     });
   }, [favorites]);
 
-  // Đếm số tin lưu trong 7 ngày qua
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
@@ -38,7 +35,6 @@ export default function FavoritesPage() {
     return favoriteRooms.filter((room) => new Date(room.savedAt).getTime() > sevenDaysAgo).length;
   }, [favoriteRooms, now]);
 
-  // Lấy danh sách khu vực đang quan tâm
   const areaSummary = useMemo(() => {
     const areas = favoriteRooms
       .map((room) => room.location.split(",")[0]?.trim())
@@ -47,7 +43,6 @@ export default function FavoritesPage() {
     return unique.slice(0, 3).join(", ") || "Chưa có";
   }, [favoriteRooms]);
 
-  // Tạo các nhãn (Tags) để làm nút lọc
   const areaTags = useMemo(() => {
     const areas = favoriteRooms
       .map((room) => room.location.split(",")[0]?.trim())
@@ -55,11 +50,8 @@ export default function FavoritesPage() {
     return Array.from(new Set(areas)); 
   }, [favoriteRooms]);
 
-  // 🔥 GIẢI PHÁP REACT CHUẨN: Dùng biến trung gian (Derived State)
-  // Nếu khu vực đang chọn không còn tồn tại trong areaTags nữa, tự động ép về null (Tất cả)
   const activeArea = (selectedArea && areaTags.includes(selectedArea)) ? selectedArea : null;
 
-  // 👇 Lọc danh sách phòng theo khu vực THỰC TẾ (activeArea)
   const filteredRooms = useMemo(() => {
     if (!activeArea) return favoriteRooms;
     
@@ -69,18 +61,17 @@ export default function FavoritesPage() {
     });
   }, [favoriteRooms, activeArea]);
 
-  // Xử lý Xóa tất cả
   const handleClearAll = () => {
     if (window.confirm("Bạn có chắc chắn muốn xóa toàn bộ tin đã lưu không? Hành động này không thể hoàn tác.")) {
       clearFavorites();
       setSelectedArea(null); 
-      toast.success("Đã xóa toàn bộ danh sách yêu thích");
+      toast.success("Đã xóa toàn bộ tin đã lưu");
     }
   };
 
   return (
     <UserPageShell
-      title="Danh sách yêu thích"
+      title="Tin đã lưu"
       description="Những tin bạn đã đánh dấu để xem lại nhanh, so sánh và nhận thông báo khi chủ nhà cập nhật."
       actions={
         <button 
@@ -96,7 +87,7 @@ export default function FavoritesPage() {
         {/* PANEL THỐNG KÊ */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-500 font-medium">Tổng tin yêu thích</p>
+            <p className="text-sm text-gray-500 font-medium">Tổng tin đã lưu</p>
             <div className="mt-2 text-3xl font-extrabold text-[#D51F35]">{favoriteRooms.length}</div>
             <p className="text-xs text-gray-500 mt-1">Tin được giữ lại để theo dõi.</p>
           </div>
@@ -118,7 +109,6 @@ export default function FavoritesPage() {
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              {/* Dùng activeArea để hiển thị Header */}
               <p className="text-base font-semibold text-gray-900">
                 {activeArea ? `Danh sách tại ${activeArea} (${filteredRooms.length})` : `Danh sách (${favoriteRooms.length})`}
               </p>
@@ -149,7 +139,6 @@ export default function FavoritesPage() {
               
               <button
                 onClick={() => setSelectedArea(null)}
-                // Dùng activeArea để xác định màu nút
                 className={`rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
                   activeArea === null 
                     ? "bg-[#D51F35] text-white border-[#D51F35] shadow-sm" 
@@ -163,7 +152,6 @@ export default function FavoritesPage() {
                 <button
                   key={tag}
                   onClick={() => setSelectedArea(tag)}
-                  // Dùng activeArea để xác định màu nút
                   className={`rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
                     activeArea === tag 
                       ? "bg-[#D51F35] text-white border-[#D51F35] shadow-sm" 
@@ -181,7 +169,7 @@ export default function FavoritesPage() {
         {favoriteRooms.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 px-4 text-center shadow-sm">
             <span className="text-5xl mb-4 opacity-50">📂</span>
-            <p className="text-lg font-bold text-gray-800">Chưa có tin yêu thích nào</p>
+            <p className="text-lg font-bold text-gray-800">Chưa có tin nào được lưu</p>
             <p className="mt-2 max-w-md text-sm text-gray-500">
               Bạn chưa lưu phòng nào. Hãy dạo quanh các bài đăng và nhấn vào biểu tượng <span className="text-red-400 font-bold">♥</span> để lưu lại những căn phòng ưng ý nhé.
             </p>
@@ -197,7 +185,7 @@ export default function FavoritesPage() {
             <span className="text-5xl mb-4 opacity-50">🔍</span>
             <p className="text-lg font-bold text-gray-800">Không tìm thấy tin nào</p>
             <p className="mt-2 max-w-md text-sm text-gray-500">
-              Không có phòng nào trong danh sách yêu thích thuộc khu vực <strong>{activeArea}</strong>.
+              Không có phòng nào trong danh sách tin đã lưu thuộc khu vực <strong>{activeArea}</strong>.
             </p>
             <button 
               onClick={() => setSelectedArea(null)}
