@@ -120,20 +120,57 @@ export default function RoomListBody() {
     };
   }, []);
 
+  const getItemsForSection = (sectionId: string, allItems: RoomCardData[]) => {
+    let filtered = allItems;
+    
+    switch (sectionId) {
+      case "student":
+        filtered = allItems.filter(item => parseFloat(item.price) <= 4.5);
+        break;
+      case "luxury":
+        filtered = allItems.filter(item => parseFloat(item.price) >= 6.0);
+        break;
+      case "recent":
+        filtered = [...allItems].reverse();
+        break;
+      case "near-campus":
+        filtered = allItems.filter(item => item.location.toLowerCase().includes("gò vấp") || item.location.toLowerCase().includes("bình thạnh"));
+        break;
+      case "featured":
+      default:
+        filtered = allItems;
+        break;
+    }
+
+    return filtered.length > 0 ? filtered : allItems;
+  };
+
   return (
-    <section className="min-h-screen w-full bg-gray-50 py-10">
+    // ✅ THAY ĐỔI LỚN NHẤT: Bỏ min-h-screen và bg cứng, ép thẻ section thành nền trong suốt bg-transparent 
+    // để nó phụ thuộc hoàn toàn vào file page.tsx ở trang chủ.
+    <section className="w-full bg-transparent py-10">
       <div className="w-full space-y-8 overflow-hidden px-4 md:px-6">
+        
         {!loaded ? (
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm">
-            Đang tải dữ liệu phòng từ hệ thống...
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 px-4 text-center shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-800">
+            <span className="mb-4 animate-spin text-4xl text-gray-900 dark:text-white">⏳</span>
+            <p className="text-lg font-semibold text-gray-900 dark:text-white">Đang tải dữ liệu phòng...</p>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Vui lòng đợi trong giây lát.</p>
           </div>
         ) : loadError ? (
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm">
-            Không thể tải danh sách phòng từ hệ thống.
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 px-4 text-center shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-800">
+            <span className="mb-4 text-4xl opacity-50">❌</span>
+            <p className="text-lg font-semibold text-red-600 dark:text-red-400">Không thể tải danh sách phòng</p>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Hệ thống đang gặp sự cố. Vui lòng thử lại sau.</p>
+            <button onClick={() => window.location.reload()} className="mt-4 text-sm font-semibold text-[#D51F35] underline hover:text-red-700 dark:text-red-400">Tải lại trang</button>
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm">
-            Chưa có dữ liệu phòng được duyệt.
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 px-4 text-center shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-800">
+            <span className="mb-4 text-5xl opacity-50">📂</span>
+            <p className="text-lg font-bold text-gray-800 dark:text-white">Chưa có dữ liệu phòng</p>
+            <p className="mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
+              Hiện tại chưa có bài đăng nào được duyệt trên hệ thống.
+            </p>
           </div>
         ) : (
           sections.map((section) => (
@@ -141,7 +178,7 @@ export default function RoomListBody() {
               key={section.id}
               title={section.title}
               subtitle={section.subtitle}
-              items={items}
+              items={getItemsForSection(section.id, items)}
             />
           ))
         )}
