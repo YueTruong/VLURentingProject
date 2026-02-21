@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { toggleFavorite, useFavorites } from "@/app/services/favorites";
+import { useSession } from "next-auth/react";
+import toast from "react-hot-toast";
 
 export type RoomCardData = {
   id: number;
@@ -23,8 +25,34 @@ interface RoomProps {
 
 export default function RoomCard({ data, className }: RoomProps) {
   const favorites = useFavorites();
+  const { data: session } = useSession(); // 👇 Lấy trạng thái đăng nhập
+
   const isSaved = favorites.some((item) => item.id === data.id);
   const iconClassName = "icon-adapt-dark";
+
+  // 👇 Hàm xử lý khi user bấm nút Trái tim
+  const handleToggleFavorite = () => {
+    // Nếu chưa đăng nhập -> Chặn lại và hiện thông báo
+    if (!session) {
+      toast.error("Vui lòng đăng nhập để lưu tin!", {
+        style: {
+          borderRadius: '10px',
+          background: '#333',
+          color: '#fff',
+        },
+      });
+      return;
+    }
+
+    // Nếu đã đăng nhập -> Gọi hàm lưu tin bình thường
+    toggleFavorite(data);
+    
+    if (isSaved) {
+      toast("Đã bỏ lưu tin", { icon: '💔' });
+    } else {
+      toast.success("Đã lưu tin thành công!");
+    }
+  };
 
   return (
     <div
@@ -38,14 +66,19 @@ export default function RoomCard({ data, className }: RoomProps) {
           className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
         <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/25 via-black/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+        
+        {/* Nút Trái Tim */}
         <button
           type="button"
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-700 shadow transition-colors hover:bg-red-50 hover:text-red-500"
-          onClick={() => toggleFavorite(data)}
+          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-700 shadow-md transition-all hover:bg-red-50 hover:text-red-500 active:scale-90"
+          onClick={handleToggleFavorite} // 👈 Đổi thành hàm tự viết ở trên
           aria-label="Yêu thích"
           aria-pressed={isSaved}
         >
-          <span className={isSaved ? "text-red-500" : ""}>♥</span>
+          <span className={`text-xl leading-none ${isSaved ? "text-red-500" : ""}`}>
+            {isSaved ? "♥" : "♡"} 
+            {/* Thầy đổi thành Icon tim rỗng (♡) khi chưa lưu cho đẹp nhé */}
+          </span>
         </button>
       </div>
 
