@@ -119,7 +119,7 @@ export class ChatService {
         'messages',
       ],
       // 💡 Đổi thành updated_at để cuộc trò chuyện nào có tin nhắn mới nhất sẽ nằm trên cùng
-      order: { updated_at: 'DESC' },
+      order: { created_at: 'DESC' },
     });
   }
 }

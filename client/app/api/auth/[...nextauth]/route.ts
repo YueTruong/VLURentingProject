@@ -1,16 +1,27 @@
-import NextAuth, { NextAuthOptions } from "next-auth";
+import NextAuth, { NextAuthOptions, User } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { jwtDecode } from "jwt-decode";
+import { JWT } from "next-auth/jwt";
 
-// 1. Định nghĩa khuôn mẫu của dữ liệu bên trong Token (khớp với AuthService Backend)
+// 1. Khuôn mẫu của dữ liệu bên trong Token (khớp với AuthService Backend)
 interface BackendJwtPayload {
-  userId?: number; // Thêm dấu ?
+  userId?: number;
   email?: string;
   role?: string;
   roles?: string;
-  sub?: string;    // Token chuẩn thường có sub
+  sub?: string;
+  full_name?: string; 
+  name?: string;
   iat?: number;
   exp?: number;
+}
+
+// 2. Khuôn mẫu tự chế cho các trường dữ liệu muốn thêm vào
+interface CustomUserFields {
+  full_name?: string;
+  role?: string;
+  accessToken?: string;
+  id?: string;
 }
 
 export const authOptions: NextAuthOptions = {
@@ -22,11 +33,9 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // Kiểm tra xem user có nhập gì không
         if (!credentials?.username || !credentials?.password) return null;
 
         try {
-          // 2. Gọi API Backend (Nhớ dùng port 3001)
           const backendUrl =
             process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -38,43 +47,37 @@ export const authOptions: NextAuthOptions = {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              username: credentials.username, // Gửi key 'username' (chứa email hoặc username)
+              username: credentials.username,
               password: credentials.password,
             }),
           });
 
           const data = await res.json();
-
-          // In ra xem Backend trả về cái gì (để debug nếu lỗi)
           console.log("📦 Backend Response:", JSON.stringify(data, null, 2));
 
           if (!res.ok) {
             throw new Error(data.message || "Đăng nhập thất bại");
           }
 
-          // 3. LOGIC GIẢI MÃ
-          // Backend trả về: { access_token: "..." }
+          // LOGIC GIẢI MÃ
           if (data && data.access_token) {
-            
-            // Dùng jwtDecode để mở hộp Token ra
             const decoded = jwtDecode<BackendJwtPayload>(data.access_token);
-
             console.log("🔓 [Frontend] Decoded Token:", decoded);
 
-            // Trả về object User đầy đủ để NextAuth lưu lại
-            return {
+            const extractedFullName = data.user?.full_name || data.user?.profile?.full_name || decoded.full_name || decoded.name || "";
+
+            // ✅ Tạo object kết hợp User mặc định và các field tự chế
+            const customUser: User & CustomUserFields = {
               id: (decoded.userId || decoded.sub || "").toString(),
-              
               email: decoded.email || "",
-              
-              // ⚠️ Fix lỗi: Ép kiểu 'as string' để đảm bảo không bao giờ là undefined
-              role: (decoded.role ?? decoded.roles ?? "student") as "student" | "landlord" | "admin",
-              
-              // ⚠️ Fix lỗi: Ép kiểu 'as string'
-              accessToken: data.access_token as string, 
-              
-              name: decoded.email || "", 
+              role: (decoded.role ?? decoded.roles ?? "student"),
+              accessToken: data.access_token as string,
+              full_name: extractedFullName,
+              name: extractedFullName || decoded.email || "", 
             };
+            
+            // Trả về ép kiểu User an toàn
+            return customUser as User; 
           }
 
           return null;
@@ -86,26 +89,33 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
 
-  // 4. Cấu hình để lưu dữ liệu vào Session
   callbacks: {
-    // 1. Khi đăng nhập thành công, lưu token backend trả về vào JWT của NextAuth
+    // 1. Khi đăng nhập thành công, lưu dữ liệu vào JWT
     async jwt({ token, user }) {
       if (user) {
-        // user này là object trả về từ hàm authorize (chứa accessToken, role...)
-        return { ...token, ...user };
+        // ✅ Ép kiểu sang giao diện kết hợp thay vì 'any'
+        const u = user as User & CustomUserFields; 
+        token.id = u.id;
+        token.role = u.role;
+        token.accessToken = u.accessToken;
+        token.full_name = u.full_name;
       }
       return token;
     },
 
-    // 2. Mỗi khi FE gọi useSession(), lấy dữ liệu từ JWT bỏ vào Session
+    // 2. Khi Frontend gọi useSession(), đẩy dữ liệu từ JWT ra Session
     async session({ session, token }) {
-      session.user = {
-        ...session.user,
-        // 👇 Quan trọng: Gán accessToken và id từ token vào session
-        accessToken: token.accessToken as string, 
-        id: token.id as string,
-        role: token.role as "student" | "landlord" | "admin",
-      };
+      const t = token as JWT & CustomUserFields;
+      if (session.user) {
+        // ✅ Dùng Object.assign để nhét thêm data vào session.user 
+        // Cách này qua mặt được TypeScript mà không vi phạm quy tắc 'no-explicit-any' của ESLint
+        Object.assign(session.user, {
+          id: t.id,
+          role: t.role,
+          accessToken: t.accessToken,
+          full_name: t.full_name,
+        });
+      }
       return session;
     },
   },

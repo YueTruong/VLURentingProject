@@ -11,6 +11,7 @@ type SessionUser = {
   name?: string | null;
   email?: string | null;
   role?: string;
+  full_name?: string | null; // ✅ Thêm full_name vào type để TypeScript không la lối
 };
 
 const VERIFICATION_KEY = "vlu.landlord.verified";
@@ -142,7 +143,10 @@ export default function UserMenu() {
 
   const user = (session.user ?? {}) as SessionUser;
   const userImage = user.image || "/images/Admins.png";
-  const userName = user.name || "User";
+  
+  // ✅ Ưu tiên lấy full_name, nếu không có thì lấy name, cuối cùng fallback về "User"
+  const displayName = user.full_name || user.name || "User";
+  
   const roleKey = (user.role ?? "student").toLowerCase();
 
   const roleLabelMap: Record<string, string> = {
@@ -152,16 +156,12 @@ export default function UserMenu() {
   };
   const roleLabel = roleLabelMap[roleKey] ?? "Người dùng";
 
-  // --- CẤU HÌNH MENU THEO ROLE (Đã tối ưu theo yêu cầu) ---
   const menuConfig = {
     dashboard: [
-      // Thông tin cá nhân chuyển lên mục Tài khoản và ai cũng thấy
       { href: "/profile", label: "Thông tin cá nhân", roles: ["admin", "landlord", "student"], icon: <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 21a8 8 0 10-16 0" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 13a4 4 0 100-8 4 4 0 000 8z" /></svg> },
-      // Dashboard chỉ dành cho Admin
       { href: "/dashboard", label: "Dashboard", roles: ["admin"], icon: <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M3 13h8V3H3v10zm10 8h8V11h-8v10zM3 21h8v-6H3v6zm10-10h8V3h-8v8z" /></svg> },
       { href: "/my-posts", label: "Tin của tôi", roles: ["landlord", "admin"], icon: <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h10" /></svg> },
       { href: "/post", label: "Đăng tin", roles: ["landlord", "admin"], icon: <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg> },
-      // Xác minh chủ trọ chỉ hiển thị cho Landlord
       { href: "/landlord-verification", label: "Xác minh chủ trọ", roles: ["landlord"], icon: <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3l7 4v6c0 4.418-3 7-7 8-4-1-7-3.582-7-8V7l7-4z" /><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" /></svg> },
     ],
     utilities: [
@@ -176,7 +176,6 @@ export default function UserMenu() {
     ]
   };
 
-  // Hàm filter menu theo role
   const filterByRole = (items: typeof menuConfig.dashboard) => {
     return items.filter(item => item.roles.includes(roleKey));
   };
@@ -199,7 +198,7 @@ export default function UserMenu() {
         </div>
 
         <span className="hidden items-center gap-1 text-sm font-semibold md:flex">
-          {userName}
+          {displayName} {/* ✅ Dùng displayName ở nút bấm ngoài cùng */}
           {isVerified && roleKey === "landlord" ? (
             <svg viewBox="0 0 24 24" className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" />
@@ -232,11 +231,13 @@ export default function UserMenu() {
 
               <div className="mt-3 text-center">
                 <div className="flex items-center justify-center gap-2">
-                  <p className="text-sm font-bold text-(--theme-text)">{userName}</p>
+                  {/* ✅ HIỂN THỊ TÊN KẾ BÊN ROLE */}
+                  <p className="text-sm font-bold text-(--theme-text)">{displayName}</p>
                   <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-(--theme-border) bg-(--theme-surface-muted) px-2.5 py-1 text-xs font-semibold text-(--theme-text-muted)">
                     {roleLabel}
                   </span>
                 </div>
+                {/* ✅ VẪN GIỮ LẠI EMAIL Ở DƯỚI NHƯ YÊU CẦU */}
                 {user.email ? <p className="mt-1 max-w-[260px] truncate text-xs text-(--theme-text-muted)">{user.email}</p> : null}
                 
                 {isVerified && roleKey === "landlord" ? (
@@ -257,7 +258,6 @@ export default function UserMenu() {
             {/* SCROLLABLE MENU LIST */}
             <div className="flex-1 overflow-y-auto pb-2">
               
-              {/* SECTION: TÀI KHOẢN */}
               {allowedDashboard.length > 0 && (
                 <>
                   <SectionTitle>Tài khoản</SectionTitle>
@@ -269,7 +269,6 @@ export default function UserMenu() {
                 </>
               )}
 
-              {/* SECTION: TIỆN ÍCH */}
               {allowedUtilities.length > 0 && (
                 <>
                   <SectionTitle>Tiện ích</SectionTitle>
@@ -281,14 +280,12 @@ export default function UserMenu() {
                 </>
               )}
 
-              {/* SECTION: KHÁC */}
               <SectionTitle>Khác</SectionTitle>
               <div className="p-2">
                 {allowedOthers.map((item) => (
                   <MenuItem key={item.href} href={item.href} label={item.label} icon={item.icon} onClick={() => setIsOpen(false)} />
                 ))}
                 
-                {/* Nút Toggle Theme (Ai cũng thấy) */}
                 <button
                   type="button"
                   className="flex w-full items-center gap-3 rounded-xl px-4 py-3 transition hover:bg-(--theme-surface-muted) active:scale-[0.99]"
@@ -301,7 +298,6 @@ export default function UserMenu() {
 
                 <div className="my-1 h-px bg-(--theme-border)" />
 
-                {/* Nút Đăng xuất (Ai cũng thấy) */}
                 <MenuItem
                   label="Đăng xuất"
                   danger
