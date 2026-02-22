@@ -10,12 +10,10 @@ function Tab({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className={`relative pb-3 text-2xl font-semibold transition ${ active ? "text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
+      className={`relative pb-3 text-2xl font-semibold transition ${active ? "text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
     >
       {label}
-      {active && (
-        <span className="absolute left-0 -bottom-px h-[3px] w-full bg-blue-600 rounded-full" />
-      )}
+      {active && <span className="absolute left-0 -bottom-px h-[3px] w-full rounded-full bg-blue-600" />}
     </Link>
   );
 }
