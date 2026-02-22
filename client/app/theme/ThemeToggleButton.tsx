@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useSyncExternalStore } from "react";
 import { useTheme } from "./ThemeProvider";
