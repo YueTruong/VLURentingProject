@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
@@ -657,6 +657,8 @@ export default function PostWizard() {
   const [postConsents, setPostConsents] = useState(() => createDefaultConsents());
   const [draftReady, setDraftReady] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const [showDiscardDraftDialog, setShowDiscardDraftDialog] = useState(false);
+  const [draftNotice, setDraftNotice] = useState<string | null>(null);
 
   const refreshVerificationStatus = () => {
     const verified = localStorage.getItem(VERIFICATION_STORAGE_KEY) === "true";
@@ -743,9 +745,17 @@ export default function PostWizard() {
   };
 
   const handleDiscardDraft = () => {
-    const ok = window.confirm("Xoá bản nháp và nhập lại từ đầu?");
-    if (!ok) return;
+    setShowDiscardDraftDialog(true);
+  };
+
+  const confirmDiscardDraft = () => {
     clearDraftStorage(true);
+    setShowDiscardDraftDialog(false);
+    setDraftNotice("Đã xoá bản nháp. Bạn có thể nhập lại từ đầu.");
+  };
+
+  const cancelDiscardDraft = () => {
+    setShowDiscardDraftDialog(false);
   };
 
   useEffect(() => {
@@ -761,6 +771,12 @@ export default function PostWizard() {
     }, DRAFT_SAVE_DELAY);
     return () => clearTimeout(timer);
   }, [draft, step, mapQuery, postConsents, draftReady]);
+
+  useEffect(() => {
+    if (!draftNotice) return;
+    const timer = setTimeout(() => setDraftNotice(null), 3200);
+    return () => clearTimeout(timer);
+  }, [draftNotice]);
 
   const canNext = useMemo(() => {
     if (step === 0) {
@@ -992,6 +1008,12 @@ export default function PostWizard() {
 
   return (
     <div className="mx-auto w-full max-w-none px-4 py-8 sm:px-6 lg:px-12">
+      {draftNotice ? (
+        <div className="fixed right-4 top-4 z-[70] max-w-sm rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 shadow-lg">
+          {draftNotice}
+        </div>
+      ) : null}
+
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-2xl font-bold text-gray-900">
@@ -1857,6 +1879,39 @@ export default function PostWizard() {
           </div>
         </div>
       </div>
+
+      {showDiscardDraftDialog ? (
+        <div
+          className="fixed inset-0 z-[65] flex items-center justify-center bg-black/50 px-4"
+          onClick={cancelDiscardDraft}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="text-lg font-semibold text-gray-900">Xoá bản nháp?</div>
+            <p className="mt-2 text-sm text-gray-600">
+              Bản nháp hiện tại sẽ bị xoá và form sẽ được đặt lại từ đầu.
+            </p>
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={cancelDiscardDraft}
+                className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Huỷ
+              </button>
+              <button
+                type="button"
+                onClick={confirmDiscardDraft}
+                className="rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+              >
+                Xoá bản nháp
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
