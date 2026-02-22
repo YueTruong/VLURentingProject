@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
@@ -87,7 +87,7 @@ export default function UserTopBar() {
   }, [session, status]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[color:var(--surface-navy-border)] text-white backdrop-blur relative">
+    <header className="sticky top-0 z-40 text-white backdrop-blur relative">
       <div
         className="pointer-events-none absolute inset-0"
         style={{
