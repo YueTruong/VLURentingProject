@@ -1,13 +1,14 @@
-// app/profile/page.tsx
-"use client";
+﻿"use client";
 
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import UserTopBar from "@/app/homepage/components/UserTopBar";
-import { getMyPosts, getMySavedPostIds, savePost, unsavePost, type Post } from "@/app/services/posts";
+import UserPageShell from "@/app/homepage/components/UserPageShell"; 
+import { getMyPosts, type Post } from "@/app/services/posts"; 
+import { useFavorites, toggleFavorite } from "@/app/services/favorites"; 
+import toast from "react-hot-toast";
 
 type Listing = {
   id: number;
@@ -55,10 +56,7 @@ const formatUpdatedLabel = (value?: string | null) => {
   if (!value) return "Mới cập nhật";
   const updatedDate = new Date(value);
   if (Number.isNaN(updatedDate.getTime())) return "Mới cập nhật";
-
   const diff = Date.now() - updatedDate.getTime();
-  if (diff <= 0) return "Cập nhật hôm nay";
-
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
   if (days <= 0) return "Cập nhật hôm nay";
   if (days === 1) return "Cập nhật 1 ngày trước";
@@ -73,13 +71,7 @@ const formatMonthYear = (timestamp?: number | null) => {
 };
 
 const getAmenityNames = (post: Post) =>
-  (post.amenities ?? [])
-    .map((amenity) => amenity?.name?.trim())
-    .filter((name): name is string => Boolean(name));
-
-const navItems = [
-  { label: "Hồ sơ", icon: "user", active: true },
-];
+  (post.amenities ?? []).map((amenity) => amenity?.name?.trim()).filter(Boolean) as string[];
 
 const mapPostToListing = (post: Post): Listing => ({
   id: post.id,
@@ -102,207 +94,82 @@ const mapPostToListing = (post: Post): Listing => ({
 const isApprovedPost = (status?: string | null) => status?.toLowerCase() === "approved";
 
 function Icon({ name }: { name: string }) {
-  switch (name) {
-    case "search":
-      return (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <circle cx="11" cy="11" r="7" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M20 20l-3.5-3.5" />
-        </svg>
-      );
-    case "heart":
-      return (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M20.8 7.6a4.8 4.8 0 00-8.3-3.2L12 5l-.5-.6a4.8 4.8 0 00-8.3 3.2c0 2.7 2.1 4.8 5.3 7.7L12 19l3.5-3.7c3.2-2.9 5.3-5 5.3-7.7z"
-          />
-        </svg>
-      );
-    case "chat":
-      return (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a7 7 0 01-7 7H7l-4 3V5a3 3 0 013-3h8a7 7 0 017 7z" />
-        </svg>
-      );
-    case "user":
-      return (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M20 21a8 8 0 00-16 0" />
-          <circle cx="12" cy="8" r="4" />
-        </svg>
-      );
-    case "settings":
-      return (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <circle cx="12" cy="12" r="3" />
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V22a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H2a2 2 0 110-4h.1a1.7 1.7 0 001.5-1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H8a1.7 1.7 0 001-1.5V2a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V8c0 .7.4 1.3 1 1.5H22a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"
-          />
-        </svg>
-      );
-    case "calendar":
-      return (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 3v4M16 3v4M3 10h18" />
-        </svg>
-      );
-    case "bolt":
-      return (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h7l-1 8 12-16h-7l-1-4z" />
-        </svg>
-      );
-    case "star":
-      return (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l2.6 5.3 5.9.9-4.3 4.2 1 5.9L12 16.8 6.8 19.3l1-5.9-4.3-4.2 5.9-.9L12 3z" />
-        </svg>
-      );
-    case "key":
-      return (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <circle cx="7" cy="12" r="3" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10 12h11l-2 2m-2 2l-2-2" />
-        </svg>
-      );
-    case "check":
-      return (
-        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
-      );
-    case "share":
-      return (
-        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <circle cx="18" cy="5" r="2" />
-          <circle cx="6" cy="12" r="2" />
-          <circle cx="18" cy="19" r="2" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12l8-6M8 12l8 6" />
-        </svg>
-      );
-    case "mail":
-      return (
-        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <rect x="3" y="5" width="18" height="14" rx="2" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 7l9 6 9-6" />
-        </svg>
-      );
-    default:
-      return null;
-  }
+  const icons: Record<string, React.ReactNode> = {
+    search: <path strokeLinecap="round" strokeLinejoin="round" d="M20 20l-3.5-3.5M11 18a7 7 0 100-14 7 7 0 000 14z" />,
+    heart: <path strokeLinecap="round" strokeLinejoin="round" d="M20.8 7.6a4.8 4.8 0 00-8.3-3.2L12 5l-.5-.6a4.8 4.8 0 00-8.3 3.2c0 2.7 2.1 4.8 5.3 7.7L12 19l3.5-3.7c3.2-2.9 5.3-5 5.3-7.7z" />,
+    chat: <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a7 7 0 01-7 7H7l-4 3V5a3 3 0 013-3h8a7 7 0 017 7z" />,
+    user: <path strokeLinecap="round" strokeLinejoin="round" d="M20 21a8 8 0 00-16 0M12 12a4 4 0 100-8 4 4 0 000 8z" />,
+    calendar: <path strokeLinecap="round" strokeLinejoin="round" d="M8 3v4M16 3v4M3 10h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z" />,
+    bolt: <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h7l-1 8 12-16h-7l-1-4z" />,
+    key: <path strokeLinecap="round" strokeLinejoin="round" d="M10 12h11l-2 2m-2 2l-2-2M7 15a3 3 0 100-6 3 3 0 000 6z" />,
+    check: <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />,
+    share: <path strokeLinecap="round" strokeLinejoin="round" d="M8 12l8-6M8 12l8 6M18 5a2 2 0 110-4 2 2 0 010 4zM6 14a2 2 0 110-4 2 2 0 010 4zM18 23a2 2 0 110-4 2 2 0 010 4z" />,
+    mail: <path strokeLinecap="round" strokeLinejoin="round" d="M3 7l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z" />,
+  };
+  return <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">{icons[name]}</svg>;
 }
 
 function StatCard({ label, value, icon }: { label: string; value: string; icon: string }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</span>
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[color:var(--brand-primary-soft)] text-[color:var(--brand-primary-text)]">
+        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</span>
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
           <Icon name={icon} />
         </span>
       </div>
-      <div className="mt-3 text-2xl font-semibold text-gray-900">{value}</div>
+      <div className="mt-3 text-2xl font-semibold text-gray-900 dark:text-white">{value}</div>
     </div>
   );
 }
 
 function ListingCard({
-  id,
-  title,
-  location,
-  price,
-  image,
-  category,
-  area,
-  beds,
-  baths,
-  wifi,
-  updatedLabel,
-  tags,
+  listing,
   isSaved,
-  savePending,
   onToggleSave,
-}: Listing & {
+}: {
+  listing: Listing;
   isSaved: boolean;
-  savePending: boolean;
   onToggleSave: () => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
       <div className="flex flex-col md:flex-row">
         <div className="relative h-44 w-full shrink-0 md:h-auto md:w-52">
-          <Image src={image} alt={title} fill className="object-cover" />
+          <Image src={listing.image} alt={listing.title} fill sizes="(max-width: 768px) 100vw, 208px" className="object-cover" />
           <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-            <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-gray-800">
-              {category}
+            <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-gray-800 backdrop-blur-sm dark:bg-gray-900/80 dark:text-gray-200">
+              {listing.category}
             </span>
           </div>
         </div>
         <div className="flex flex-1 flex-col p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{updatedLabel}</p>
-          <div className="mt-1 text-base font-semibold text-gray-900 md:text-lg">{title}</div>
-          <div className="mt-1 text-sm text-gray-500">{location}</div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{listing.updatedLabel}</p>
+          <div className="mt-1 text-base font-semibold text-gray-900 dark:text-white md:text-lg line-clamp-1">{listing.title}</div>
+          <div className="mt-1 text-sm text-gray-500 dark:text-gray-400 truncate">{listing.location}</div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-700">
-            <span className="inline-flex items-center gap-1.5">
-              <Image src="/icons/Bed-Icon.svg" alt="Giường" width={14} height={14} />
-              {beds} giường
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Image src="/icons/Bath-Icon.svg" alt="Phòng tắm" width={14} height={14} />
-              {baths} phòng tắm
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="text-xs">Diện tích</span>
-              {area}
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Image
-                src="/icons/Wifi-Icon.svg"
-                alt={wifi ? "Có Wi-Fi" : "Không Wi-Fi"}
-                width={14}
-                height={14}
-                className={wifi ? "" : "opacity-40 grayscale"}
-              />
-              {wifi ? "Có Wi-Fi" : "Không Wi-Fi"}
-            </span>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-700 dark:text-gray-300">
+            <span className="inline-flex items-center gap-1.5"><Image src="/icons/Bed-Icon.svg" alt="Giường" width={14} height={14} className="dark:invert opacity-80" />{listing.beds} giường</span>
+            <span className="inline-flex items-center gap-1.5"><Image src="/icons/Bath-Icon.svg" alt="Phòng tắm" width={14} height={14} className="dark:invert opacity-80" />{listing.baths} phòng</span>
+            <span className="inline-flex items-center gap-1.5"><span className="text-xs">DT</span>{listing.area}</span>
           </div>
 
-          {tags.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {tags.map((tag) => (
-                <span key={tag} className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
-                  {tag}
-                </span>
-              ))}
-            </div>
-          ) : null}
-
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-lg font-bold text-[color:var(--brand-accent)]">{price}</span>
+            <span className="text-lg font-bold text-[#d51f35] dark:text-red-400">{listing.price}</span>
             <div className="flex items-center gap-2">
-              <Link
-                href={`/listings/${id}`}
-                className="rounded-full bg-[color:var(--brand-accent)] px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-[color:var(--brand-accent-strong)]"
-              >
+              <Link href={`/listings/${listing.id}`} className="rounded-full bg-[#d51f35] px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-[#b01628] dark:hover:bg-red-700">
                 Xem chi tiết
               </Link>
               <button
                 type="button"
                 onClick={onToggleSave}
-                disabled={savePending}
-                className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${
+                className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition active:scale-95 ${
                   isSaved
-                    ? "border-[color:var(--brand-accent)] bg-[color:var(--brand-accent-soft)] text-[color:var(--brand-accent)]"
-                    : "border-gray-300 text-gray-700 hover:bg-gray-50"
-                } ${savePending ? "cursor-not-allowed opacity-60" : ""}`}
+                    ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/30 dark:text-red-400"
+                    : "border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                }`}
               >
-                {savePending ? "Đang lưu..." : isSaved ? "Đã lưu" : "Lưu tin"}
+                {isSaved ? "Đã lưu ♥" : "Lưu tin ♡"}
               </button>
             </div>
           </div>
@@ -315,443 +182,337 @@ function ListingCard({
 export default function ProfilePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [userListings, setUserListings] = useState<Listing[]>([]);
+  
+  const [fetchedListings, setFetchedListings] = useState<Listing[]>([]);
   const [loadingListings, setLoadingListings] = useState(false);
   const [listingError, setListingError] = useState(false);
+  
   const [listingSearch, setListingSearch] = useState("");
-  const [savedPostIds, setSavedPostIds] = useState<number[]>([]);
-  const [savingPostIds, setSavingPostIds] = useState<number[]>([]);
+  const favorites = useFavorites(); 
+
+  const roleKey = session?.user?.role?.toString().toLowerCase() || "student";
+  const isStudent = roleKey === "student";
+
+  const displayName = useMemo(() => {
+    const rawFullName = (session?.user as { full_name?: string })?.full_name;
+    const sessionName = session?.user?.name;
+    const email = session?.user?.email || "";
+
+    if (rawFullName && rawFullName.trim() !== "") return rawFullName;
+    if (sessionName && !sessionName.includes("@")) return sessionName;
+    if (email) return email.split("@")[0]; 
+    return "Người dùng";
+  }, [session]);
+
+  const avatarUrl = session?.user?.image || "/images/Admins.png";
 
   useEffect(() => {
     let active = true;
 
-    const run = async () => {
-      if (status !== "authenticated") {
-        if (!active) return;
-        setUserListings([]);
-        setSavedPostIds([]);
-        setSavingPostIds([]);
-        setListingError(false);
-        setLoadingListings(false);
+    // ✅ Bọc logic vào một async function để tránh lỗi "synchronous setState" của ESLint
+    const loadData = async () => {
+      if (status !== "authenticated" || isStudent) {
+        if (active) setLoadingListings(false);
         return;
       }
 
       const token = session?.user?.accessToken;
-      if (!token) {
-        if (!active) return;
-        setListingError(true);
-        setLoadingListings(false);
-        setUserListings([]);
-        setSavedPostIds([]);
-        setSavingPostIds([]);
-        return;
-      }
+      if (!token) return;
 
-      if (!active) return;
-      setLoadingListings(true);
-      setListingError(false);
+      if (active) setLoadingListings(true);
 
       try {
-        const [raw, savedIds] = await Promise.all([
-          getMyPosts(token),
-          getMySavedPostIds(token).catch(() => [] as number[]),
-        ]);
+        const raw = await getMyPosts(token);
+        if (!active) return;
         const posts = Array.isArray(raw) ? raw : [];
-        if (!active) return;
-        const mapped = posts
-          .filter((post) => isApprovedPost(post.status))
-          .map(mapPostToListing);
-        setUserListings(mapped);
-        setSavedPostIds(savedIds);
+        setFetchedListings(posts.filter((p) => isApprovedPost(p.status)).map(mapPostToListing));
       } catch {
-        if (!active) return;
-        setListingError(true);
-        setUserListings([]);
-        setSavedPostIds([]);
+        if (active) setListingError(true);
       } finally {
-        if (!active) return;
-        setLoadingListings(false);
+        if (active) setLoadingListings(false);
       }
     };
 
-    run();
+    loadData();
 
-    return () => {
-      active = false;
+    return () => { active = false; };
+  }, [session, status, isStudent]);
+
+  const studentListings: Listing[] = useMemo(() => {
+    return favorites.map((fav) => ({
+      id: fav.id,
+      title: fav.title,
+      location: fav.location,
+      price: fav.price,
+      priceValue: parseFloat(fav.price) || 0,
+      image: fav.image,
+      category: "Phòng trọ",
+      area: fav.area,
+      areaValue: parseFloat(fav.area) || 0,
+      beds: fav.beds,
+      baths: fav.baths,
+      wifi: fav.wifi,
+      updatedLabel: "Đã lưu trong máy",
+      createdAtValue: 0, 
+      tags: [],
+    }));
+  }, [favorites]);
+
+  const activeListings = isStudent ? studentListings : fetchedListings;
+
+  const filteredListings = useMemo(() => {
+    const keyword = listingSearch.trim().toLowerCase();
+    if (!keyword) return activeListings;
+    return activeListings.filter((l) =>
+      [l.title, l.location, l.category].join(" ").toLowerCase().includes(keyword)
+    );
+  }, [listingSearch, activeListings]);
+
+  const handleToggleSave = (listing: Listing) => {
+    const roomData = {
+      id: listing.id,
+      title: listing.title,
+      image: listing.image,
+      location: listing.location,
+      beds: listing.beds,
+      baths: listing.baths,
+      wifi: listing.wifi,
+      area: listing.area,
+      price: listing.price,
     };
-  }, [session, status]);
-
-  const handleToggleSave = async (postId: number) => {
-    const token = session?.user?.accessToken;
-    if (!token || savingPostIds.includes(postId)) return;
-
-    const currentlySaved = savedPostIds.includes(postId);
-    setSavingPostIds((prev) => [...prev, postId]);
-
-    try {
-      if (currentlySaved) {
-        await unsavePost(postId, token);
-        setSavedPostIds((prev) => prev.filter((id) => id !== postId));
-      } else {
-        await savePost(postId, token);
-        setSavedPostIds((prev) => (prev.includes(postId) ? prev : [postId, ...prev]));
-      }
-    } catch {
-      // Keep UI state unchanged if save request fails.
-    } finally {
-      setSavingPostIds((prev) => prev.filter((id) => id !== postId));
+    toggleFavorite(roomData);
+    if (favorites.some((f) => f.id === listing.id)) {
+      toast("Đã bỏ lưu tin", { icon: "💔" });
+    } else {
+      toast.success("Đã lưu tin thành công!");
     }
   };
 
-  const filteredUserListings = useMemo(() => {
-    const keyword = listingSearch.trim().toLowerCase();
-    if (!keyword) return userListings;
+  const profileStats = useMemo(() => {
+    const total = activeListings.length;
+    const avgPrice = total > 0 ? activeListings.reduce((s, l) => s + l.priceValue, 0) / total : 0;
+    const avgArea = total > 0 ? activeListings.reduce((s, l) => s + l.areaValue, 0) / total : 0;
+    
+    const stats = [];
+    if (!isStudent) {
+      stats.push({ label: "Phòng đã đăng", value: String(total), icon: "calendar" });
+    }
+    stats.push({ label: "Đã yêu thích", value: String(favorites.length), icon: "heart" });
+    
+    if (!isStudent) {
+      stats.push({ label: "Giá trung bình", value: total > 0 ? formatPrice(avgPrice) : "--", icon: "bolt" });
+      stats.push({ label: "Diện tích TB", value: total > 0 ? formatArea(avgArea) : "--", icon: "key" });
+    }
+    return stats;
+  }, [activeListings, favorites.length, isStudent]);
 
-    return userListings.filter((listing) => {
-      const lookup = [
-        listing.title,
-        listing.location,
-        listing.category,
-        listing.area,
-        ...listing.tags,
-      ]
-        .join(" ")
-        .toLowerCase();
-      return lookup.includes(keyword);
-    });
-  }, [listingSearch, userListings]);
+  const verifiedItems = [
+    session?.user?.email ? "Email" : null,
+    displayName !== "Người dùng" ? "Họ tên" : null,
+    session?.user?.image ? "Ảnh đại diện" : null,
+  ].filter(Boolean) as string[];
+
+  const listingLocation = fetchedListings.length > 0 ? fetchedListings[0].location : "Chưa cập nhật khu vực";
+  
+  const joinedLabel = useMemo(() => {
+    if (fetchedListings.length === 0) return "--/--";
+    const firstCreatedAt = Math.min(...fetchedListings.map((item) => item.createdAtValue));
+    return formatMonthYear(firstCreatedAt);
+  }, [fetchedListings]);
+
+  const profileBio = useMemo(() => {
+    if (isStudent) return "Hồ sơ cá nhân của sinh viên. Chúc bạn tìm được phòng trọ ưng ý tại VLU Renting.";
+    if (fetchedListings.length === 0) return "Hiện chưa có tin cho thuê được duyệt trên hệ thống.";
+    return `Hiện đang có ${fetchedListings.length} tin cho thuê đã được duyệt và hiển thị công khai.`;
+  }, [fetchedListings.length, isStudent]);
 
   const listingSummary = useMemo(() => {
+    if (isStudent) return "Hãy dạo một vòng trang chủ để tìm và lưu các phòng bạn yêu thích nhé.";
     if (loadingListings) return "Đang tải danh sách...";
     if (listingError) return "Không thể tải danh sách từ hệ thống.";
-    if (userListings.length === 0) return "Chưa có tin cho thuê.";
+    if (activeListings.length === 0) return "Chưa có tin cho thuê.";
     if (listingSearch.trim().length > 0) {
-      if (filteredUserListings.length === 0) return `Không tìm thấy tin phù hợp với "${listingSearch.trim()}".`;
-      return `Tìm thấy ${filteredUserListings.length}/${userListings.length} tin phù hợp.`;
+      if (filteredListings.length === 0) return `Không tìm thấy tin phù hợp với "${listingSearch.trim()}".`;
+      return `Tìm thấy ${filteredListings.length}/${activeListings.length} tin phù hợp.`;
     }
-    return `Đang hiển thị ${userListings.length} tin nổi bật.`;
-  }, [filteredUserListings.length, listingError, listingSearch, loadingListings, userListings.length]);
-
-  const displayName = session?.user?.name?.trim() || "Người dùng";
-  const avatarUrl = session?.user?.image || "/images/Admins.png";
-  const roleKey = session?.user?.role?.toString().toLowerCase() || "student";
-  const roleLabelMap: Record<string, string> = {
-    admin: "Quản trị viên",
-    landlord: "Chủ trọ",
-    student: "Sinh viên",
-  };
-  const roleLabel = roleLabelMap[roleKey] ?? "Người dùng";
-  const listingLocation =
-    userListings.length > 0
-      ? userListings[0].location
-      : "Chưa cập nhật khu vực";
-  const joinedLabel = useMemo(() => {
-    if (userListings.length === 0) return "--/--";
-    const firstCreatedAt = Math.min(...userListings.map((item) => item.createdAtValue));
-    return formatMonthYear(firstCreatedAt);
-  }, [userListings]);
-  const profileBio = useMemo(() => {
-    if (userListings.length === 0) {
-      return "Hiện chưa có tin cho thuê được duyệt trên hệ thống.";
-    }
-    return `Hiện đang có ${userListings.length} tin cho thuê đã được duyệt và hiển thị công khai.`;
-  }, [userListings.length]);
-  const verifiedItems = useMemo(() => {
-    const items: string[] = [];
-    if (session?.user?.email) items.push("Email");
-    if (session?.user?.name) items.push("Họ tên");
-    if (session?.user?.image) items.push("Ảnh đại diện");
-    return items;
-  }, [session?.user?.email, session?.user?.image, session?.user?.name]);
-  const profileStats = useMemo(() => {
-    const totalListings = userListings.length;
-    const averagePrice =
-      totalListings > 0
-        ? userListings.reduce((sum, listing) => sum + listing.priceValue, 0) / totalListings
-        : 0;
-    const averageArea =
-      totalListings > 0
-        ? userListings.reduce((sum, listing) => sum + listing.areaValue, 0) / totalListings
-        : 0;
-    return [
-      {
-        label: "Tin đã duyệt",
-        value: String(totalListings),
-        icon: "calendar",
-      },
-      {
-        label: "Tin đã lưu",
-        value: String(savedPostIds.length),
-        icon: "heart",
-      },
-      {
-        label: "Giá trung bình",
-        value: totalListings > 0 ? formatPrice(averagePrice) : "--",
-        icon: "bolt",
-      },
-      {
-        label: "Diện tích TB",
-        value: totalListings > 0 ? formatArea(averageArea) : "--",
-        icon: "key",
-      },
-    ];
-  }, [savedPostIds.length, userListings]);
-  const recentListings = useMemo(() => userListings.slice(0, 3), [userListings]);
+    return `Đang hiển thị ${activeListings.length} tin nổi bật.`;
+  }, [filteredListings.length, listingError, listingSearch, loadingListings, activeListings.length, isStudent]);
 
   return (
-    <div className="relative min-h-screen bg-gray-50 text-gray-900">
-      <UserTopBar />
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-80 opacity-60"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 15% 20%, rgba(213,31,53,0.18), transparent 45%), radial-gradient(circle at 80% 0%, rgba(1,4,51,0.18), transparent 55%)",
-        }}
-      />
-
-      <div className="relative mx-auto flex w-full gap-6 px-4 py-10 md:px-6 lg:px-10 xl:px-14 2xl:px-20">
-        <aside className="hidden w-64 flex-shrink-0 lg:flex">
-          <div className="sticky top-8 flex h-fit w-full flex-col rounded-3xl bg-[#010433] px-6 py-8 text-white shadow-xl">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15">
-                <Icon name="user" />
+    <UserPageShell
+      title="Hồ sơ cá nhân"
+      description={isStudent ? "Xem thông tin tài khoản và danh sách các phòng trọ bạn đã lưu." : "Bảng điều khiển quản lý và thống kê các phòng trọ của bạn."}
+    >
+      <div className="space-y-6 lg:space-y-8">
+        
+        {/* HEADER CÁ NHÂN */}
+        <section className="relative overflow-hidden rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-5">
+              <div className="relative h-20 w-20 overflow-hidden rounded-full border-4 border-gray-50 shadow-sm dark:border-gray-800">
+                <Image src={avatarUrl} alt={displayName} fill className="object-cover" />
               </div>
               <div>
-                <div className="text-sm font-semibold">VLU Renting</div>
-                <div className="text-xs text-white/60">Bảng điều khiển</div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white capitalize">{displayName}</h1>
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                    {roleKey === "landlord" ? "Chủ trọ" : roleKey === "admin" ? "Admin" : "Sinh viên"}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                  Đang hoạt động
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {verifiedItems.map((item) => (
+                    <span key={item} className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-semibold text-blue-600 dark:border-blue-900/50 dark:bg-blue-900/30 dark:text-blue-400">
+                      {item} đã xác minh
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div className="mt-8 space-y-2">
-              {navItems.map((item) => (
-                <button
-                  key={item.label}
-                  className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition ${
-                    item.active ? "bg-white/15" : "text-white/70 hover:bg-white/10"
-                  }`}
-                >
-                  <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${item.active ? "bg-white/15" : "bg-white/5"}`}>
-                    <Icon name={item.icon} />
-                  </span>
-                  {item.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-8 rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div className="text-xs uppercase tracking-wide text-white/50">Tài khoản</div>
-              <div className="mt-2 text-sm font-semibold">{displayName}</div>
-              <div className="text-xs text-white/60">Tin đầu tiên từ {joinedLabel}</div>
-              <button
-                type="button"
-                onClick={() => router.push("/settings")}
-                className="mt-3 w-full rounded-xl bg-white/15 px-3 py-2 text-xs font-semibold text-white"
-              >
-                Quản lý tài khoản
+            <div className="flex flex-wrap gap-3">
+              <button className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
+                <Icon name="share" />
+                Chia sẻ
+              </button>
+              <button onClick={() => router.push("/chat")} className="inline-flex items-center gap-2 rounded-xl bg-[#d51f35] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#b01628] active:scale-95">
+                <Icon name="chat" />
+                Hộp thư
               </button>
             </div>
           </div>
-        </aside>
+        </section>
 
-        <main className="flex-1 space-y-6">
-          <section className="relative overflow-hidden rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-            <div
-              className="pointer-events-none absolute inset-0 opacity-40"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle at 10% 10%, rgba(213,31,53,0.12), transparent 45%), radial-gradient(circle at 85% 20%, rgba(1,4,51,0.08), transparent 45%)",
-              }}
-            />
+        {/* THỐNG KÊ */}
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {profileStats.map((stat) => (
+            <StatCard key={stat.label} {...stat} />
+          ))}
+        </section>
 
-            <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="relative h-20 w-20 overflow-hidden rounded-2xl border border-gray-200">
-                  <Image src={avatarUrl} alt={displayName} fill className="object-cover" />
+        {/* CỘT THÔNG TIN CHUNG & DANH SÁCH LISTING */}
+        <section className="grid gap-6 lg:grid-cols-12">
+          
+          <div className="space-y-6 lg:col-span-4">
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                  <Icon name="user" />
+                </span>
+                Về {displayName}
+              </div>
+              <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">{profileBio}</p>
+              
+              <div className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                {!isStudent && (
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    Đang hiển thị {fetchedListings.length} tin đã duyệt
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-blue-500" />
+                  Đã lưu {favorites.length} tin yêu thích
                 </div>
+              </div>
+            </div>
+
+            {!isStudent && (
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                    <Icon name="calendar" />
+                  </span>
+                  Thời gian hoạt động
+                </div>
+                <div className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                  Có bài đăng đầu tiên từ <span className="font-semibold text-gray-900 dark:text-white">{joinedLabel}</span>
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-[#d51f35]" />
+                  Khu vực: {listingLocation}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-6 lg:col-span-8">
+            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex flex-col gap-4 border-b border-gray-100 pb-5 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="text-2xl font-semibold text-gray-900">{displayName}</h1>
-                    <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-600">
-                      {roleLabel}
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                    {isStudent ? "Phòng trọ bạn đã lưu" : "Danh sách phòng đang cho thuê"}
+                  </h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {listingSummary}
+                  </p>
+                </div>
+                
+                {activeListings.length > 0 && (
+                  <div className="relative w-full sm:w-72">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      <Icon name="search" />
                     </span>
+                    <input
+                      type="text"
+                      value={listingSearch}
+                      onChange={(e) => setListingSearch(e.target.value)}
+                      placeholder="Tìm kiếm nhanh..."
+                      className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#d51f35] dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    />
                   </div>
-                  <div className="mt-1 flex items-center gap-2 text-sm text-gray-600">
-                    <span className="inline-flex h-2 w-2 rounded-full bg-[color:var(--brand-accent)]" />
-                    {listingLocation}
+                )}
+              </div>
+
+              <div className="mt-5">
+                {loadingListings ? (
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-16 text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                    <span className="mb-3 animate-spin text-3xl">⏳</span>
+                    <p>Đang tải dữ liệu...</p>
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {verifiedItems.length > 0 ? (
-                      verifiedItems.map((item) => (
-                        <span
-                          key={item}
-                          className="rounded-full bg-[color:var(--brand-primary-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--brand-primary-text)]"
-                        >
-                          {item} đã xác minh
-                        </span>
-                      ))
-                    ) : (
-                      <span className="rounded-full bg-[color:var(--brand-primary-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--brand-primary-text)]">
-                        Tài khoản đã đăng nhập
-                      </span>
+                ) : listingError ? (
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-red-200 py-16 text-red-500 dark:border-red-900/50 dark:text-red-400">
+                    <span className="mb-3 text-3xl opacity-50">❌</span>
+                    <p>Lỗi kết nối. Không thể tải danh sách!</p>
+                  </div>
+                ) : activeListings.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-16 text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                    <span className="mb-3 text-4xl opacity-40">📂</span>
+                    <p className="font-semibold text-gray-700 dark:text-gray-300">
+                      {isStudent ? "Bạn chưa lưu phòng yêu thích nào." : "Bạn chưa có tin đăng nào."}
+                    </p>
+                    {isStudent && (
+                      <Link href="/listings" className="mt-3 text-sm font-semibold text-[#d51f35] hover:underline dark:text-red-400">
+                        Khám phá phòng trọ ngay →
+                      </Link>
                     )}
                   </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-                  <Icon name="share" />
-                  Chia sẻ
-                </button>
-                <button
-                  onClick={() => router.push("/chat")}
-                  className="inline-flex items-center gap-2 rounded-full bg-[color:var(--brand-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[color:var(--brand-accent-strong)]"
-                >
-                  <Icon name="mail" />
-                  Liên hệ chủ trọ
-                </button>
+                ) : filteredListings.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-16 text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                    <span className="mb-3 text-4xl opacity-40">🔍</span>
+                    <p>Không tìm thấy tin phù hợp.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    {filteredListings.map((listing) => (
+                      <ListingCard
+                        key={listing.id}
+                        listing={listing}
+                        isSaved={favorites.some((f) => f.id === listing.id)}
+                        onToggleSave={() => handleToggleSave(listing)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-          </section>
+          </div>
 
-          <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {profileStats.map((stat) => (
-              <StatCard key={stat.label} {...stat} />
-            ))}
-          </section>
-
-          <section className="grid gap-6 lg:grid-cols-12">
-            <div className="space-y-6 lg:col-span-4">
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[color:var(--brand-accent-soft)] text-[color:var(--brand-accent)]">
-                    <Icon name="user" />
-                  </span>
-                  Về {displayName}
-                </div>
-                <p className="mt-3 text-sm text-gray-600">{profileBio}</p>
-                <div className="mt-4 space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    Đang hiển thị {userListings.length} tin đã duyệt
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    Đã lưu {savedPostIds.length} tin yêu thích
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[color:var(--brand-primary-soft)] text-[color:var(--brand-primary-text)]">
-                    <Icon name="check" />
-                  </span>
-                  Thông tin đã xác minh
-                </div>
-                <div className="mt-4 space-y-3">
-                  {verifiedItems.length > 0 ? (
-                    verifiedItems.map((item) => (
-                      <div key={item} className="flex items-center justify-between text-sm text-gray-600">
-                        <span>{item}</span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-1 text-xs font-semibold text-emerald-600">
-                          <Icon name="check" />
-                          Đã kiểm tra
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500">Chưa có thông tin xác minh bổ sung.</div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-6 lg:col-span-8">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Danh sách phòng đang cho thuê</h2>
-                  <p className="text-sm text-gray-500">{listingSummary}</p>
-                </div>
-                <div className="relative w-full sm:w-72">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    <Icon name="search" />
-                  </span>
-                  <input
-                    type="text"
-                    value={listingSearch}
-                    onChange={(event) => setListingSearch(event.target.value)}
-                    placeholder="Tìm theo tiêu đề, khu vực..."
-                    className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-12 pr-3 text-sm text-gray-700 outline-none transition focus:border-[color:var(--brand-accent)]"
-                  />
-                </div>
-              </div>
-
-              {loadingListings ? (
-                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm">
-                  Đang tải dữ liệu từ hệ thống...
-                </div>
-              ) : listingError ? (
-                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm">
-                  Không thể tải danh sách phòng. Vui lòng thử lại sau.
-                </div>
-              ) : userListings.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm">
-                  Người dùng này chưa có tin cho thuê nào.
-                </div>
-              ) : filteredUserListings.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm">
-                  Không tìm thấy tin phù hợp với từ khóa hiện tại.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredUserListings.map((listing) => (
-                    <ListingCard
-                      key={listing.id}
-                      {...listing}
-                      isSaved={savedPostIds.includes(listing.id)}
-                      savePending={savingPostIds.includes(listing.id)}
-                      onToggleSave={() => handleToggleSave(listing.id)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Tin cập nhật gần đây</h3>
-                    <p className="text-sm text-gray-500">Dữ liệu lấy trực tiếp từ danh sách tin đã duyệt.</p>
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {recentListings.length} / {userListings.length} tin gần nhất
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {recentListings.length > 0 ? (
-                    recentListings.map((listing) => (
-                      <div key={listing.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                        <div className="text-sm font-semibold text-gray-900">{listing.title}</div>
-                        <div className="mt-1 text-xs text-gray-500">{listing.location}</div>
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600">
-                          <span className="rounded-full bg-gray-100 px-2 py-1">{listing.updatedLabel}</span>
-                          <span className="rounded-full bg-gray-100 px-2 py-1">{listing.price}</span>
-                          <span className="rounded-full bg-gray-100 px-2 py-1">{listing.area}</span>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500">
-                      Chưa có tin đăng nào để hiển thị lịch sử cập nhật.
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
-        </main>
+        </section>
       </div>
-    </div>
+    </UserPageShell>
   );
 }

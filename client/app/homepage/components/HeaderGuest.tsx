@@ -8,7 +8,7 @@ import ThemeToggleButton from "@/app/theme/ThemeToggleButton";
 // 2. Sub-component: TopHeader
 function TopHeader() {
   return (
-    <header className="relative z-50 w-full border-b border-[color:var(--surface-navy-border)] text-white shadow-lg">
+    <header className="relative z-50 w-full border-b border-(--surface-navy-border) text-white shadow-lg">
       {/* Background Gradient */}
       <div
         className="pointer-events-none absolute inset-0"
@@ -40,7 +40,7 @@ function TopHeader() {
         */}
         <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 text-center xl:block z-0 pointer-events-none">
           <h1 className="text-[36px] 2xl:text-[42px] font-extrabold leading-none tracking-tight drop-shadow-lg whitespace-nowrap">
-            <span className="text-[color:var(--brand-accent)]">VLU</span>
+            <span className="text-(--brand-accent)">VLU</span>
             <span className="text-white">RENTING</span>
           </h1>
           {/* Dòng slogan dài: Chỉ hiện trên màn hình > 1280px, chỉnh font nhỏ lại chút để vừa vặn */}
@@ -65,7 +65,7 @@ function TopHeader() {
               active:scale-95
             "
           >
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#e6ebff] text-[#010433] transition-colors group-hover:bg-[color:var(--brand-accent)] group-hover:text-white">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#e6ebff] text-[#010433] transition-colors group-hover:bg-(--brand-accent) group-hover:text-white">
               <PersonIcon className="h-4 w-4" />
             </div>
               <span>Thành viên</span>

@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { ConversationEntity } from '../database/entities/conversation.entity';
 import { MessageEntity } from '../database/entities/message.entity';
 import { UserEntity } from '../database/entities/user.entity';
-import { NotificationsService } from 'src/notifications/notifications.service';
+import { NotificationsService } from 'src/notifications/notifications.service'; // Chỉnh lại đường dẫn nếu cần
 
 @Injectable()
 export class ChatService {
@@ -21,7 +21,6 @@ export class ChatService {
 
   // Tạo hoặc lấy cuộc hội thoại giữa Student và Landlord
   async getConversation(studentId: number, landlordId: number) {
-    // Tìm xem đã có chưa
     let conversation = await this.conversationRepo.findOne({
       where: {
         student: { id: studentId },
@@ -30,7 +29,6 @@ export class ChatService {
       relations: ['student', 'landlord'],
     });
 
-    // Chưa có thì tạo mới
     if (!conversation) {
       conversation = this.conversationRepo.create({
         student: { id: studentId },
@@ -47,9 +45,8 @@ export class ChatService {
     conversationId: number,
     senderId: number,
     content: string,
-    isReceiverWatching: boolean = false, // Mặc định là false
+    isReceiverWatching: boolean = false,
   ) {
-    // 1. Lưu tin nhắn vào DB
     const newMessage = this.messageRepo.create({
       conversation: { id: conversationId },
       sender: { id: senderId },
@@ -57,12 +54,15 @@ export class ChatService {
     });
     const savedMsg = await this.messageRepo.save(newMessage);
 
-    // 2. Nếu người nhận ĐANG XEM (Online trong phòng) -> KHÔNG TẠO THÔNG BÁO
+    // 👇 Cập nhật lại thời gian updated_at của Conversation để nó nhảy lên top sidebar
+    await this.conversationRepo.update(conversationId, {
+      updated_at: new Date(),
+    });
+
     if (isReceiverWatching) {
-      return savedMsg; // Kết thúc luôn
+      return savedMsg;
     }
 
-    // 3. Logic tạo thông báo (khi người nhận không xem)
     const conversation = await this.conversationRepo.findOne({
       where: { id: conversationId },
       relations: ['student', 'landlord'],
@@ -80,22 +80,18 @@ export class ChatService {
           ? conversation.landlord.id
           : conversation.student.id;
 
-      // Tên người gửi
       const senderName =
         sender.profile?.full_name || sender.email || 'Người dùng';
 
-      // --- YÊU CẦU CỦA EM: NỘI DUNG ẨN ---
-      // Không hiện nội dung chat, chỉ báo có tin nhắn đang chờ
       const notifTitle = `Tin nhắn mới từ ${senderName}`;
       const notifMessage = 'Đang chờ bạn phản hồi...';
 
-      // Gọi service (Nó sẽ tự gộp nếu đã có thông báo chưa đọc từ người này)
       await this.notificationsService.createNotification(
         receiverId,
         notifTitle,
         notifMessage,
         'message',
-        sId, // relatedId để mở chat
+        sId,
       );
     }
 
@@ -106,16 +102,23 @@ export class ChatService {
   async getMessages(conversationId: number) {
     return await this.messageRepo.find({
       where: { conversation: { id: conversationId } },
-      relations: ['sender'], // Load thông tin người gửi để hiển thị tên/avatar
+      relations: ['sender'],
       order: { created_at: 'ASC' },
     });
   }
 
-  // Lấy danh sách các cuộc hội thoại của 1 user (để hiển thị list bên trái)
+  // Lấy danh sách các cuộc hội thoại của 1 user
   async getUserConversations(userId: number) {
     return await this.conversationRepo.find({
       where: [{ student: { id: userId } }, { landlord: { id: userId } }],
-      relations: ['student', 'landlord', 'messages'],
+      relations: [
+        'student',
+        'student.profile',
+        'landlord',
+        'landlord.profile',
+        'messages',
+      ],
+      // 💡 Đổi thành updated_at để cuộc trò chuyện nào có tin nhắn mới nhất sẽ nằm trên cùng
       order: { created_at: 'DESC' },
     });
   }

@@ -50,11 +50,11 @@ function Stars({ rating }: { rating: number }) {
   return (
     <div className="flex items-center gap-1">
       {Array.from({ length: 5 }).map((_, i) => (
-        <span key={i} className={i < full ? "text-yellow-500" : "text-gray-300"}>
+        <span key={i} className={i < full ? "text-yellow-500" : "text-gray-300 dark:text-gray-600"}>
           ★
         </span>
       ))}
-      <span className="ml-2 text-sm text-gray-600">{safeRating.toFixed(1)}</span>
+      <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">{safeRating.toFixed(1)}</span>
     </div>
   );
 }
@@ -144,7 +144,8 @@ export default function ReviewsSection() {
       if (latest.length > 0) {
         setReviews(latest.map(mapApiReview));
       }
-      handleCloseForm();
+      // Tự động đóng modal sau 1 giây khi gửi thành công
+      setTimeout(() => handleCloseForm(), 1000);
     } catch (error) {
       setFormError(getSubmitErrorMessage(error));
     } finally {
@@ -153,71 +154,72 @@ export default function ReviewsSection() {
   };
 
   return (
-    <section className="py-10 bg-white w-full">
+    // ✅ Cập nhật Dark Mode cho Nền Section
+    <section className="py-10 bg-white w-full transition-colors dark:bg-gray-900">
       <div className="w-full px-4 md:px-6">
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Đánh giá nổi bật về website</h2>
-              <p className="mt-1 text-gray-600">
-                Tổng hợp trải nghiệm của người dùng về website.
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Đánh giá nổi bật về website</h2>
+              <p className="mt-1 text-gray-600 dark:text-gray-400">
+                Tổng hợp trải nghiệm của người dùng về hệ thống VLU Renting.
               </p>
               {loadError && (
-                <p className="mt-2 text-xs text-amber-600">
+                <p className="mt-2 text-xs text-red-500 dark:text-red-400">
                   Không thể tải đánh giá mới nhất.
                 </p>
               )}
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white-50 px-4 py-3">
-              <div className="text-sm text-gray-600">Điểm trung bình</div>
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 transition-colors dark:border-gray-800 dark:bg-gray-800">
+              <div className="text-sm text-gray-600 dark:text-gray-400">Điểm trung bình</div>
               <div className="mt-1 flex items-center gap-3">
-                <div className="text-3xl font-extrabold text-gray-900">
+                <div className="text-3xl font-extrabold text-gray-900 dark:text-white">
                   {avg.toFixed(1)}
                 </div>
                 <Stars rating={avg} />
               </div>
-              <div className="mt-1 text-xs text-gray-500">Dựa trên {reviews.length} đánh giá</div>
+              <div className="mt-1 text-xs text-gray-500 dark:text-gray-500">Dựa trên {reviews.length} đánh giá</div>
             </div>
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
             {reviews.map((r) => (
-              <article key={r.id} className="rounded-2xl border border-gray-200 p-5 hover:shadow-sm">
+              <article key={r.id} className="rounded-2xl border border-gray-200 bg-white p-5 transition-all hover:shadow-md dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="font-semibold text-gray-900">{r.name}</div>
-                    <div className="text-sm text-gray-600">
+                    <div className="font-semibold text-gray-900 dark:text-white">{r.name}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
                       {r.role ? r.role : "Người dùng"} - {r.date}
                     </div>
                   </div>
                   <Stars rating={r.rating} />
                 </div>
 
-                <p className="mt-4 text-sm leading-6 text-gray-700">{r.content}</p>
+                <p className="mt-4 text-sm leading-6 text-gray-700 dark:text-gray-300">{r.content}</p>
               </article>
             ))}
             {!reviewsLoading && reviews.length === 0 && !loadError && (
-              <div className="rounded-2xl border border-dashed border-gray-200 p-6 text-sm text-gray-500 md:col-span-3">
-                Chưa có đánh giá nào.
+              <div className="rounded-2xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400 md:col-span-3">
+                Chưa có đánh giá nào. Hãy là người đầu tiên trải nghiệm!
               </div>
             )}
             {reviewsLoading && (
-              <div className="rounded-2xl border border-dashed border-gray-200 p-6 text-sm text-gray-500 md:col-span-3">
-                Đang tải đánh giá...
+              <div className="flex items-center justify-center rounded-2xl border border-dashed border-gray-200 p-6 text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400 md:col-span-3">
+                <span className="animate-spin text-xl mr-2">⏳</span> Đang tải đánh giá...
               </div>
             )}
           </div>
 
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-5">
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-5 dark:border-gray-800">
             <div className="flex gap-2">
-              <button className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-500">
+              <button className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-50 active:scale-95 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
                 Xem tất cả
               </button>
               <button
                 type="button"
                 onClick={handleOpenForm}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                className="rounded-xl bg-[#d51f35] px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-[#b01628] active:scale-95 shadow-sm"
               >
                 Viết đánh giá
               </button>
@@ -226,38 +228,41 @@ export default function ReviewsSection() {
         </div>
       </div>
 
+      {/* ✅ MODAL VIẾT ĐÁNH GIÁ (CÓ DARK MODE) */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm transition-opacity">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl transition-transform dark:border dark:border-gray-800 dark:bg-gray-900">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-100 pb-4 dark:border-gray-800">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Viết đánh giá</h3>
-                <p className="mt-1 text-sm text-gray-600">
-                  Chia sẻ trải nghiệm của bạn về website.
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Viết đánh giá hệ thống</h3>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                  Chia sẻ trải nghiệm của bạn để giúp chúng mình cải thiện website tốt hơn.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleCloseForm}
-                className="rounded-full border border-gray-200 px-3 py-1 text-sm text-gray-600 hover:bg-gray-100"
+                className="rounded-full bg-gray-100 p-2 text-gray-600 transition-colors hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
               >
-                Đóng
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
-            <form className="mt-5 space-y-4" onSubmit={handleSubmitReview}>
+            <form className="mt-5 space-y-5" onSubmit={handleSubmitReview}>
               <div>
-                <label className="text-sm font-semibold text-gray-700">Số sao</label>
-                <div className="mt-2 grid grid-cols-5 gap-2">
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Đánh giá sao</label>
+                <div className="mt-2 flex flex-wrap gap-2">
                   {[1, 2, 3, 4, 5].map((value) => (
                     <button
                       key={value}
                       type="button"
                       onClick={() => setFormRating(value)}
-                      className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
+                      className={`rounded-xl border px-4 py-2 text-sm font-semibold transition-all ${
                         formRating === value
-                          ? "border-yellow-400 bg-yellow-50 text-yellow-600"
-                          : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                          ? "border-yellow-400 bg-yellow-50 text-yellow-700 shadow-sm dark:border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400"
+                          : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                       }`}
                     >
                       {value} ★
@@ -267,36 +272,38 @@ export default function ReviewsSection() {
               </div>
 
               <div>
-                <label className="text-sm font-semibold text-gray-700">Nội dung</label>
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Nội dung</label>
                 <textarea
                   value={formComment}
                   onChange={(event) => setFormComment(event.target.value)}
-                  className="mt-2 min-h-[120px] w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800"
-                  placeholder="Chia sẻ trải nghiệm của bạn..."
+                  className="mt-2 min-h-[120px] w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition-colors focus:border-[#d51f35] focus:ring-2 focus:ring-[#d51f35]/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
+                  placeholder="Website rất dễ sử dụng, giao diện đẹp..."
                 />
               </div>
 
               {formError && (
-                <p className="text-sm font-semibold text-red-500">{formError}</p>
+                <div className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                  ⚠️ {formError}
+                </div>
               )}
               {formSuccess && (
-                <p className="text-sm font-semibold text-emerald-600">
-                  Gửi đánh giá thành công!
-                </p>
+                <div className="rounded-lg bg-emerald-50 p-3 text-sm font-medium text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                  ✅ Cảm ơn bạn! Đánh giá đã được gửi thành công.
+                </div>
               )}
 
-              <div className="flex flex-wrap items-center justify-end gap-3">
+              <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={handleCloseForm}
-                  className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100"
+                  className="rounded-full border border-gray-200 bg-white px-6 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 active:scale-95 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                  className="rounded-full bg-[#d51f35] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#b01628] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {submitting ? "Đang gửi..." : "Gửi đánh giá"}
                 </button>

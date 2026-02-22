@@ -33,7 +33,6 @@ type Criteria = {
   tags?: string[];
 };
 
-
 const tagMatchers = [
   { keyword: "ban cong", tag: "Ban công" },
   { keyword: "gym", tag: "Gym" },
@@ -93,6 +92,7 @@ const normalizeText = (input: string) =>
     .replace(/đ/g, "d")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
+
 const parseNumber = (value: string) => {
   const cleaned = value.trim();
   if (!cleaned) return undefined;
@@ -171,7 +171,6 @@ const mapPostToListing = (post: Post): Listing => {
   };
 };
 
-
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const extractQuery = (input: string, normalized: string, districtOptions: string[]) => {
@@ -208,6 +207,7 @@ const extractQuery = (input: string, normalized: string, districtOptions: string
 
   return candidate.length >= 2 ? candidate : undefined;
 };
+
 const parseCriteria = (
   input: string,
   districtOptions: string[],
@@ -326,6 +326,14 @@ const parseCriteria = (
 const matchesCriteria = (item: Listing, criteria?: Criteria | null) => {
   if (!criteria) return true;
 
+  if (criteria.query) {
+    const q = normalizeText(criteria.query);
+    const inTitle = normalizeText(item.title).includes(q);
+    const inLocation = normalizeText(item.location).includes(q);
+    const inTags = item.tags.some((tag) => normalizeText(tag).includes(q));
+    if (!inTitle && !inLocation && !inTags) return false;
+  }
+
   if (criteria.campus && item.campus !== criteria.campus) return false;
   if (criteria.district && item.district !== criteria.district) return false;
   if (criteria.type && item.type !== criteria.type) return false;
@@ -420,7 +428,7 @@ export default function ListingsPage() {
   const [wifiOnly, setWifiOnly] = useState(false);
   const [parkingOnly, setParkingOnly] = useState(false);
   const [furnishedOnly, setFurnishedOnly] = useState(false);
-  const [sortBy, setSortBy] = useState("oldest");
+  const [sortBy, setSortBy] = useState("latest");
 
   const [assistantInput, setAssistantInput] = useState("");
   const [assistantCriteria, setAssistantCriteria] = useState<Criteria | null>(null);
@@ -429,11 +437,22 @@ export default function ListingsPage() {
       id: "intro",
       role: "assistant",
       text: "Xin chào! Mình là trợ lý AI của VLU Renting. Hãy nói tiêu chí bạn cần (giá, khu vực, diện tích, tiện ích...) để mình gợi ý tin đăng phù hợp nhé.",
-      time: formatTime(),
+      time: "",
     },
   ]);
   const endRef = useRef<HTMLDivElement | null>(null);
   const messageCounter = useRef(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMessages((prev) => {
+        if (prev.length === 0) return prev;
+        return [{ ...prev[0], time: formatTime() }, ...prev.slice(1)];
+      });
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -467,15 +486,15 @@ export default function ListingsPage() {
   const sourceListings = remoteListings;
   const campusFilterOptions = useMemo(
     () => [allOption, ...Array.from(new Set(sourceListings.map((item) => item.campus).filter(Boolean)))],
-    [allOption, sourceListings],
+    [allOption, sourceListings]
   );
   const districtFilterOptions = useMemo(
     () => [allOption, ...Array.from(new Set(sourceListings.map((item) => item.district).filter(Boolean)))],
-    [allOption, sourceListings],
+    [allOption, sourceListings]
   );
   const typeFilterOptions = useMemo(
     () => [allOption, ...Array.from(new Set(sourceListings.map((item) => item.type).filter(Boolean)))],
-    [allOption, sourceListings],
+    [allOption, sourceListings]
   );
 
   const applyCriteriaToFilters = (criteria: Criteria) => {
@@ -496,6 +515,8 @@ export default function ListingsPage() {
     const parsedMinPrice = parseNumber(minPrice);
     const parsedMaxPrice = parseNumber(maxPrice);
 
+    if (query.trim()) criteria.query = query.trim();
+
     if (campus !== allOption) criteria.campus = campus;
     if (district !== allOption) criteria.district = district;
     if (type !== allOption) criteria.type = type;
@@ -513,7 +534,7 @@ export default function ListingsPage() {
     if (furnishedOnly) criteria.furnished = true;
 
     return criteria;
-  }, [allOption, campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, type, wifiOnly]);
+  }, [allOption, campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, query, type, wifiOnly]);
 
   const assistantExtras = useMemo(() => {
     if (!assistantCriteria) return null;
@@ -529,17 +550,8 @@ export default function ListingsPage() {
   }, [assistantCriteria]);
 
   const filtered = useMemo(() => {
-    const queryValue = normalizeText(query.trim());
-
     return sourceListings
       .filter((item) => {
-        if (queryValue) {
-          const inTitle = normalizeText(item.title).includes(queryValue);
-          const inLocation = normalizeText(item.location).includes(queryValue);
-          const inTags = item.tags.some((tag) => normalizeText(tag).includes(queryValue));
-          if (!inTitle && !inLocation && !inTags) return false;
-        }
-
         if (!matchesCriteria(item, manualCriteria)) return false;
         if (!matchesCriteria(item, assistantExtras)) return false;
 
@@ -553,7 +565,7 @@ export default function ListingsPage() {
         if (sortBy === "oldest") return a.updatedAt - b.updatedAt;
         return b.updatedAt - a.updatedAt;
       });
-  }, [assistantExtras, manualCriteria, query, sortBy, sourceListings]);
+  }, [assistantExtras, manualCriteria, sortBy, sourceListings]);
 
   const stats = useMemo(() => {
     if (filtered.length === 0) {
@@ -583,7 +595,6 @@ export default function ListingsPage() {
     if (furnishedOnly) items.push("Đầy đủ nội thất");
     return items;
   }, [allOption, campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, query, type, wifiOnly]);
-
 
   const assistantExtraBadges = useMemo(() => {
     if (!assistantExtras) return [];
@@ -652,17 +663,17 @@ export default function ListingsPage() {
   };
 
   const resetFilters = () => {
-      setQuery("");
-      setCampus(allOption);
-      setDistrict(allOption);
-      setType(allOption);
+    setQuery("");
+    setCampus(allOption);
+    setDistrict(allOption);
+    setType(allOption);
     setMinPrice("");
     setMaxPrice("");
     setMinBeds("Bất kỳ");
     setWifiOnly(false);
     setParkingOnly(false);
     setFurnishedOnly(false);
-    setSortBy("oldest");
+    setSortBy("latest");
     setAssistantCriteria(null);
   };
 
@@ -672,42 +683,44 @@ export default function ListingsPage() {
       description="Chat với trợ lý AI hoặc dùng bộ lọc để xem nhanh tin đăng phù hợp."
     >
       <div className="space-y-8">
+        {/* PANEL THỐNG KÊ */}
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-500">Tổng tin đăng</p>
-            <div className="mt-2 text-3xl font-extrabold text-gray-900">{filtered.length}</div>
-            <p className="text-xs text-gray-500">Cập nhật theo bộ lọc hiện tại.</p>
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Tổng tin đăng</p>
+            <div className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-white">{filtered.length}</div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Cập nhật theo bộ lọc hiện tại.</p>
           </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-500">Giá trung bình</p>
-            <div className="mt-2 text-3xl font-extrabold text-gray-900">{stats.avgPrice}</div>
-            <p className="text-xs text-gray-500">Tính từ danh sách hiện tại.</p>
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Giá trung bình</p>
+            <div className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-white">{stats.avgPrice}</div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Tính từ danh sách hiện tại.</p>
           </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-500">Diện tích trung bình</p>
-            <div className="mt-2 text-3xl font-extrabold text-gray-900">{stats.avgArea}</div>
-            <p className="text-xs text-gray-500">{stats.withParking} tin có bãi xe.</p>
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Diện tích trung bình</p>
+            <div className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-white">{stats.avgArea}</div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{stats.withParking} tin có bãi xe.</p>
           </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
           <aside className="space-y-5">
-            <section className="flex min-h-[420px] max-h-[620px] flex-col rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-              <div className="border-b border-gray-200 px-5 py-4 space-y-3">
+            {/* TRỢ LÝ AI */}
+            <section className="flex min-h-[420px] max-h-[620px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+              <div className="space-y-3 border-b border-gray-200 px-5 py-4 dark:border-gray-800">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900">Trợ lý AI</h2>
-                    <p className="text-xs text-gray-500">Gợi ý tin đăng theo tiêu chí của bạn</p>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Trợ lý AI</h2>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Gợi ý tin đăng theo tiêu chí của bạn</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
+                    <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                       Online
                     </span>
                     {assistantCriteria ? (
                       <button
                         type="button"
                         onClick={() => setAssistantCriteria(null)}
-                        className="text-xs font-semibold text-gray-500 hover:text-gray-800"
+                        className="text-xs font-semibold text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
                       >
                         Xóa tiêu chí
                       </button>
@@ -716,20 +729,20 @@ export default function ListingsPage() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4 bg-gray-50">
+              <div className="flex-1 space-y-4 overflow-y-auto bg-gray-50 px-5 py-5 dark:bg-gray-800/50">
                 {messages.map((message) => {
                   const isUser = message.role === "user";
                   return (
                     <div key={message.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
                       <div
-                        className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm ${
+                        className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm transition-colors ${
                           isUser
-                            ? "bg-[#D51F35] text-white rounded-br-sm"
-                            : "bg-white text-gray-900 border border-gray-100 rounded-bl-sm"
+                            ? "rounded-br-sm bg-[#D51F35] text-white"
+                            : "rounded-bl-sm border border-gray-100 bg-white text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                         }`}
                       >
                         <p className="whitespace-pre-line">{message.text}</p>
-                        <span className={`mt-2 block text-[11px] ${isUser ? "text-white/75" : "text-gray-400"}`}>
+                        <span className={`mt-2 block text-[11px] ${isUser ? "text-white/75" : "text-gray-400 dark:text-gray-500"}`}>
                           {message.time}
                         </span>
                       </div>
@@ -739,7 +752,7 @@ export default function ListingsPage() {
                 <div ref={endRef} />
               </div>
 
-              <div className="border-t border-gray-200 px-4 py-3">
+              <div className="border-t border-gray-200 px-4 py-3 dark:border-gray-800">
                 <form
                   onSubmit={(event) => {
                     event.preventDefault();
@@ -750,8 +763,8 @@ export default function ListingsPage() {
                   <input
                     value={assistantInput}
                     onChange={(event) => setAssistantInput(event.target.value)}
-                    placeholder="Nhập tiêu chí (ví dụ: 2PN, dưới 6 triệu, có bãi xe...)"
-                    className="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none focus:border-gray-300"
+                    placeholder="Nhập tiêu chí (ví dụ: 2PN, dưới 6 triệu...)"
+                    className="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-gray-600"
                   />
                   <button
                     type="submit"
@@ -763,12 +776,13 @@ export default function ListingsPage() {
               </div>
             </section>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4 lg:sticky lg:top-24">
+            {/* BỘ LỌC NÂNG CAO */}
+            <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900 lg:sticky lg:top-24">
               <div className="flex items-center justify-between">
-                <h2 className="text-base font-semibold text-gray-900">Bộ lọc nâng cao</h2>
+                <h2 className="text-base font-semibold text-gray-900 dark:text-white">Bộ lọc nâng cao</h2>
                 <button
                   onClick={resetFilters}
-                  className="text-xs font-semibold text-gray-500 hover:text-gray-800"
+                  className="text-xs font-semibold text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
                   type="button"
                 >
                   Xóa lọc
@@ -776,7 +790,7 @@ export default function ListingsPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="query" className="text-sm font-semibold text-gray-700">
+                <label htmlFor="query" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Tìm kiếm
                 </label>
                 <input
@@ -784,19 +798,19 @@ export default function ListingsPage() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Tên phòng, địa chỉ, tag..."
-                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  className="w-full rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none transition-colors focus:border-[#D51F35] focus:ring-2 focus:ring-[#D51F35]/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                 />
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="district" className="text-sm font-semibold text-gray-700">
+                <label htmlFor="district" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Khu vực
                 </label>
                 <select
                   id="district"
                   value={district}
                   onChange={(event) => setDistrict(event.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                 >
                   {districtFilterOptions.map((option) => (
                     <option key={option} value={option}>
@@ -807,14 +821,14 @@ export default function ListingsPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="campus" className="text-sm font-semibold text-gray-700">
+                <label htmlFor="campus" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Cơ sở
                 </label>
                 <select
                   id="campus"
                   value={campus}
                   onChange={(event) => setCampus(event.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                 >
                   {campusFilterOptions.map((option) => (
                     <option key={option} value={option}>
@@ -825,14 +839,14 @@ export default function ListingsPage() {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="type" className="text-sm font-semibold text-gray-700">
+                <label htmlFor="type" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Loại phòng
                 </label>
                 <select
                   id="type"
                   value={type}
                   onChange={(event) => setType(event.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                 >
                   {typeFilterOptions.map((option) => (
                     <option key={option} value={option}>
@@ -843,34 +857,34 @@ export default function ListingsPage() {
               </div>
 
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-gray-700">Mức giá (triệu/tháng)</p>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Mức giá (triệu/tháng)</p>
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     value={minPrice}
                     onChange={(event) => setMinPrice(event.target.value)}
                     placeholder="Từ"
-                    className="w-full rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    className="w-full rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none transition-colors focus:border-[#D51F35] focus:ring-2 focus:ring-[#D51F35]/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                     inputMode="decimal"
                   />
                   <input
                     value={maxPrice}
                     onChange={(event) => setMaxPrice(event.target.value)}
                     placeholder="Đến"
-                    className="w-full rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    className="w-full rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none transition-colors focus:border-[#D51F35] focus:ring-2 focus:ring-[#D51F35]/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                     inputMode="decimal"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="beds" className="text-sm font-semibold text-gray-700">
+                <label htmlFor="beds" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Số giường
                 </label>
                 <select
                   id="beds"
                   value={minBeds}
                   onChange={(event) => setMinBeds(event.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                 >
                   <option value="Bất kỳ">Bất kỳ</option>
                   <option value="1">1</option>
@@ -881,14 +895,14 @@ export default function ListingsPage() {
               </div>
 
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-gray-700">Tiện ích</p>
-                <div className="space-y-2 text-sm text-gray-700">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Tiện ích</p>
+                <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
                       checked={wifiOnly}
                       onChange={(event) => setWifiOnly(event.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-[#D51F35]"
+                      className="h-4 w-4 rounded border-gray-300 text-[#D51F35] dark:border-gray-600 dark:bg-gray-700"
                     />
                     Có Wi-Fi
                   </label>
@@ -897,7 +911,7 @@ export default function ListingsPage() {
                       type="checkbox"
                       checked={parkingOnly}
                       onChange={(event) => setParkingOnly(event.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-[#D51F35]"
+                      className="h-4 w-4 rounded border-gray-300 text-[#D51F35] dark:border-gray-600 dark:bg-gray-700"
                     />
                     Có bãi xe
                   </label>
@@ -906,7 +920,7 @@ export default function ListingsPage() {
                       type="checkbox"
                       checked={furnishedOnly}
                       onChange={(event) => setFurnishedOnly(event.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-[#D51F35]"
+                      className="h-4 w-4 rounded border-gray-300 text-[#D51F35] dark:border-gray-600 dark:bg-gray-700"
                     />
                     Đầy đủ nội thất
                   </label>
@@ -915,14 +929,15 @@ export default function ListingsPage() {
             </div>
           </aside>
 
+          {/* KẾT QUẢ DANH SÁCH */}
           <div className="space-y-5">
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
+            <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-base font-semibold text-gray-900">Kết quả gợi ý</p>
-                  <p className="text-sm text-gray-600">{filtered.length} tin đăng phù hợp</p>
+                  <p className="text-base font-semibold text-gray-900 dark:text-white">Kết quả gợi ý</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{filtered.length} tin đăng phù hợp</p>
                 </div>
-                <div className="text-right text-sm text-gray-500">
+                <div className="text-right text-sm text-gray-500 dark:text-gray-400">
                   <p>Giá trung bình: {stats.avgPrice}</p>
                   <p>Diện tích trung bình: {stats.avgArea}</p>
                 </div>
@@ -931,25 +946,25 @@ export default function ListingsPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap gap-2">
                   {assistantExtraBadges.map((badge) => (
-                    <span key={badge} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                    <span key={badge} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                       AI: {badge}
                     </span>
                   ))}
                   {manualBadges.map((filter) => (
-                    <span key={filter} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+                    <span key={filter} className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-300">
                       {filter}
                     </span>
                   ))}
                   {assistantExtraBadges.length === 0 && manualBadges.length === 0 ? (
-                    <p className="text-sm text-gray-500">Chưa có tiêu chí, hiển thị toàn bộ tin đăng.</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Chưa có tiêu chí, hiển thị toàn bộ tin đăng.</p>
                   ) : null}
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">Sắp xếp</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Sắp xếp</span>
                   <select
                     value={sortBy}
                     onChange={(event) => setSortBy(event.target.value)}
-                    className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                    className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                   >
                     <option value="oldest">Cũ nhất</option>
                     <option value="latest">Mới cập nhật</option>
@@ -962,20 +977,33 @@ export default function ListingsPage() {
               </div>
             </div>
 
+            {/* TRẠNG THÁI LOADING / ERROR / EMPTY */}
             {!remoteLoaded ? (
-              <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
-                <p className="text-lg font-semibold text-gray-900">Đang tải dữ liệu từ hệ thống</p>
-                <p className="mt-2 text-sm text-gray-600">Vui lòng đợi trong giây lát.</p>
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 px-4 text-center shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-900">
+                <span className="mb-4 animate-spin text-4xl text-gray-900 dark:text-white">⏳</span>
+                <p className="text-lg font-semibold text-gray-900 dark:text-white">Đang tải dữ liệu từ hệ thống</p>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Vui lòng đợi trong giây lát.</p>
               </div>
             ) : remoteError ? (
-              <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
-                <p className="text-lg font-semibold text-gray-900">Không thể tải danh sách tin đăng</p>
-                <p className="mt-2 text-sm text-gray-600">Vui lòng thử lại sau.</p>
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 px-4 text-center shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-900">
+                <span className="mb-4 text-4xl opacity-50">❌</span>
+                <p className="text-lg font-semibold text-red-600">Không thể tải danh sách tin đăng</p>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Hệ thống đang gặp sự cố. Vui lòng thử lại sau.</p>
+                <button onClick={() => window.location.reload()} className="mt-4 text-sm font-semibold text-[#D51F35] underline hover:text-red-700">Tải lại trang</button>
               </div>
             ) : filtered.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
-                <p className="text-lg font-semibold text-gray-900">Không tìm thấy tin phù hợp</p>
-                <p className="mt-2 text-sm text-gray-600">Hãy thử đổi khu vực, mức giá hoặc tiện ích.</p>
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 px-4 text-center shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-900">
+                <span className="mb-4 text-5xl opacity-50">🔍</span>
+                <p className="text-lg font-bold text-gray-800 dark:text-white">Không tìm thấy tin phù hợp</p>
+                <p className="mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
+                  Mình chưa tìm thấy phòng nào khớp với tiêu chí của bạn. Hãy thử nới lỏng khu vực, mức giá hoặc tiện ích nhé.
+                </p>
+                <button 
+                  onClick={resetFilters} 
+                  className="mt-6 rounded-full border border-gray-300 bg-white px-6 py-2.5 text-sm font-semibold text-gray-800 shadow-sm transition-all hover:bg-gray-50 active:scale-95 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                >
+                  Xóa bộ lọc
+                </button>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-5">
@@ -990,5 +1018,3 @@ export default function ListingsPage() {
     </UserPageShell>
   );
 }
-
-
