@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import UserPageShell from "@/app/homepage/components/UserPageShell";
 
 const policyBlocks = [
@@ -85,6 +86,67 @@ const policyBlocks = [
   },
 ];
 
+const identityVerificationProcess = [
+  {
+    title: "1) Mục tiêu của xác minh danh tính",
+    items: [
+      "Tăng độ tin cậy giữa các bên tham gia giao dịch thuê trọ.",
+      "Giảm rủi ro lừa đảo, giả mạo tài khoản và hành vi vi phạm chính sách.",
+      "Hỗ trợ kiểm soát tuân thủ về an toàn, thanh toán và quy định pháp luật tại từng khu vực.",
+    ],
+  },
+  {
+    title: "2) Ai có thể được yêu cầu xác minh",
+    items: [
+      "Chủ trọ chính, đồng chủ trọ mới hoặc tài khoản quản lý tin đăng.",
+      "Người thuê khi tạo đặt chỗ hoặc trong các trường hợp cần kiểm tra bổ sung.",
+      "Người dùng có thể cần xác minh lại khi thay đổi thông tin pháp lý hoặc có dấu hiệu rủi ro.",
+    ],
+  },
+  {
+    title: "3) Thông tin có thể được yêu cầu",
+    items: [
+      "Họ tên pháp lý, địa chỉ, số điện thoại và một số thông tin liên hệ cơ bản.",
+      "Giấy tờ do chính phủ cấp như CCCD/CMND, hộ chiếu hoặc bằng lái xe.",
+      "Ảnh selfie/đối chiếu khuôn mặt để xác nhận người dùng là chủ giấy tờ.",
+      "Tùy tình huống, hệ thống có thể yêu cầu tài liệu bổ sung hợp pháp.",
+    ],
+  },
+  {
+    title: "4) Thời điểm và thời hạn hoàn tất",
+    items: [
+      "Người thuê thường thực hiện xác minh trong luồng đặt chỗ; đặt chỗ có thể ở trạng thái chờ trong lúc xử lý.",
+      "Nếu thời điểm nhận phòng rất gần, hạn xác minh có thể ngắn hơn để giữ hiệu lực đặt chỗ.",
+      "Đối với chủ trọ, tin đăng có thể chưa hiển thị đầy đủ trước khi hoàn tất các bước xác minh cần thiết.",
+    ],
+  },
+  {
+    title: "5) Thời gian xử lý và kết quả",
+    items: [
+      "Kết quả có thể có trong thời gian ngắn khi thông tin đầy đủ và ảnh rõ ràng.",
+      "Một số hồ sơ có thể cần thêm thời gian kiểm tra thủ công.",
+      "Sau khi đạt yêu cầu, tài khoản có thể được gắn trạng thái/huy hiệu xác minh.",
+    ],
+  },
+  {
+    title: "6) Mẹo để xác minh nhanh hơn",
+    items: [
+      "Dùng đúng họ tên pháp lý trùng với giấy tờ.",
+      "Chụp ảnh đủ sáng, rõ nét, không cắt góc và giấy tờ còn hiệu lực.",
+      "Cấp quyền camera khi hệ thống yêu cầu chụp giấy tờ hoặc selfie.",
+      "Hoàn tất quy trình trên thiết bị có kết nối mạng ổn định.",
+    ],
+  },
+  {
+    title: "7) Quyền riêng tư và dữ liệu",
+    items: [
+      "Thông tin xác minh được dùng cho mục đích an toàn, tin cậy và tuân thủ.",
+      "Giấy tờ tùy thân không được công khai rộng rãi cho người dùng khác.",
+      "Việc xử lý dữ liệu tuân theo chính sách bảo mật của nền tảng và quy định pháp luật hiện hành.",
+    ],
+  },
+];
+
 export default function UserPolicyPage() {
   return (
     <UserPageShell
@@ -93,7 +155,7 @@ export default function UserPolicyPage() {
       eyebrow="Chính sách"
       actions={
         <span className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white">
-          Cập nhật: 01/2026
+          Cập nhật: 02/2026
         </span>
       }
     >
@@ -119,6 +181,40 @@ export default function UserPolicyPage() {
           </div>
         </div>
 
+        <div id="quy-trinh-xac-minh-danh-tinh" className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">Quy trình xác minh danh tính</h2>
+            <Link
+              href="https://www.airbnb.com/help/article/1237"
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-semibold text-gray-700 underline underline-offset-4 hover:text-gray-900"
+            >
+              Tham khảo nguồn
+            </Link>
+          </div>
+          <p className="mt-2 text-sm text-gray-600">
+            Nội dung dưới đây là bản dịch chọn lọc và biên tập theo ngữ cảnh VLU Renting, tham khảo từ tài liệu hỗ trợ
+            về quy trình xác minh danh tính.
+          </p>
+
+          <div className="mt-4 grid gap-4">
+            {identityVerificationProcess.map((section) => (
+              <div key={section.title} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <h3 className="text-sm font-semibold text-gray-900">{section.title}</h3>
+                <ul className="mt-2 space-y-2 text-sm text-gray-700">
+                  {section.items.map((item) => (
+                    <li key={item} className="flex gap-2">
+                      <span className="mt-1 h-2 w-2 rounded-full bg-[#D51F35]" />
+                      <span className="flex-1">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="grid gap-4">
           {policyBlocks.map((block) => (
             <div key={block.title} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -136,8 +232,7 @@ export default function UserPolicyPage() {
         </div>
 
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600">
-          Cần hỗ trợ thêm về chính sách? Vui lòng liên hệ{" "}
-          <span className="font-semibold">support@vlu-renting.vn</span>.
+          Cần hỗ trợ thêm về chính sách? Vui lòng liên hệ <span className="font-semibold">support@vlu-renting.vn</span>.
         </div>
       </div>
     </UserPageShell>

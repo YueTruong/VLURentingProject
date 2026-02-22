@@ -1,4 +1,4 @@
-﻿// app/profile/page.tsx
+// app/profile/page.tsx
 "use client";
 
 import Image from "next/image";
@@ -542,7 +542,11 @@ export default function ProfilePage() {
               <div className="text-xs uppercase tracking-wide text-white/50">Tài khoản</div>
               <div className="mt-2 text-sm font-semibold">{displayName}</div>
               <div className="text-xs text-white/60">Tin đầu tiên từ {joinedLabel}</div>
-              <button className="mt-3 w-full rounded-xl bg-white/15 px-3 py-2 text-xs font-semibold text-white">
+              <button
+                type="button"
+                onClick={() => router.push("/settings")}
+                className="mt-3 w-full rounded-xl bg-white/15 px-3 py-2 text-xs font-semibold text-white"
+              >
                 Quản lý tài khoản
               </button>
             </div>
