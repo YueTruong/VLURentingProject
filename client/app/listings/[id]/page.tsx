@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react"; 
 import UserPageShell from "@/app/homepage/components/UserPageShell"; // ✅ Dùng chung Shell với Listings & Favorites
 import { getPostById, type Post } from "@/app/services/posts";
-import { createReview, getPostReviews, type PublicReview } from "@/app/services/reviews";
+import { createReview, getPostReviews, updateReview, type PublicReview } from "@/app/services/reviews";
 import toast from "react-hot-toast"; 
 import { toggleFavorite, useFavorites } from "@/app/services/favorites"; 
 
@@ -272,6 +272,11 @@ export default function ListingDetailPage() {
   });
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [reviewsError, setReviewsError] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewSubmitError, setReviewSubmitError] = useState("");
+  const [reviewSubmitSuccess, setReviewSubmitSuccess] = useState("");
   const [editRating, setEditRating] = useState(5);
   const [editComment, setEditComment] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -284,6 +289,10 @@ export default function ListingDetailPage() {
     const parsed = Number(id);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }, [id]);
+  const myReview = useMemo(() => {
+    if (!currentUserId) return null;
+    return reviews.find((review) => Number(review.userId) === currentUserId) ?? null;
+  }, [reviews, currentUserId]);
 
   // Setup Logic Lưu Tin
   const favorites = useFavorites();
@@ -477,9 +486,55 @@ export default function ListingDetailPage() {
     setEditComment(myReview.comment ?? "");
   }, [myReview]);
 
-  const handleToggleSave = () => {
-    if (!favoritePayload) return;
-    toggleFavorite(favoritePayload);
+  const handleSubmitReview = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!postId) return;
+    if (!currentUserId) {
+      setReviewSubmitError("Vui lòng đăng nhập để gửi đánh giá.");
+      return;
+    }
+    if (myReview) {
+      setReviewSubmitError("Bạn đã đánh giá tin đăng này. Hãy chỉnh sửa đánh giá hiện tại.");
+      return;
+    }
+    if (!reviewComment.trim()) {
+      setReviewSubmitError("Vui lòng nhập nội dung đánh giá.");
+      return;
+    }
+    if (!Number.isFinite(reviewRating) || reviewRating < 1 || reviewRating > 5) {
+      setReviewSubmitError("Số sao phải từ 1 đến 5.");
+      return;
+    }
+
+    setReviewSubmitError("");
+    setReviewSubmitSuccess("");
+    setReviewSubmitting(true);
+    try {
+      await createReview({
+        postId,
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+      });
+
+      const refreshed = await getPostReviews(postId, 20);
+      setReviewSummary({
+        averageRating: Number.isFinite(refreshed.averageRating)
+          ? refreshed.averageRating
+          : 0,
+        totalReviews: Number.isFinite(refreshed.totalReviews)
+          ? refreshed.totalReviews
+          : 0,
+      });
+      setReviews((refreshed.reviews ?? []).map(mapPublicReview));
+      setReviewComment("");
+      setReviewRating(5);
+      setReviewSubmitSuccess("Gửi đánh giá thành công.");
+    } catch (error) {
+      setReviewSubmitError(getSubmitErrorMessage(error));
+    } finally {
+      setReviewSubmitting(false);
+    }
   };
 
   const handleUpdateReview = async (event: FormEvent<HTMLFormElement>) => {
