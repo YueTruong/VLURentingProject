@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { createPost, uploadImages } from "@/app/services/posts";
@@ -712,9 +712,11 @@ export default function PostWizard() {
     }
   };
 
-  const persistDraft = () => {
+  const persistDraft = useCallback(() => {
     try {
-      const { images, ...rest } = draft;
+      const rest = Object.fromEntries(
+        Object.entries(draft).filter(([key]) => key !== "images")
+      ) as DraftSnapshot["draft"];
       const payload: DraftSnapshot = {
         version: DRAFT_STORAGE_VERSION,
         savedAt: new Date().toISOString(),
@@ -728,7 +730,7 @@ export default function PostWizard() {
     } catch (error) {
       console.error("Draft save failed.", error);
     }
-  };
+  }, [draft, step, mapQuery, postConsents]);
 
   const clearDraftStorage = (resetForm: boolean) => {
     localStorage.removeItem(DRAFT_STORAGE_KEY);
@@ -770,7 +772,7 @@ export default function PostWizard() {
       persistDraft();
     }, DRAFT_SAVE_DELAY);
     return () => clearTimeout(timer);
-  }, [draft, step, mapQuery, postConsents, draftReady]);
+  }, [draftReady, persistDraft]);
 
   useEffect(() => {
     if (!draftNotice) return;
@@ -1009,7 +1011,7 @@ export default function PostWizard() {
   return (
     <div className="mx-auto w-full max-w-none px-4 py-8 sm:px-6 lg:px-12">
       {draftNotice ? (
-        <div className="fixed right-4 top-4 z-[70] max-w-sm rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 shadow-lg">
+        <div className="fixed right-4 top-4 z-70 max-w-sm rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 shadow-lg">
           {draftNotice}
         </div>
       ) : null}
@@ -1882,7 +1884,7 @@ export default function PostWizard() {
 
       {showDiscardDraftDialog ? (
         <div
-          className="fixed inset-0 z-[65] flex items-center justify-center bg-black/50 px-4"
+          className="fixed inset-0 z-65 flex items-center justify-center bg-black/50 px-4"
           onClick={cancelDiscardDraft}
         >
           <div
