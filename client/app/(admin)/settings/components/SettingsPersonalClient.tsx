@@ -135,6 +135,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
     },
     {
       label: "Đăng nhập và bảo mật",
+      href: "/settings/password",
       icon: (
         <MenuIcon>
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -643,7 +644,11 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
           <Link href="/" className="inline-flex items-center text-[#222222]">
             <Image src="/images/VLU-Renting-Logo.svg" alt="VLU Renting" width={140} height={52} className="object-contain" priority />
           </Link>
-          <button className="rounded-full bg-[#efefef] px-6 py-2 text-[16px] font-semibold text-[#222222] hover:bg-[#e6e6e6]">
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            className="rounded-full bg-[#efefef] px-6 py-2 text-[16px] font-semibold text-[#222222] hover:bg-[#e6e6e6]"
+          >
             Hoàn tất
           </button>
         </div>
