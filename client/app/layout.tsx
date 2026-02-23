@@ -15,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" suppressHydrationWarning> {/* 👈 Đổi thành vi cho chuẩn */}
+    <html lang="vi" suppressHydrationWarning>
       <body className="overflow-x-hidden">
         <ThemeProvider>
           <SessionProviderWrapper>
