@@ -161,6 +161,8 @@ const mapPostToListing = (post: Post): Listing => {
     wifi: amenityText.includes("wifi"),
     area: Number.isFinite(area) && area > 0 ? area : 0,
     price: Number.isFinite(price) && price > 0 ? price : 0,
+    latitude: typeof post.latitude === "number" ? post.latitude : undefined,
+    longitude: typeof post.longitude === "number" ? post.longitude : undefined,
     furnished: amenityText.includes("noi that"),
     parking: amenityText.includes("giu xe") || amenityText.includes("parking"),
     rating: 0,
@@ -431,6 +433,7 @@ export default function ListingsPage() {
   const [parkingOnly, setParkingOnly] = useState(false);
   const [furnishedOnly, setFurnishedOnly] = useState(false);
   const [sortBy, setSortBy] = useState("latest");
+  const [selectedMapId, setSelectedMapId] = useState<number | null>(null);
 
   const [assistantInput, setAssistantInput] = useState("");
   const [assistantCriteria, setAssistantCriteria] = useState<Criteria | null>(null);
@@ -568,6 +571,26 @@ export default function ListingsPage() {
         return b.updatedAt - a.updatedAt;
       });
   }, [assistantExtras, manualCriteria, sortBy, sourceListings]);
+
+
+  const mapListings = useMemo(() => {
+    return filtered.filter(
+      (item) =>
+        typeof item.latitude === "number" &&
+        typeof item.longitude === "number" &&
+        Number.isFinite(item.latitude) &&
+        Number.isFinite(item.longitude)
+    );
+  }, [filtered]);
+
+  const currentMapListing = useMemo(() => {
+    if (mapListings.length === 0) return null;
+    if (selectedMapId) {
+      const matched = mapListings.find((item) => item.id === selectedMapId);
+      if (matched) return matched;
+    }
+    return mapListings[0];
+  }, [mapListings, selectedMapId]);
 
   const stats = useMemo(() => {
     if (filtered.length === 0) {
@@ -977,6 +1000,56 @@ export default function ListingsPage() {
                   </select>
                 </div>
               </div>
+            </div>
+
+
+            <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-base font-semibold text-gray-900 dark:text-white">Bản đồ trực quan</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {mapListings.length > 0
+                      ? `Có ${mapListings.length} tin có tọa độ để xem trên bản đồ.`
+                      : "Chưa có tin nào có tọa độ để hiển thị marker."}
+                  </p>
+                </div>
+              </div>
+
+              {currentMapListing ? (
+                <div className="space-y-3">
+                  <div className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700">
+                    <iframe
+                      title="Bản đồ tin đăng"
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(`${currentMapListing.latitude},${currentMapListing.longitude}`)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                      className="h-80 w-full"
+                      loading="lazy"
+                      allowFullScreen
+                    />
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {mapListings.slice(0, 6).map((mapItem) => (
+                      <button
+                        key={mapItem.id}
+                        type="button"
+                        onClick={() => setSelectedMapId(mapItem.id)}
+                        className={`rounded-xl border px-3 py-2 text-left transition ${
+                          currentMapListing.id === mapItem.id
+                            ? "border-(--brand-accent) bg-(--brand-accent-soft)"
+                            : "border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+                        }`}
+                      >
+                        <p className="line-clamp-1 text-sm font-semibold text-gray-900 dark:text-white">{mapItem.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{mapItem.district} • {formatPrice(mapItem.price)}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
+                  Hãy bổ sung tọa độ (latitude/longitude) ở bài đăng để bật bản đồ trực quan.
+                </div>
+              )}
             </div>
 
             {/* TRẠNG THÁI LOADING / ERROR / EMPTY */}

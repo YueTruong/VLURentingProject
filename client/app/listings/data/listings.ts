@@ -11,6 +11,8 @@ export type Listing = {
   wifi: boolean;
   area: number;
   price: number;
+  latitude?: number;
+  longitude?: number;
   furnished: boolean;
   parking: boolean;
   rating: number;
