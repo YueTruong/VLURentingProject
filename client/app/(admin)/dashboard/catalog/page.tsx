@@ -26,14 +26,12 @@ export default function CatalogPage() {
   const [editingAmenityId, setEditingAmenityId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState("");
   const [loading, setLoading] = useState(true);
+  const token = session?.user?.accessToken;
+  const isLoading = status === "loading" || (!!token && loading);
 
   useEffect(() => {
     if (status === "loading") return;
-    const token = session?.user?.accessToken;
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    if (!token) return;
 
     let active = true;
     Promise.all([getAdminCategories(token), getAdminAmenities(token)])
@@ -50,7 +48,7 @@ export default function CatalogPage() {
     return () => {
       active = false;
     };
-  }, [session, status]);
+  }, [status, token]);
 
   const handleCreateCategory = async () => {
     const token = session?.user?.accessToken;
@@ -123,7 +121,7 @@ export default function CatalogPage() {
           <input value={catName} onChange={(e) => setCatName(e.target.value)} placeholder="Tên danh mục mới" className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
           <button onClick={handleCreateCategory} className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white">Thêm</button>
         </div>
-        {loading ? <p className="mt-4 text-sm text-gray-500">Đang tải...</p> : (
+        {isLoading ? <p className="mt-4 text-sm text-gray-500">Đang tải...</p> : (
           <div className="mt-4 space-y-2">
             {categories.map((item) => {
               const isEditing = editingCategoryId === item.id;
@@ -161,7 +159,7 @@ export default function CatalogPage() {
           <input value={amenityName} onChange={(e) => setAmenityName(e.target.value)} placeholder="Tên tiện ích mới" className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm" />
           <button onClick={handleCreateAmenity} className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white">Thêm</button>
         </div>
-        {loading ? <p className="mt-4 text-sm text-gray-500">Đang tải...</p> : (
+        {isLoading ? <p className="mt-4 text-sm text-gray-500">Đang tải...</p> : (
           <div className="mt-4 space-y-2">
             {amenities.map((item) => {
               const isEditing = editingAmenityId === item.id;
