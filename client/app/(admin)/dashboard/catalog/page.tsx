@@ -12,6 +12,8 @@ import {
   deleteAdminCategory,
   getAdminAmenities,
   getAdminCategories,
+  updateAdminAmenity,
+  updateAdminCategory,
 } from "@/app/services/admin-catalog";
 
 export default function CatalogPage() {
@@ -20,6 +22,9 @@ export default function CatalogPage() {
   const [amenities, setAmenities] = useState<AmenityItem[]>([]);
   const [catName, setCatName] = useState("");
   const [amenityName, setAmenityName] = useState("");
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
+  const [editingAmenityId, setEditingAmenityId] = useState<number | null>(null);
+  const [editingName, setEditingName] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -77,6 +82,40 @@ export default function CatalogPage() {
     setAmenities((prev) => prev.filter((a) => a.id !== id));
   };
 
+  const startEditCategory = (item: CategoryItem) => {
+    setEditingCategoryId(item.id);
+    setEditingAmenityId(null);
+    setEditingName(item.name);
+  };
+
+  const startEditAmenity = (item: AmenityItem) => {
+    setEditingAmenityId(item.id);
+    setEditingCategoryId(null);
+    setEditingName(item.name);
+  };
+
+  const cancelEdit = () => {
+    setEditingCategoryId(null);
+    setEditingAmenityId(null);
+    setEditingName("");
+  };
+
+  const handleUpdateCategory = async (id: number) => {
+    const token = session?.user?.accessToken;
+    if (!token || !editingName.trim()) return;
+    const updated = await updateAdminCategory(token, id, { name: editingName.trim() });
+    setCategories((prev) => prev.map((item) => (item.id === id ? updated : item)));
+    cancelEdit();
+  };
+
+  const handleUpdateAmenity = async (id: number) => {
+    const token = session?.user?.accessToken;
+    if (!token || !editingName.trim()) return;
+    const updated = await updateAdminAmenity(token, id, { name: editingName.trim() });
+    setAmenities((prev) => prev.map((item) => (item.id === id ? updated : item)));
+    cancelEdit();
+  };
+
   return (
     <div className="space-y-6">
       <SectionCard title="Quản lý danh mục" subtitle="CRUD danh mục phòng cho admin">
@@ -86,12 +125,33 @@ export default function CatalogPage() {
         </div>
         {loading ? <p className="mt-4 text-sm text-gray-500">Đang tải...</p> : (
           <div className="mt-4 space-y-2">
-            {categories.map((item) => (
-              <div key={item.id} className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2">
-                <span className="text-sm text-gray-800">#{item.id} - {item.name}</span>
-                <button onClick={() => handleDeleteCategory(item.id)} className="text-xs font-semibold text-red-600">Xóa</button>
-              </div>
-            ))}
+            {categories.map((item) => {
+              const isEditing = editingCategoryId === item.id;
+              return (
+                <div key={item.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2">
+                  {isEditing ? (
+                    <input
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
+                    />
+                  ) : (
+                    <span className="text-sm text-gray-800">#{item.id} - {item.name}</span>
+                  )}
+                  <div className="flex items-center gap-2">
+                    {isEditing ? (
+                      <>
+                        <button onClick={() => handleUpdateCategory(item.id)} className="text-xs font-semibold text-blue-600">Lưu</button>
+                        <button onClick={cancelEdit} className="text-xs font-semibold text-gray-500">Hủy</button>
+                      </>
+                    ) : (
+                      <button onClick={() => startEditCategory(item)} className="text-xs font-semibold text-blue-600">Sửa</button>
+                    )}
+                    <button onClick={() => handleDeleteCategory(item.id)} className="text-xs font-semibold text-red-600">Xóa</button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </SectionCard>
@@ -103,12 +163,33 @@ export default function CatalogPage() {
         </div>
         {loading ? <p className="mt-4 text-sm text-gray-500">Đang tải...</p> : (
           <div className="mt-4 space-y-2">
-            {amenities.map((item) => (
-              <div key={item.id} className="flex items-center justify-between rounded-xl border border-gray-200 px-3 py-2">
-                <span className="text-sm text-gray-800">#{item.id} - {item.name}</span>
-                <button onClick={() => handleDeleteAmenity(item.id)} className="text-xs font-semibold text-red-600">Xóa</button>
-              </div>
-            ))}
+            {amenities.map((item) => {
+              const isEditing = editingAmenityId === item.id;
+              return (
+                <div key={item.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2">
+                  {isEditing ? (
+                    <input
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-2 py-1 text-sm"
+                    />
+                  ) : (
+                    <span className="text-sm text-gray-800">#{item.id} - {item.name}</span>
+                  )}
+                  <div className="flex items-center gap-2">
+                    {isEditing ? (
+                      <>
+                        <button onClick={() => handleUpdateAmenity(item.id)} className="text-xs font-semibold text-blue-600">Lưu</button>
+                        <button onClick={cancelEdit} className="text-xs font-semibold text-gray-500">Hủy</button>
+                      </>
+                    ) : (
+                      <button onClick={() => startEditAmenity(item)} className="text-xs font-semibold text-blue-600">Sửa</button>
+                    )}
+                    <button onClick={() => handleDeleteAmenity(item.id)} className="text-xs font-semibold text-red-600">Xóa</button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </SectionCard>

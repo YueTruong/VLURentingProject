@@ -29,6 +29,17 @@ export async function deleteAdminCategory(token: string, id: number) {
   return res.data;
 }
 
+export async function updateAdminCategory(
+  token: string,
+  id: number,
+  payload: { name: string; description?: string },
+) {
+  const res = await axios.patch(`${getBaseUrl()}/admin/categories/${id}`, payload, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
+}
+
 export async function getAdminAmenities(token: string): Promise<AmenityItem[]> {
   const res = await axios.get<AmenityItem[]>(`${getBaseUrl()}/admin/amenities`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -45,6 +56,17 @@ export async function createAdminAmenity(token: string, payload: { name: string;
 
 export async function deleteAdminAmenity(token: string, id: number) {
   const res = await axios.delete(`${getBaseUrl()}/admin/amenities/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
+}
+
+export async function updateAdminAmenity(
+  token: string,
+  id: number,
+  payload: { name: string; iconUrl?: string },
+) {
+  const res = await axios.patch(`${getBaseUrl()}/admin/amenities/${id}`, payload, {
     headers: { Authorization: `Bearer ${token}` },
   });
   return res.data;

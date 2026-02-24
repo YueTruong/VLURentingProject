@@ -89,9 +89,6 @@ export default function MyPostsPage() {
   
   const { data: session, status } = useSession();
 
-  console.log("Status:", status);
-  console.log("Session:", session);
-  console.log("Token:", session?.user?.accessToken);
 
   useEffect(() => {
     // 1. Nếu session chưa sẵn sàng, không làm gì cả
