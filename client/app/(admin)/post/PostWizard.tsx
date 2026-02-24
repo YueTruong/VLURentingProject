@@ -35,6 +35,9 @@ type ListingDraft = {
   priceVnd: string; // giá string để format dễ đọc, backend parse sau
   areaM2: string;
   maxPeople: string;
+  campus: "CS1" | "CS2" | "CS3";
+  availability: "available" | "rented";
+  videoUrl: string;
   roommateMoveInDate: string;
   roommateGender: string;
   roommateOccupation: string;
@@ -157,6 +160,9 @@ function createEmptyDraft(): ListingDraft {
     priceVnd: "",
     areaM2: "",
     maxPeople: "1",
+    campus: "CS1",
+    availability: "available",
+    videoUrl: "",
     roommateMoveInDate: "",
     roommateGender: "Không yêu cầu",
     roommateOccupation: "Sinh viên",
@@ -981,6 +987,9 @@ export default function PostWizard() {
         latitude: draft.lat,
         longitude: draft.lng,
         max_occupancy: maxOccupancy > 0 ? maxOccupancy : undefined,
+        campus: draft.campus,
+        availability: draft.availability,
+        videoUrl: draft.videoUrl.trim() || undefined,
         categoryName,
         amenityNames: amenityNames.length > 0 ? amenityNames : undefined,
         imageUrls,
@@ -1186,6 +1195,45 @@ export default function PostWizard() {
                     onChange={(v) => setDraft((d) => ({ ...d, maxPeople: v.replace(/[^\d]/g, "") }))}
                     placeholder={draft.purpose === "ROOMMATE" ? "VD: 1" : "VD: 2"}
                     inputMode="numeric"
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>Cơ sở VLU</FieldLabel>
+                  <Select
+                    value={draft.campus}
+                    onChange={(v) => setDraft((d) => ({ ...d, campus: v as "CS1" | "CS2" | "CS3" }))}
+                    options={[
+                      { value: "CS1", label: "CS1" },
+                      { value: "CS2", label: "CS2" },
+                      { value: "CS3", label: "CS3" },
+                    ]}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>Tình trạng phòng</FieldLabel>
+                  <Select
+                    value={draft.availability}
+                    onChange={(v) =>
+                      setDraft((d) => ({
+                        ...d,
+                        availability: v as "available" | "rented",
+                      }))
+                    }
+                    options={[
+                      { value: "available", label: "Còn phòng" },
+                      { value: "rented", label: "Đã cho thuê" },
+                    ]}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <FieldLabel>Video URL (không bắt buộc)</FieldLabel>
+                  <Input
+                    value={draft.videoUrl}
+                    onChange={(v) => setDraft((d) => ({ ...d, videoUrl: v }))}
+                    placeholder="VD: https://youtube.com/watch?v=..."
                   />
                 </div>
               </div>
