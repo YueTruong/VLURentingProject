@@ -18,6 +18,8 @@ export type Listing = {
   updatedAt: number;
   updatedLabel: string;
   tags: string[];
+  availability?: 'available' | 'rented';
+  videoUrl?: string | null;
 };
 
 export const formatPrice = (price: number) => {

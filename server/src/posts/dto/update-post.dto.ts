@@ -9,6 +9,7 @@ import {
   IsInt,
   IsLatitude,
   IsLongitude,
+  IsIn,
 } from 'class-validator';
 
 export class UpdatePostDto {
@@ -34,6 +35,20 @@ export class UpdatePostDto {
   @IsString()
   @IsOptional()
   address?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['CS1', 'CS2', 'CS3'])
+  campus?: 'CS1' | 'CS2' | 'CS3';
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['available', 'rented'])
+  availability?: 'available' | 'rented';
+
+  @IsOptional()
+  @IsString()
+  videoUrl?: string;
 
   @IsLatitude()
   @IsOptional()

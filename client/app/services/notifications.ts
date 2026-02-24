@@ -11,7 +11,7 @@ export type Notification = {
 };
 
 // Helper lấy URL
-const getBaseUrl = () => process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const getBaseUrl = () => process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 
 export async function getNotifications(token: string) {
   const res = await axios.get<Notification[]>(`${getBaseUrl()}/notifications`, {

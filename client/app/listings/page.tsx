@@ -142,7 +142,7 @@ const mapPostToListing = (post: Post): Listing => {
   const amenityText = normalizeText(amenityNames.join(" "));
   const price = toPriceMillionValue(post.price);
   const area = toNumberValue(post.area);
-  const campusFallback = "Chưa xác định";
+  const campusFallback = "CS1";
   const categoryName = post.category?.name ?? "Unknown";
   const districtRaw = extractLastSegment(post.address || "");
   const updatedSource = post.updatedAt ?? post.createdAt ?? "";
@@ -154,20 +154,22 @@ const mapPostToListing = (post: Post): Listing => {
     image: post.images?.[0]?.image_url || "/images/House.svg",
     location: post.address || "Unknown",
     district: districtRaw || "Chưa cập nhật",
-    campus: campusFallback,
+    campus: post.campus || campusFallback,
     type: categoryName,
     beds: Math.max(1, Math.round(toNumberValue(post.max_occupancy ?? 1))),
     baths: 1,
     wifi: amenityText.includes("wifi"),
     area: Number.isFinite(area) && area > 0 ? area : 0,
     price: Number.isFinite(price) && price > 0 ? price : 0,
-    furnished: false,
+    furnished: amenityText.includes("noi that"),
     parking: amenityText.includes("giu xe") || amenityText.includes("parking"),
     rating: 0,
     reviews: 0,
     updatedAt: Number.isFinite(updatedAtValue) ? updatedAtValue : Date.now(),
     updatedLabel: buildUpdatedLabelFrom(updatedSource),
     tags: amenityNames,
+    availability: post.availability || 'available',
+    videoUrl: post.videoUrl || null,
   };
 };
 
@@ -217,7 +219,7 @@ const parseCriteria = (
 
   const campusMatch = normalized.match(/(?:co so|cs|campus|c)\s*[:#-]?\s*(1|2|3)/);
   if (campusMatch) {
-    criteria.campus = `Cơ sở ${campusMatch[1]}`;
+    criteria.campus = `CS${campusMatch[1]}`;
   }
 
   const districtCandidates = districtOptions.filter((d) => d !== "Tất cả");
