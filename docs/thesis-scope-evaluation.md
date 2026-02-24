@@ -111,7 +111,8 @@ Nếu đây là bản hiện tại trước nghiệm thu:
 ## 5) Gợi ý ưu tiên hoàn thiện (theo thứ tự)
 
 1. **Hoàn thiện chuẩn dữ liệu nghiệp vụ**
-   - Thêm trường `campus` (CS1/CS2/CS3), `availability` (available/rented), video URL.
+   - ✅ Đã bổ sung trường `campus` (CS1/CS2/CS3), `availability` (available/rented), `videoUrl` trong entity/DTO và luồng FE map dữ liệu.
+   - ⏳ Cần bổ sung form nhập/sửa đầy đủ ở toàn bộ màn hình đăng tin để khai thác hết các trường mới.
 2. **Bản đồ tìm kiếm trực quan đúng yêu cầu**
    - Dùng Google Maps JS API/Leaflet + marker từ API posts (có popup card).
 3. **Admin moderation hoàn chỉnh**

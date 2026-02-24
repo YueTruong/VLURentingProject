@@ -10,6 +10,9 @@ export type CreatePostPayload = {
   latitude?: number | string;
   longitude?: number | string;
   max_occupancy?: number;
+  campus?: 'CS1' | 'CS2' | 'CS3';
+  availability?: 'available' | 'rented';
+  videoUrl?: string;
   categoryId?: number;
   categoryName?: string;
   amenityIds?: number[];
@@ -26,6 +29,9 @@ export type UpdatePostPayload = {
   latitude?: number;
   longitude?: number;
   max_occupancy?: number;
+  campus?: 'CS1' | 'CS2' | 'CS3';
+  availability?: 'available' | 'rented';
+  videoUrl?: string;
   categoryId?: number;
   amenityIds?: number[];
   imageUrls?: string[];
@@ -66,6 +72,9 @@ export type Post = {
   latitude?: number;
   longitude?: number;
   max_occupancy?: number;
+  campus?: 'CS1' | 'CS2' | 'CS3' | null;
+  availability?: 'available' | 'rented';
+  videoUrl?: string | null;
   status?: string;
   rejectionReason?: string | null;
   resubmittedAt?: string | null;
