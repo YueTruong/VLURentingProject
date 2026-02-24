@@ -227,7 +227,7 @@ function UserProfileModal({
 
 function ConversationItem({ convo, active, onSelect, isOnline }: { convo: Conversation; active: boolean; onSelect: () => void; isOnline: boolean }) {
   const containerClass = active 
-    ? "border border-[color:var(--theme-border)] bg-[color:var(--brand-primary-soft)] shadow-sm ring-1 ring-[color:var(--theme-border)]" 
+    ? "border border-[color:var(--theme-border-strong)] bg-[color:var(--brand-primary-soft)] shadow-sm ring-1 ring-[color:var(--brand-primary-soft)]" 
     : "border border-transparent hover:border-[color:var(--theme-border)] hover:bg-[color:var(--theme-surface-muted)]";
 
   return (
@@ -281,7 +281,7 @@ function MessageBubble({ msg, isMe }: { msg: Message; isMe: boolean }) {
         <div
             className={`px-4 py-2.5 text-[15px] shadow-sm leading-relaxed whitespace-pre-wrap wrap-break-word ${
             isMe 
-                ? "bg-[#D51F35] text-white rounded-2xl rounded-tr-sm" 
+                ? "bg-(--brand-accent) text-white rounded-2xl rounded-tr-sm" 
                 : "rounded-2xl rounded-tl-sm border border-(--theme-border) bg-(--theme-surface) text-(--theme-text)"
             }`}
         >
@@ -548,7 +548,7 @@ function ChatPageContent() {
           <div className="flex-none px-5 pt-6 pb-2">
             <div className="flex items-center justify-between mb-5">
                 <h1 className="text-2xl font-bold tracking-tight text-(--theme-text)">Đoạn chat</h1>
-                <button className="rounded-full bg-(--theme-surface-muted) p-2 text-(--theme-text-muted) transition hover:brightness-95">
+                <button className="rounded-full border border-(--theme-border) bg-(--theme-surface-muted) p-2 text-(--theme-text-muted) transition hover:bg-(--brand-primary-soft) hover:text-(--brand-primary-text)">
                     <Pencil2Icon className="h-5 w-5" />
                 </button>
             </div>
@@ -591,7 +591,7 @@ function ChatPageContent() {
         <section className="relative flex min-w-0 flex-1 flex-col bg-(--theme-bg)">
           {currentConv ? (
              <>
-                <header className="z-30 flex flex-none items-center justify-between border-b border-(--theme-border) bg-(--theme-surface)/85 px-6 py-3 backdrop-blur">
+                <header className="z-30 flex flex-none items-center justify-between border-b border-(--theme-border) bg-(--theme-surface)/90 px-6 py-3 backdrop-blur">
                     <div className="flex items-center gap-3.5">
                         <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-(--theme-border) bg-(--theme-surface-muted) text-lg font-bold text-(--theme-text-subtle) shadow-sm">
                             {currentConv.display_avatar ? (
@@ -622,7 +622,7 @@ function ChatPageContent() {
 
                 <div className="flex-1 overflow-y-auto bg-(--theme-bg) px-6 py-6">
                     <div className="flex justify-center mb-8">
-                        <div className="rounded-full bg-(--theme-surface-muted) px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-(--theme-text-subtle) shadow-sm backdrop-blur">
+                        <div className="rounded-full border border-(--theme-border) bg-(--theme-surface) px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-(--theme-text-subtle) shadow-sm backdrop-blur">
                             Bắt đầu cuộc trò chuyện
                         </div>
                     </div>
@@ -661,7 +661,7 @@ function ChatPageContent() {
                           >
                             <ImageIcon className="h-6 w-6" />
                           </button>
-                          <div className="relative flex-1 rounded-3xl border border-(--theme-border) bg-(--theme-surface-muted) shadow-sm transition-all duration-200 focus-within:border-(--brand-accent) focus-within:bg-(--theme-surface) focus-within:ring-2 focus-within:ring-(--brand-accent-soft)">
+                          <div className="relative flex-1 rounded-3xl border border-(--theme-border) bg-(--theme-surface-muted) shadow-sm transition-all duration-200 focus-within:border-(--theme-border-strong) focus-within:bg-(--theme-surface) focus-within:ring-2 focus-within:ring-(--brand-accent-soft)">
                               <input
                                   type="text" value={inputVal} onChange={(e) => setInputVal(e.target.value)}
                                   placeholder={isUploadingImage ? "Đang tải hình ảnh..." : "Nhập tin nhắn..."}
@@ -689,7 +689,7 @@ function ChatPageContent() {
              </>
           ) : (
              <div className="flex h-full flex-col items-center justify-center bg-(--theme-bg) text-(--theme-text-subtle)">
-                 <div className="mb-6 flex h-28 w-28 items-center justify-center rounded-full bg-(--brand-primary-soft) animate-pulse">
+                 <div className="mb-6 flex h-28 w-28 items-center justify-center rounded-full border border-(--theme-border) bg-(--brand-primary-soft) animate-pulse">
                     <span className="text-5xl">💬</span>
                  </div>
                  <p className="text-2xl font-bold text-(--theme-text)">Chào mừng đến với VLU Renting Chat</p>
@@ -706,7 +706,7 @@ function ChatPageContent() {
 
 export default function ChatPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Đang tải trò chuyện...</div>}>
+    <Suspense fallback={<div className="p-6 text-sm text-(--theme-text-subtle)">Đang tải trò chuyện...</div>}>
       <ChatPageContent />
     </Suspense>
   );

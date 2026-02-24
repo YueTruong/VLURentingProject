@@ -12,8 +12,15 @@ import {
 } from "@/app/services/notifications";
 
 // --- Utility: Format thời gian ---
+function parseNotificationDate(dateString: string) {
+  const normalized = dateString.includes("T") ? dateString : dateString.replace(" ", "T");
+  const safe = /[zZ]|[+-]\d\d:?\d\d$/.test(normalized) ? normalized : `${normalized}Z`;
+  const date = new Date(safe);
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
 function formatTimeAgo(dateString: string) {
-  const date = new Date(dateString);
+  const date = parseNotificationDate(dateString);
   const now = new Date();
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
@@ -29,9 +36,9 @@ function formatTimeAgo(dateString: string) {
 
 function TypeBadge({ type }: { type: string }) {
   const map: Record<string, { label: string; color: string }> = {
-    system: { label: "Hệ thống", color: "bg-gray-100 text-gray-800" },
-    message: { label: "Tin nhắn", color: "bg-blue-100 text-blue-700" },
-    listing: { label: "Tin phòng", color: "bg-green-100 text-green-700" },
+    system: { label: "Hệ thống", color: "bg-(--theme-surface-muted) text-(--theme-text-muted)" },
+    message: { label: "Tin nhắn", color: "bg-(--brand-primary-soft) text-(--brand-primary-text)" },
+    listing: { label: "Tin phòng", color: "bg-(--brand-accent-soft) text-(--brand-accent)" },
   };
   const chosen = map[type] || map.system;
   return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${chosen.color}`}>{chosen.label}</span>;
@@ -48,7 +55,9 @@ function NotificationCard({
   onOpenDetail: (item: Notification) => void;
 }) {
   const isUnread = !item.isRead;
-  const border = isUnread ? "border-red-200/80 bg-red-50/80 dark:border-red-900/40 dark:bg-red-900/20" : "border-(--theme-border) bg-(--theme-surface)";
+  const border = isUnread
+    ? "border-[color:var(--brand-accent-soft)] bg-[color:var(--brand-accent-soft)]/35"
+    : "border-(--theme-border) bg-(--theme-surface)";
 
   return (
     <article className={`rounded-2xl border ${border} p-4 shadow-sm transition-all duration-300 hover:shadow-md`}>
@@ -163,8 +172,9 @@ export default function NotificationsPage() {
       }
     }
     else if (item.type === 'message') {
-      // Chuyển sang trang tin nhắn (nếu có relatedId là ID người chat thì nối thêm vào)
-      router.push(`/chat`); 
+      // Chuyển sang trang tin nhắn và ưu tiên mở đúng người chat nếu có relatedId
+      const chatUrl = item.relatedId ? `/chat?partnerId=${item.relatedId}` : '/chat';
+      router.push(chatUrl);
     }
     else {
       // Mặc định reload hoặc không làm gì nếu là system notif không có link
@@ -181,12 +191,12 @@ export default function NotificationsPage() {
       <main className="mx-auto max-w-5xl px-4 py-8 space-y-6">
         <div className="overflow-hidden rounded-3xl border border-(--theme-border) bg-(--theme-surface) shadow-md">
           <div className="flex items-center gap-4 border-b border-(--theme-border) px-6 pt-6">
-            <button className="rounded-t-xl border-b-2 border-[#2c4ce8] px-3 pb-3 text-sm font-semibold text-[#2c4ce8]">
+            <button className="rounded-t-xl border-b-2 border-(--brand-primary) px-3 pb-3 text-sm font-semibold text-(--brand-primary-text)">
               Thông báo
             </button>
           </div>
 
-          <div className="bg-linear-to-r from-[#0c184f] to-[#182c7a] text-white px-6 py-6">
+          <div className="bg-linear-to-r from-(--surface-navy-900) to-(--surface-navy-700) text-white px-6 py-6">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <span className="rounded-full bg-white/15 px-2 py-1 text-xs font-semibold uppercase">Thông báo</span>
@@ -204,7 +214,7 @@ export default function NotificationsPage() {
                 <button 
                   onClick={handleMarkAll}
                   disabled={unreadCount === 0}
-                  className="rounded-full bg-[#d51f35] px-4 py-2 text-xs font-semibold text-white hover:bg-[#b01628] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-full bg-(--brand-accent) px-4 py-2 text-xs font-semibold text-white hover:bg-(--brand-accent-strong) disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Đọc hết
                 </button>
@@ -230,7 +240,7 @@ export default function NotificationsPage() {
             
             {notifications.length > 0 && (
               <div className="flex justify-center py-2">
-                <button className="text-sm font-semibold text-(--theme-text-muted) hover:underline">
+                <button className="text-sm font-semibold text-(--brand-primary-text) hover:underline">
                   Xem các thông báo cũ hơn
                 </button>
               </div>
