@@ -61,21 +61,21 @@ export default function MyReviewsPage() {
   }, [publishedReviews]);
 
   return (
-    <div className="min-h-screen bg-[#f7f7f7] text-[#222222]">
+    <div className="min-h-screen bg-(--theme-bg) text-(--theme-text)">
       <UserTopBar />
 
-      <main className="mx-auto w-full max-w-none px-4 pb-16 pt-8 sm:px-6 sm:pt-10 lg:px-12">
+      <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-8 sm:px-6 sm:pt-10 lg:px-10">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Đánh giá</h1>
 
-        <div className="mt-8 border-b border-[#dddddd]">
+        <div className="mt-8 border-b border-(--theme-border)">
           <div className="flex items-center gap-6 text-sm sm:text-base">
             <button
               type="button"
               onClick={() => setActiveTab("about-you")}
               className={`pb-3 ${
                 activeTab === "about-you"
-                  ? "border-b-2 border-[#222222] font-semibold text-[#222222]"
-                  : "text-[#717171] hover:text-[#222222]"
+                  ? "border-b-2 border-(--theme-text) font-semibold text-(--theme-text)"
+                  : "text-(--theme-text-subtle) hover:text-(--theme-text)"
               }`}
               aria-current={activeTab === "about-you" ? "page" : undefined}
             >
@@ -86,8 +86,8 @@ export default function MyReviewsPage() {
               onClick={() => setActiveTab("from-you")}
               className={`pb-3 ${
                 activeTab === "from-you"
-                  ? "border-b-2 border-[#222222] font-semibold text-[#222222]"
-                  : "text-[#717171] hover:text-[#222222]"
+                  ? "border-b-2 border-(--theme-text) font-semibold text-(--theme-text)"
+                  : "text-(--theme-text-subtle) hover:text-(--theme-text)"
               }`}
               aria-current={activeTab === "from-you" ? "page" : undefined}
             >
@@ -99,26 +99,26 @@ export default function MyReviewsPage() {
         {activeTab === "about-you" ? (
           <section className="mt-10">
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Đánh giá về bạn</h2>
-            <p className="mt-3 text-base text-[#484848]">
+            <p className="mt-3 text-base text-(--theme-text-muted)">
               Đây là nơi hiển thị các đánh giá mà người thuê/chủ trọ khác gửi cho bạn.
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-[#dddddd] bg-white p-5">
-                <p className="text-sm text-[#717171]">Trung bình</p>
-                <p className="mt-2 text-2xl font-semibold text-[#222222]">0.0</p>
+              <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-5">
+                <p className="text-sm text-(--theme-text-subtle)">Trung bình</p>
+                <p className="mt-2 text-2xl font-semibold text-(--theme-text)">0.0</p>
                 <p className="mt-1 text-sm text-[#717171]">Chưa có đánh giá nhận được</p>
               </div>
-              <div className="rounded-2xl border border-[#dddddd] bg-white p-5">
-                <p className="text-sm text-[#717171]">Tổng số đánh giá</p>
-                <p className="mt-2 text-2xl font-semibold text-[#222222]">0</p>
+              <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-5">
+                <p className="text-sm text-(--theme-text-subtle)">Tổng số đánh giá</p>
+                <p className="mt-2 text-2xl font-semibold text-(--theme-text)">0</p>
                 <p className="mt-1 text-sm text-[#717171]">Dữ liệu sẽ cập nhật khi có phản hồi mới</p>
               </div>
             </div>
 
-            <div className="mt-8 rounded-2xl border border-dashed border-[#d5d5d5] bg-white p-6">
-              <p className="text-base font-medium text-[#222222]">Chưa có đánh giá nào về bạn.</p>
-              <p className="mt-2 text-sm text-[#717171]">
+            <div className="mt-8 rounded-2xl border border-dashed border-(--theme-border) bg-(--theme-surface) p-6">
+              <p className="text-base font-medium text-(--theme-text)">Chưa có đánh giá nào về bạn.</p>
+              <p className="mt-2 text-sm text-(--theme-text-subtle)">
                 Khi có người đánh giá hồ sơ của bạn, nội dung sẽ xuất hiện tại đây.
               </p>
             </div>
@@ -128,23 +128,23 @@ export default function MyReviewsPage() {
             <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Đánh giá trước đây bạn đã viết</h2>
 
             {!session && status !== "loading" ? (
-              <p className="mt-3 text-base text-[#222222]">Bạn cần đăng nhập để xem đánh giá của mình.</p>
+              <p className="mt-3 text-base text-(--theme-text)">Bạn cần đăng nhập để xem đánh giá của mình.</p>
             ) : loading ? (
-              <p className="mt-3 text-base text-[#222222]">Đang tải đánh giá...</p>
+              <p className="mt-3 text-base text-(--theme-text)">Đang tải đánh giá...</p>
             ) : error ? (
-              <p className="mt-3 text-base text-[#222222]">{error}</p>
+              <p className="mt-3 text-base text-(--theme-text)">{error}</p>
             ) : publishedReviews.length === 0 ? (
-              <p className="mt-3 text-base text-[#222222]">Bạn chưa viết bất kỳ đánh giá nào.</p>
+              <p className="mt-3 text-base text-(--theme-text)">Bạn chưa viết bất kỳ đánh giá nào.</p>
             ) : (
               <>
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-[#dddddd] bg-white p-5">
-                    <p className="text-sm text-[#717171]">Trung bình đánh giá đã gửi</p>
-                    <p className="mt-2 text-2xl font-semibold text-[#222222]">{averageRating.toFixed(1)}</p>
+                  <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-5">
+                    <p className="text-sm text-(--theme-text-subtle)">Trung bình đánh giá đã gửi</p>
+                    <p className="mt-2 text-2xl font-semibold text-(--theme-text)">{averageRating.toFixed(1)}</p>
                   </div>
-                  <div className="rounded-2xl border border-[#dddddd] bg-white p-5">
-                    <p className="text-sm text-[#717171]">Tổng số đánh giá đã gửi</p>
-                    <p className="mt-2 text-2xl font-semibold text-[#222222]">{publishedReviews.length}</p>
+                  <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-5">
+                    <p className="text-sm text-(--theme-text-subtle)">Tổng số đánh giá đã gửi</p>
+                    <p className="mt-2 text-2xl font-semibold text-(--theme-text)">{publishedReviews.length}</p>
                   </div>
                 </div>
 
@@ -155,8 +155,8 @@ export default function MyReviewsPage() {
                     const content = (review.comment ?? "").trim() || "Không có nội dung đánh giá.";
 
                     return (
-                      <article key={review.id} className="rounded-2xl border border-[#dddddd] bg-white p-5">
-                        <p className="text-sm text-[#717171]">
+                      <article key={review.id} className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-5 shadow-sm">
+                        <p className="text-sm text-(--theme-text-subtle)">
                           {formatReviewDate(review.createdAt)} • {location}
                         </p>
                         {review.post?.id ? (
@@ -166,7 +166,7 @@ export default function MyReviewsPage() {
                         ) : (
                           <h3 className="mt-1 text-base font-semibold">{title}</h3>
                         )}
-                        <p className="mt-3 text-sm text-[#222222]">{content}</p>
+                        <p className="mt-3 text-sm text-(--theme-text)">{content}</p>
                       </article>
                     );
                   })}
