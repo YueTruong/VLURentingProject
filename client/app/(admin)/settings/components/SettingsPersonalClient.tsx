@@ -3,12 +3,17 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import LanguageCurrencySettingsPanel from "./LanguageCurrencySettingsPanel";
+import LoginSecurityPanel from "./LoginSecurityPanel";
+import NotificationsSettingsPanel from "./NotificationsSettingsPanel";
+import PrivacySettingsPanel from "./PrivacySettingsPanel";
 
 type Props = {
   legalName: string;
   email: string;
+  initialPanel?: "personal" | "login_security" | "privacy" | "notifications" | "language_currency";
 };
 
 type MenuItem = {
@@ -16,7 +21,10 @@ type MenuItem = {
   icon: ReactNode;
   href?: string;
   active?: boolean;
+  panelKey?: SettingsPanelKey;
 };
+
+type SettingsPanelKey = "personal" | "login_security" | "privacy" | "notifications" | "language_currency";
 
 type InfoKey =
   | "legal_name"
@@ -95,12 +103,17 @@ function RowDisplay({
   );
 }
 
-export default function SettingsPersonalClient({ legalName, email }: Props) {
+export default function SettingsPersonalClient({ legalName, email, initialPanel = "personal" }: Props) {
   const router = useRouter();
+  const [activePanel, setActivePanel] = useState<SettingsPanelKey>(initialPanel);
   const [editingKey, setEditingKey] = useState<InfoKey | null>(null);
   const [preferredName, setPreferredName] = useState("");
   const [editingEmail, setEditingEmail] = useState("");
   const [isIdentityNavigating, setIsIdentityNavigating] = useState(false);
+
+  useEffect(() => {
+    setActivePanel(initialPanel);
+  }, [initialPanel]);
 
   const maskedEmail = useMemo(() => {
     if (!email || email === MISSING_VALUE || !email.includes("@")) return email;
@@ -123,7 +136,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
   const menuItems: MenuItem[] = [
     {
       label: "Thông tin cá nhân",
-      active: true,
+      panelKey: "personal",
       icon: (
         <MenuIcon>
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -135,7 +148,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
     },
     {
       label: "Đăng nhập và bảo mật",
-      href: "/settings/password",
+      panelKey: "login_security",
       icon: (
         <MenuIcon>
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -146,6 +159,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
     },
     {
       label: "Quyền riêng tư",
+      panelKey: "privacy",
       icon: (
         <MenuIcon>
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -157,6 +171,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
     },
     {
       label: "Thông báo",
+      panelKey: "notifications",
       icon: (
         <MenuIcon>
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -191,6 +206,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
     },
     {
       label: "Ngôn ngữ và loại tiền tệ",
+      panelKey: "language_currency",
       icon: (
         <MenuIcon>
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -201,7 +217,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
       ),
     },
     {
-      label: "Ði công tác",
+      label: "Đi công tác",
       icon: (
         <MenuIcon>
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -279,7 +295,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
             onClick={() => setEditingKey(null)}
             className="mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
           >
-            Luu
+            Lưu
           </button>
         </div>
       );
@@ -312,7 +328,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
             onClick={() => setEditingKey(null)}
             className="mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
           >
-            Luu
+            Lưu
           </button>
         </div>
       );
@@ -345,7 +361,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
             onClick={() => setEditingKey(null)}
             className="mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
           >
-            Luu
+            Lưu
           </button>
         </div>
       );
@@ -366,7 +382,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
               onClick={() => setEditingKey(null)}
               className="text-[14px] font-semibold underline underline-offset-4"
             >
-              Ðóng
+              Đóng
             </button>
           </div>
 
@@ -493,7 +509,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
           </div>
 
           <button type="button" disabled className="mt-4 rounded-xl bg-[#d1d5db] px-6 py-3 text-[16px] font-semibold text-white">
-            Luu
+            Lưu
           </button>
         </div>
       );
@@ -533,7 +549,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
               <input placeholder="Thành phố" className="w-full rounded-2xl border border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
               <input placeholder="Bang / Tỉnh / Quận / Khu vực" className="w-full rounded-2xl border border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
             </div>
-            <input placeholder="Mã buu chính" className="w-full max-w-[340px] rounded-2xl border border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
+            <input placeholder="Mã bưu chính" className="w-full max-w-[340px] rounded-2xl border border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
           </div>
 
           <button
@@ -541,7 +557,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
             onClick={() => setEditingKey(null)}
             className="mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
           >
-            Luu
+            Lưu
           </button>
         </div>
       );
@@ -569,7 +585,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
             <input placeholder="Mối quan hệ" className="w-full rounded-2xl border border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
 
             <button type="button" className="flex w-full items-center justify-between rounded-2xl border border-[#9ca3af] px-4 py-4 text-left">
-              <span className="text-[18px] text-[#4b5563]">Ngôn ng? ua thích</span>
+              <span className="text-[18px] text-[#4b5563]">Ngôn ngữ ưa thích</span>
               <svg viewBox="0 0 24 24" className="h-5 w-5 text-[#111827]" fill="none" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
               </svg>
@@ -593,7 +609,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
             onClick={() => setEditingKey(null)}
             className="mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
           >
-            Luu
+            Lưu
           </button>
         </div>
       );
@@ -611,7 +627,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
             onClick={() => setEditingKey(null)}
             className="text-[14px] font-semibold underline underline-offset-4"
           >
-            Ðóng
+            Đóng
           </button>
         </div>
         <p className="mt-4 rounded-2xl border border-[#d1d5db] bg-[#f9fafb] px-4 py-3 text-[14px] text-[#4b5563]">
@@ -647,7 +663,7 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
           <button
             type="button"
             onClick={() => router.push("/")}
-            className="rounded-full bg-[#efefef] px-6 py-2 text-[16px] font-semibold text-[#222222] hover:bg-[#e6e6e6]"
+            className="rounded-full border border-[#e5e7eb] bg-white px-5 py-2 text-[14px] font-semibold text-[#222222] transition hover:bg-[#f7f7f7]"
           >
             Hoàn tất
           </button>
@@ -664,10 +680,27 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
                 key={item.label}
                 type="button"
                 onClick={() => {
+                  if (item.panelKey) {
+                    setEditingKey(null);
+                    setIsIdentityNavigating(false);
+                    setActivePanel(item.panelKey);
+                    const nextUrl =
+                      item.panelKey === "login_security"
+                        ? "/settings?tab=login-security"
+                        : item.panelKey === "privacy"
+                          ? "/settings?tab=privacy"
+                          : item.panelKey === "notifications"
+                            ? "/settings?tab=notifications"
+                            : item.panelKey === "language_currency"
+                              ? "/settings?tab=language-currency"
+                          : "/settings";
+                    router.replace(nextUrl);
+                    return;
+                  }
                   if (item.href) router.push(item.href);
                 }}
                 className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-[16px] leading-6 transition ${
-                  item.active ? "bg-[#efefef] font-semibold" : "hover:bg-[#f7f7f7]"
+                  (item.panelKey ? item.panelKey === activePanel : item.active) ? "bg-[#efefef] font-semibold" : "hover:bg-[#f7f7f7]"
                 }`}
               >
                 {item.icon}
@@ -690,6 +723,8 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
 
         <section className="px-8 py-7 lg:px-16">
           <div className="mx-auto w-full max-w-[680px]">
+            {activePanel === "personal" ? (
+              <>
             <h2 className="text-[40px] font-semibold leading-[1.1]">Thông tin cá nhân</h2>
 
             <div className="mt-3 border-b border-[#e5e7eb]">
@@ -732,6 +767,16 @@ export default function SettingsPersonalClient({ legalName, email }: Props) {
                 <HelpCardItem key={item.title} {...item} />
               ))}
             </div>
+              </>
+            ) : activePanel === "login_security" ? (
+              <LoginSecurityPanel />
+            ) : activePanel === "notifications" ? (
+              <NotificationsSettingsPanel />
+            ) : activePanel === "language_currency" ? (
+              <LanguageCurrencySettingsPanel />
+            ) : (
+              <PrivacySettingsPanel />
+            )}
           </div>
         </section>
       </main>
