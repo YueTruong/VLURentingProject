@@ -15,6 +15,8 @@ describe('ReviewsController', () => {
             findLatest: jest.fn(),
             findByUserId: jest.fn(),
             findByPostId: jest.fn(),
+            findForAdmin: jest.fn(),
+            deleteForAdmin: jest.fn(),
             update: jest.fn(),
             create: jest.fn(),
           },
