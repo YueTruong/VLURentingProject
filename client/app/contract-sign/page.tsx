@@ -31,8 +31,6 @@ const inputClass =
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-const CURRENT_YEAR = new Date().getFullYear();
-
 function formatVndInput(raw: string) {
   const digits = raw.replace(/[^\d]/g, "");
   if (!digits) return "";
