@@ -9,6 +9,7 @@ import UserPageShell from "@/app/homepage/components/UserPageShell";
 import { getMyPosts, type Post } from "@/app/services/posts"; 
 import { useFavorites, toggleFavorite } from "@/app/services/favorites"; 
 import toast from "react-hot-toast";
+import { getMyProfile, updateMyProfile } from "@/app/services/auth";
 
 type Listing = {
   id: number;
@@ -188,6 +189,9 @@ export default function ProfilePage() {
   const [listingError, setListingError] = useState(false);
   
   const [listingSearch, setListingSearch] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
+  const [profileAddress, setProfileAddress] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
   const favorites = useFavorites(); 
 
   const roleKey = session?.user?.role?.toString().toLowerCase() || "student";
@@ -205,6 +209,26 @@ export default function ProfilePage() {
   }, [session]);
 
   const avatarUrl = session?.user?.image || "/images/Admins.png";
+
+  useEffect(() => {
+    const token = session?.user?.accessToken;
+    if (!token || status !== "authenticated") return;
+
+    let active = true;
+    getMyProfile(token)
+      .then((profile) => {
+        if (!active) return;
+        setProfilePhone(profile.phone_number || "");
+        setProfileAddress(profile.address || "");
+      })
+      .catch(() => {
+        if (!active) return;
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [session, status]);
 
   useEffect(() => {
     let active = true;
@@ -237,6 +261,25 @@ export default function ProfilePage() {
 
     return () => { active = false; };
   }, [session, status, isStudent]);
+
+  const handleSaveProfile = async () => {
+    const token = session?.user?.accessToken;
+    if (!token) return;
+
+    setSavingProfile(true);
+    try {
+      await updateMyProfile(token, {
+        phoneNumber: profilePhone,
+        address: profileAddress,
+      });
+      toast.success("Cập nhật hồ sơ thành công");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không thể cập nhật hồ sơ";
+      toast.error(message);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const studentListings: Listing[] = useMemo(() => {
     return favorites.map((fav) => ({
@@ -405,7 +448,35 @@ export default function ProfilePage() {
                 Về {displayName}
               </div>
               <p className="mt-3 text-sm text-(--theme-text-muted) dark:text-(--theme-text-subtle)">{profileBio}</p>
-              
+
+              <div className="mt-4 rounded-2xl border border-(--theme-border) bg-(--theme-surface-muted) p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-(--theme-text-subtle)">Thông tin liên hệ</p>
+                <div className="mt-2 space-y-2">
+                  <input
+                    value={profilePhone}
+                    onChange={(e) => setProfilePhone(e.target.value)}
+                    placeholder="Số điện thoại"
+                    className="w-full rounded-xl border border-(--theme-border) bg-(--theme-surface) px-3 py-2 text-sm text-(--theme-text) outline-none focus:border-(--theme-border-strong)"
+                  />
+                  <input
+                    value={profileAddress}
+                    onChange={(e) => setProfileAddress(e.target.value)}
+                    placeholder="Địa chỉ"
+                    className="w-full rounded-xl border border-(--theme-border) bg-(--theme-surface) px-3 py-2 text-sm text-(--theme-text) outline-none focus:border-(--theme-border-strong)"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveProfile}
+                      disabled={savingProfile}
+                      className="rounded-full bg-(--brand-accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--brand-accent-strong) disabled:opacity-60"
+                    >
+                      {savingProfile ? "Đang lưu..." : "Lưu thông tin"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div className="mt-4 space-y-2 text-sm text-(--theme-text-muted) dark:text-(--theme-text-subtle)">
                 {!isStudent && (
                   <div className="flex items-center gap-2">
