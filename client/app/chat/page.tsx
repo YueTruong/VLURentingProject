@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { Suspense } from "react";
 import { useEffect, useState, useRef, FormEvent, useMemo, useCallback, ChangeEvent } from "react";
 import io, { Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
@@ -301,7 +302,7 @@ function MessageBubble({ msg, isMe }: { msg: Message; isMe: boolean }) {
 
 // --- MAIN PAGE ---
 
-export default function ChatPage() {
+function ChatPageContent() {
   const { data: session } = useSession();
   const currentUserId = session?.user ? Number(session.user.id) : null;
   const accessToken = session?.user?.accessToken;
@@ -700,5 +701,13 @@ export default function ChatPage() {
         </section>
       </div>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-gray-500">Đang tải trò chuyện...</div>}>
+      <ChatPageContent />
+    </Suspense>
   );
 }

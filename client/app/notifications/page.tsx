@@ -48,15 +48,15 @@ function NotificationCard({
   onOpenDetail: (item: Notification) => void;
 }) {
   const isUnread = !item.isRead;
-  const border = isUnread ? "border-red-200 bg-red-50" : "border-gray-200 bg-white";
+  const border = isUnread ? "border-red-200/80 bg-red-50/80 dark:border-red-900/40 dark:bg-red-900/20" : "border-(--theme-border) bg-(--theme-surface)";
 
   return (
-    <article className={`rounded-2xl border ${border} p-4 shadow-sm transition-all duration-300`}>
+    <article className={`rounded-2xl border ${border} p-4 shadow-sm transition-all duration-300 hover:shadow-md`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex-1 cursor-pointer" onClick={() => onOpenDetail(item)}>
-          <h3 className={`text-base text-gray-900 ${isUnread ? 'font-bold' : 'font-medium'}`}>{item.title}</h3>
-          <p className="text-sm text-gray-700 mt-1">{item.message}</p>
-          <p className="text-xs text-gray-500 mt-2">{formatTimeAgo(item.createdAt)}</p>
+          <h3 className={`text-base text-(--theme-text) ${isUnread ? 'font-bold' : 'font-medium'}`}>{item.title}</h3>
+          <p className="mt-1 text-sm text-(--theme-text-muted)">{item.message}</p>
+          <p className="mt-2 text-xs text-(--theme-text-subtle)">{formatTimeAgo(item.createdAt)}</p>
         </div>
         <TypeBadge type={item.type} />
       </div>
@@ -67,7 +67,7 @@ function NotificationCard({
               e.stopPropagation(); // Tránh kích hoạt click của thẻ cha
               onMarkRead(item.id);
             }}
-            className="rounded-full border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-50 active:scale-95"
+            className="rounded-full border border-(--theme-border) bg-(--theme-surface) px-3 py-2 text-xs font-semibold text-(--theme-text) hover:bg-(--theme-surface-muted) active:scale-95"
           >
             Đánh dấu đã đọc
           </button>
@@ -77,7 +77,7 @@ function NotificationCard({
             e.stopPropagation();
             onOpenDetail(item);
           }}
-          className="rounded-full bg-[#0b1a57] px-3 py-2 text-xs font-semibold text-white hover:bg-[#0a1647] active:scale-95"
+          className="rounded-full bg-(--surface-navy-900) px-3 py-2 text-xs font-semibold text-white hover:bg-(--surface-navy-800) active:scale-95"
         >
           Mở chi tiết
         </button>
@@ -159,7 +159,7 @@ export default function NotificationsPage() {
         router.push('/my-posts'); 
       } else {
         // Nếu được duyệt, dẫn về trang xem chi tiết công khai
-        router.push(`/posts/${item.relatedId}`);
+        router.push(`/listings/${item.relatedId}`);
       }
     }
     else if (item.type === 'message') {
@@ -175,12 +175,12 @@ export default function NotificationsPage() {
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   return (
-    <div className="min-h-screen bg-[#f5f7fb]">
+    <div className="min-h-screen bg-(--theme-bg)">
       <UserTopBar />
 
       <main className="mx-auto max-w-5xl px-4 py-8 space-y-6">
-        <div className="rounded-3xl bg-white shadow-md border border-gray-100 overflow-hidden">
-          <div className="flex items-center gap-4 border-b border-gray-100 px-6 pt-6">
+        <div className="overflow-hidden rounded-3xl border border-(--theme-border) bg-(--theme-surface) shadow-md">
+          <div className="flex items-center gap-4 border-b border-(--theme-border) px-6 pt-6">
             <button className="rounded-t-xl border-b-2 border-[#2c4ce8] px-3 pb-3 text-sm font-semibold text-[#2c4ce8]">
               Thông báo
             </button>
@@ -212,11 +212,11 @@ export default function NotificationsPage() {
             </div>
           </div>
 
-          <div className="space-y-3 px-6 py-5 bg-white">
+          <div className="space-y-3 bg-(--theme-surface) px-6 py-5">
             {loading ? (
-              <div className="text-center py-10 text-gray-500">Đang tải dữ liệu...</div>
+              <div className="py-10 text-center text-(--theme-text-subtle)">Đang tải dữ liệu...</div>
             ) : notifications.length === 0 ? (
-              <div className="text-center py-10 text-gray-500">Bạn chưa có thông báo nào.</div>
+              <div className="py-10 text-center text-(--theme-text-subtle)">Bạn chưa có thông báo nào.</div>
             ) : (
               notifications.map((n) => (
                 <NotificationCard 
@@ -230,7 +230,7 @@ export default function NotificationsPage() {
             
             {notifications.length > 0 && (
               <div className="flex justify-center py-2">
-                <button className="text-sm font-semibold text-gray-700 hover:underline">
+                <button className="text-sm font-semibold text-(--theme-text-muted) hover:underline">
                   Xem các thông báo cũ hơn
                 </button>
               </div>

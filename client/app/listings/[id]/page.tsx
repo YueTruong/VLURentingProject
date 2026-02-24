@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react"; 
 import UserPageShell from "@/app/homepage/components/UserPageShell"; // ✅ Dùng chung Shell với Listings & Favorites
 import { getPostById, type Post } from "@/app/services/posts";
-import { createReview, getPostReviews, type PublicReview } from "@/app/services/reviews";
+import { createReview, getPostReviews, updateReview, type PublicReview } from "@/app/services/reviews";
 import toast from "react-hot-toast"; 
 import { toggleFavorite, useFavorites } from "@/app/services/favorites"; 
 
@@ -285,6 +285,11 @@ export default function ListingDetailPage() {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }, [id]);
 
+  const myReview = useMemo(() => {
+    if (!currentUserId) return null;
+    return reviews.find((review) => review.userId === currentUserId) ?? null;
+  }, [reviews, currentUserId]);
+
   // Setup Logic Lưu Tin
   const favorites = useFavorites();
   const isSaved = listing ? favorites.some((item) => item.id === Number(listing.id)) : false;
@@ -477,12 +482,7 @@ export default function ListingDetailPage() {
     setEditComment(myReview.comment ?? "");
   }, [myReview]);
 
-  const handleToggleSave = () => {
-    if (!favoritePayload) return;
-    toggleFavorite(favoritePayload);
-  };
-
-  const handleUpdateReview = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmitReview = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!postId || !myReview) return;
@@ -724,9 +724,9 @@ export default function ListingDetailPage() {
                       <div className="mt-2 flex flex-wrap gap-2">
                         {[1, 2, 3, 4, 5].map((value) => (
                           <button
-                            key={value} type="button" onClick={() => setReviewRating(value)}
+                            key={value} type="button" onClick={() => setEditRating(value)}
                             className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
-                              reviewRating === value ? "border-yellow-400 bg-yellow-50 text-yellow-700 shadow-sm dark:border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                              editRating === value ? "border-yellow-400 bg-yellow-50 text-yellow-700 shadow-sm dark:border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                             }`}
                           >
                             {value} ★
@@ -736,17 +736,17 @@ export default function ListingDetailPage() {
                     </div>
 
                     <textarea
-                      value={reviewComment} onChange={(event) => setReviewComment(event.target.value)}
+                      value={editComment} onChange={(event) => setEditComment(event.target.value)}
                       placeholder="Chia sẻ trải nghiệm của bạn về tin đăng này..."
                       className="min-h-[110px] w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-800 outline-none transition-colors focus:border-[#d51f35] focus:ring-1 focus:ring-[#d51f35] dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
                     />
 
-                    {reviewSubmitError ? <p className="text-sm font-semibold text-red-500 dark:text-red-400">{reviewSubmitError}</p> : null}
-                    {reviewSubmitSuccess ? <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{reviewSubmitSuccess}</p> : null}
+                    {editError ? <p className="text-sm font-semibold text-red-500 dark:text-red-400">{editError}</p> : null}
+                    {editSuccess ? <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{editSuccess}</p> : null}
 
                     <div className="flex justify-end">
-                      <button type="submit" disabled={reviewSubmitting} className="rounded-full bg-[#d51f35] px-6 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#b01628] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
-                        {reviewSubmitting ? "Đang gửi..." : "Gửi đánh giá"}
+                      <button type="submit" disabled={editSubmitting} className="rounded-full bg-[#d51f35] px-6 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#b01628] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
+                        {editSubmitting ? "Đang gửi..." : "Gửi đánh giá"}
                       </button>
                     </div>
                   </form>
