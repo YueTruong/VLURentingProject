@@ -58,4 +58,13 @@ export class SearchPostDto {
   @IsNumber()
   @Type(() => Number)
   radius?: number; // Bán kính tìm kiếm (tính bằng km)
+
+
+  @IsOptional()
+  @IsString()
+  campus?: 'CS1' | 'CS2' | 'CS3';
+
+  @IsOptional()
+  @IsString()
+  availability?: 'available' | 'rented';
 }
