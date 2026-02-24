@@ -8,6 +8,7 @@ import {
   PersonIcon,
   PieChartIcon,
   StarIcon,
+  RowsIcon,
 } from "@radix-ui/react-icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -22,6 +23,7 @@ const nav: NavItem[] = [
   { href: "/dashboard/listings", label: "Listings", icon: <HomeIcon className="h-4 w-4" /> },
   { href: "/dashboard/properties", label: "Properties", icon: <FileTextIcon className="h-4 w-4" /> },
   { href: "/dashboard/reviews", label: "Reviews", icon: <StarIcon className="h-4 w-4" /> },
+  { href: "/dashboard/catalog", label: "Catalog", icon: <RowsIcon className="h-4 w-4" /> },
 ];
 
 function NavLink({ href, label, icon, active }: NavItem & { active: boolean }) {
