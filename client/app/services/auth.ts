@@ -1,5 +1,10 @@
+const getBaseUrl = () =>
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "http://localhost:3001";
+
 export async function login(username: string, password: string) {
-  const res = await fetch("http://localhost:3001/auth/login", {
+  const res = await fetch(`${getBaseUrl()}/auth/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
