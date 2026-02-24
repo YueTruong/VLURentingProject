@@ -27,7 +27,9 @@ type SignatureData = {
 };
 
 const inputClass =
-  "w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-gray-500 focus:ring-1 focus:ring-gray-300";
+  "w-full rounded-xl border border-(--theme-border) px-4 py-3 text-sm text-(--theme-text) outline-none transition focus:border-(--brand-primary) focus:ring-1 focus:ring-(--theme-border)";
+
+const CURRENT_YEAR = new Date().getFullYear();
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -112,9 +114,9 @@ function SignaturePad({ onChange }: { onChange: (data: SignatureData) => void })
   };
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-4">
-      <div className="text-sm font-semibold text-gray-900">Khu vực ký</div>
-      <div className="mt-3 rounded-xl border border-dashed border-gray-300 bg-gray-50">
+    <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-4">
+      <div className="text-sm font-semibold text-(--theme-text)">Khu vực ký</div>
+      <div className="mt-3 rounded-xl border border-dashed border-(--theme-border) bg-(--theme-surface-muted)">
         <canvas
           ref={canvasRef}
           className="h-40 w-full touch-none"
@@ -124,12 +126,12 @@ function SignaturePad({ onChange }: { onChange: (data: SignatureData) => void })
           onPointerLeave={handlePointerUp}
         />
       </div>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-(--theme-text-subtle)">
         <span>Ký bằng chuột hoặc cảm ứng.</span>
         <button
           type="button"
           onClick={handleClear}
-          className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+          className="rounded-full border border-(--theme-border) bg-(--theme-surface) px-3 py-1 text-xs font-semibold text-(--theme-text-muted) hover:bg-(--theme-surface-muted)"
         >
           Xóa chữ ký
         </button>
@@ -287,15 +289,15 @@ export default function ContractSignPage() {
       description="Demo ký hợp đồng thuê phòng và xuất file PDF trực tiếp trên web."
       eyebrow="Hợp đồng"
       actions={
-        <span className="rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white">
+        <span className="rounded-full bg-(--theme-surface)/10 px-4 py-2 text-xs font-semibold text-white">
           Mã hợp đồng: {contractId}
         </span>
       }
     >
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">Thông tin chủ trọ</h2>
+          <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-(--theme-text)">Thông tin chủ trọ</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <input
                 className={inputClass}
@@ -324,8 +326,8 @@ export default function ContractSignPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">Thông tin người thuê</h2>
+          <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-(--theme-text)">Thông tin người thuê</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <input
                 className={inputClass}
@@ -354,8 +356,8 @@ export default function ContractSignPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">Thông tin thuê</h2>
+          <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-(--theme-text)">Thông tin thuê</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <input
                 className={inputClass}
@@ -405,11 +407,11 @@ export default function ContractSignPage() {
             </div>
           </div>
 
-          <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">Ký hợp đồng</h2>
+          <div className="space-y-4 rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-(--theme-text)">Ký hợp đồng</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-800">Tên ký (hiển thị trên PDF)</label>
+                <label className="text-sm font-semibold text-(--theme-text)">Tên ký (hiển thị trên PDF)</label>
                 <input
                   className={inputClass}
                   placeholder="Nhập tên ký"
@@ -418,11 +420,11 @@ export default function ContractSignPage() {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-gray-800">Xác nhận điều khoản</label>
-                <label className="flex items-start gap-3 text-sm text-gray-600">
+                <label className="text-sm font-semibold text-(--theme-text)">Xác nhận điều khoản</label>
+                <label className="flex items-start gap-3 text-sm text-(--theme-text-muted)">
                   <input
                     type="checkbox"
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-[#D51F35] focus:ring-[#D51F35]"
+                    className="mt-1 h-4 w-4 rounded border-(--theme-border) text-(--brand-accent) focus:ring-[#D51F35]"
                     checked={agreed}
                     onChange={(e) => setAgreed(e.target.checked)}
                   />
@@ -439,7 +441,7 @@ export default function ContractSignPage() {
                 onClick={handleSign}
                 disabled={!canSign}
                 className={`rounded-full px-5 py-3 text-sm font-semibold text-white transition ${
-                  canSign ? "bg-[#D51F35] hover:bg-[#b01628]" : "cursor-not-allowed bg-gray-300"
+                  canSign ? "bg-(--brand-accent) hover:bg-(--brand-accent-strong)" : "cursor-not-allowed bg-gray-300"
                 }`}
               >
                 Ký hợp đồng
@@ -447,16 +449,16 @@ export default function ContractSignPage() {
               <button
                 type="button"
                 onClick={handleExportPdf}
-                className="rounded-full border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                className="rounded-full border border-(--theme-border) bg-(--theme-surface) px-5 py-3 text-sm font-semibold text-(--theme-text-muted) hover:bg-(--theme-surface-muted)"
               >
                 Xuất PDF
               </button>
-              {signedAt && <span className="text-xs text-gray-500">Đã ký: {signedAt}</span>}
+              {signedAt && <span className="text-xs text-(--theme-text-subtle)">Đã ký: {signedAt}</span>}
             </div>
 
             {exportError && <div className="text-xs text-red-600">{exportError}</div>}
             {!canSign && (
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-(--theme-text-subtle)">
                 Hoàn tất thông tin bắt buộc và ký trước khi xuất PDF.
               </div>
             )}
@@ -464,38 +466,38 @@ export default function ContractSignPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-gray-900">Tóm tắt hợp đồng</h3>
-            <div className="mt-3 space-y-2 text-sm text-gray-700">
+          <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-(--theme-text)">Tóm tắt hợp đồng</h3>
+            <div className="mt-3 space-y-2 text-sm text-(--theme-text-muted)">
               <div>
-                <span className="text-gray-500">Bên A:</span> {form.landlordName || "--"}
+                <span className="text-(--theme-text-subtle)">Bên A:</span> {form.landlordName || "--"}
               </div>
               <div>
-                <span className="text-gray-500">Bên B:</span> {form.tenantName || "--"}
+                <span className="text-(--theme-text-subtle)">Bên B:</span> {form.tenantName || "--"}
               </div>
               <div>
-                <span className="text-gray-500">Địa chỉ:</span> {form.propertyAddress || "--"}
+                <span className="text-(--theme-text-subtle)">Địa chỉ:</span> {form.propertyAddress || "--"}
               </div>
               <div>
-                <span className="text-gray-500">Giá thuê:</span> {form.rent ? `${form.rent}đ` : "--"}
+                <span className="text-(--theme-text-subtle)">Giá thuê:</span> {form.rent ? `${form.rent}đ` : "--"}
               </div>
               <div>
-                <span className="text-gray-500">Thời hạn:</span>{" "}
+                <span className="text-(--theme-text-subtle)">Thời hạn:</span>{" "}
                 {form.termStart && form.termEnd ? `${form.termStart} → ${form.termEnd}` : "--"}
               </div>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-gray-900">Lưu ý pháp lý</h3>
-            <ul className="mt-3 space-y-2 text-sm text-gray-700">
+          <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-(--theme-text)">Lưu ý pháp lý</h3>
+            <ul className="mt-3 space-y-2 text-sm text-(--theme-text-muted)">
               <li>• Hợp đồng điện tử là bản ghi có giá trị tham khảo.</li>
               <li>• Khuyến nghị xác nhận giấy tờ và thông tin hai bên.</li>
               <li>• Lưu PDF để phục vụ đối soát khi cần.</li>
             </ul>
           </div>
 
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-5 text-xs text-gray-600">
+          <div className="rounded-2xl border border-dashed border-(--theme-border) bg-(--theme-surface) p-5 text-xs text-(--theme-text-muted)">
             Khi xuất PDF, trình duyệt sẽ mở hộp thoại in. Chọn “Save as PDF” để lưu file.
           </div>
         </div>
