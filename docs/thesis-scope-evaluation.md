@@ -82,7 +82,8 @@ Tuy nhiên, nếu đối chiếu đúng với yêu cầu khóa luận bạn đư
 
 ## 2.4 Module Chatbot AI
 
-- **Chưa đạt theo định nghĩa yêu cầu**: dự án có module chat giữa người dùng (student-landlord), nhưng không phải chatbot AI trả lời tri thức tư vấn thuê trọ được huấn luyện trước.
+- **Đáp ứng một phần (mức mô phỏng)**: ở `client/app/listings/page.tsx` đã có trợ lý AI giả lập hỗ trợ phân tích câu truy vấn tiếng Việt và tự động áp bộ lọc tìm phòng (giá, khu vực, loại phòng, diện tích, tiện ích...).
+- **Giới hạn hiện tại**: đây là luật/regex + lọc dữ liệu cục bộ, chưa tích hợp mô hình AI/LLM hay dịch vụ NLP bên ngoài; vì vậy phù hợp gọi là “AI mô phỏng” hơn là chatbot AI thực thụ.
 
 ---
 
@@ -93,7 +94,7 @@ Tuy nhiên, nếu đối chiếu đúng với yêu cầu khóa luận bạn đư
 - **Frontend ReactJS**: ✅ Có (Next.js dùng React).
 - **CSDL PostgreSQL**: ✅ Có (`typeorm` + `pg`, cấu hình `type: 'postgres'`).
 - **Xác thực JWT**: ✅ Có (JwtStrategy/JwtAuthGuard, trả access token).
-- **Chatbot AI**: ❌ Chưa có tích hợp dịch vụ/mô hình AI chatbot.
+- **Chatbot AI**: ⚠️ Có trợ lý AI mô phỏng ở trang listings (rule-based filtering), nhưng chưa có tích hợp mô hình AI/NLP thực sự.
 - **Google Maps API**: ⚠️ Mới dừng ở nhúng iframe bản đồ; chưa thấy tích hợp đầy đủ map data layer cho tìm kiếm trực quan.
 
 ---
@@ -117,8 +118,9 @@ Nếu đây là bản hiện tại trước nghiệm thu:
    - Thêm module quản trị review + module quản lý category/amenity.
 4. **Profile management đầy đủ**
    - API cập nhật profile cho student/landlord + UI form tương ứng.
-5. **Chatbot AI**
-   - Tối thiểu MVP: FAQ retrieval + intent đơn giản cho truy vấn gần CS3, giá theo quận, thủ tục thuê.
+5. **Nâng cấp trợ lý AI mô phỏng thành chatbot AI MVP**
+   - Giữ lại parser rule-based hiện tại làm fallback.
+   - Bổ sung tầng NLP/LLM (hoặc retrieval FAQ) để hiểu ngữ cảnh tốt hơn, giải thích lý do gợi ý và hỗ trợ câu hỏi thủ tục/kinh nghiệm thuê trọ.
 
 ---
 
