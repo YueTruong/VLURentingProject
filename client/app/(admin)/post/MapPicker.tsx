@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import L from "leaflet";
+import L, { type LeafletMouseEvent, type Map, type Marker } from "leaflet";
 
 type LatLng = {
   lat: number;
@@ -29,8 +29,8 @@ export default function MapPicker({
   onChange: (value: LatLng) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
+  const mapRef = useRef<Map | null>(null);
+  const markerRef = useRef<Marker | null>(null);
   const onChangeRef = useRef(onChange);
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export default function MapPicker({
       attribution: "&copy; OpenStreetMap contributors",
     }).addTo(map);
 
-    map.on("click", (event: L.LeafletMouseEvent) => {
+    map.on("click", (event: LeafletMouseEvent) => {
       onChangeRef.current({ lat: event.latlng.lat, lng: event.latlng.lng });
     });
 

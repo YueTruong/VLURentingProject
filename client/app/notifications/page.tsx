@@ -159,7 +159,7 @@ export default function NotificationsPage() {
         router.push('/my-posts'); 
       } else {
         // Nếu được duyệt, dẫn về trang xem chi tiết công khai
-        router.push(`/posts/${item.relatedId}`);
+        router.push(`/listings/${item.relatedId}`);
       }
     }
     else if (item.type === 'message') {

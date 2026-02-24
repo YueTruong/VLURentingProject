@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactElement } from "react";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -9,7 +11,7 @@ type DocumentType = "driver-license" | "passport" | "national-id";
 type DocumentOption = {
   key: DocumentType;
   label: string;
-  icon: JSX.Element;
+  icon: ReactElement;
 };
 
 const DOCUMENT_TYPE_KEY = "vlu.identity.document.type";

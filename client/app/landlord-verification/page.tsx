@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import UserPageShell from "@/app/homepage/components/UserPageShell";
 
@@ -48,7 +48,14 @@ const VERIFICATION_STORAGE_KEY = "vlu.landlord.verified";
 const VERIFICATION_PENDING_KEY = "vlu.landlord.pending";
 
 export default function LandlordVerificationPage() {
-  const [status, setStatus] = useState<VerificationStatus>("not_submitted");
+  const [status, setStatus] = useState<VerificationStatus>(() => {
+    if (typeof window === "undefined") return "not_submitted";
+    const verified = localStorage.getItem(VERIFICATION_STORAGE_KEY) === "true";
+    if (verified) return "verified";
+    const pending = localStorage.getItem(VERIFICATION_PENDING_KEY) === "true";
+    if (pending) return "pending";
+    return "not_submitted";
+  });
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [otpSentAt, setOtpSentAt] = useState<string | null>(null);
   const [otpCode, setOtpCode] = useState("");
@@ -70,17 +77,6 @@ export default function LandlordVerificationPage() {
     bankAccount: "",
   });
 
-  useEffect(() => {
-    const verified = localStorage.getItem(VERIFICATION_STORAGE_KEY) === "true";
-    const pending = localStorage.getItem(VERIFICATION_PENDING_KEY) === "true";
-    if (verified) {
-      setStatus("verified");
-      return;
-    }
-    if (pending) {
-      setStatus("pending");
-    }
-  }, []);
 
   const statusInfo = statusConfig[status];
   const allConsented = useMemo(() => Object.values(consents).every(Boolean), [consents]);

@@ -20,37 +20,33 @@ const formatReviewDate = (value?: string) => {
 export default function MyReviewsPage() {
   const { data: session, status } = useSession();
   const [reviews, setReviews] = useState<MyReviewItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<"from-you" | "about-you">("from-you");
 
   useEffect(() => {
-    if (status === "loading") return;
-    if (!session) {
-      setReviews([]);
-      setLoading(false);
-      setError("");
-      return;
-    }
+    if (status !== "authenticated" || !session) return;
 
     let active = true;
-    setLoading(true);
-    setError("");
 
-    getMyReviews(50)
-      .then((data) => {
+    const loadReviews = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await getMyReviews(50);
         if (!active) return;
         setReviews(data);
-      })
-      .catch(() => {
+      } catch {
         if (!active) return;
         setReviews([]);
         setError("Không thể tải đánh giá của bạn.");
-      })
-      .finally(() => {
+      } finally {
         if (!active) return;
         setLoading(false);
-      });
+      }
+    };
+
+    void loadReviews();
 
     return () => {
       active = false;

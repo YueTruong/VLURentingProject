@@ -22,6 +22,8 @@ export default function UserTopBar() {
     // Nếu chưa đăng nhập HOẶC không có quyền (là admin) thì không gọi API
     if (status !== "authenticated" || !canUseChatAndNotif) return;
 
+    let active = true;
+
     const fetchUnread = async () => {
       try {
         const token = session?.user?.accessToken;
@@ -53,7 +55,10 @@ export default function UserTopBar() {
     fetchUnread();
     const intervalId = setInterval(fetchUnread, 15000);
 
-    return () => clearInterval(intervalId);
+    return () => {
+      active = false;
+      clearInterval(intervalId);
+    };
   }, [session, status, canUseChatAndNotif]);
 
   return (

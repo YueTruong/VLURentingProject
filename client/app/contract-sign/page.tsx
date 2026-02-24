@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import UserPageShell from "@/app/homepage/components/UserPageShell";
 
 type ContractForm = {
@@ -28,6 +28,8 @@ type SignatureData = {
 
 const inputClass =
   "w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-gray-500 focus:ring-1 focus:ring-gray-300";
+
+const CURRENT_YEAR = new Date().getFullYear();
 
 function formatVndInput(raw: string) {
   const digits = raw.replace(/[^\d]/g, "");
@@ -160,10 +162,7 @@ export default function ContractSignPage() {
   const [signedAt, setSignedAt] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
 
-  const contractId = useMemo(
-    () => `VLU-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`,
-    []
-  );
+  const contractId = `VLU-${CURRENT_YEAR}-DRAFT`;
 
   const isComplete =
     form.landlordName.trim() &&
