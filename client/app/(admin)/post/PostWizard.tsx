@@ -1018,7 +1018,7 @@ export default function PostWizard() {
   return (
     <div className="mx-auto w-full max-w-none px-4 py-8 sm:px-6 lg:px-12">
       {draftNotice ? (
-        <div className="fixed right-4 top-4 z-[70] max-w-sm rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 shadow-lg">
+        <div className="fixed right-4 top-4 z-70 max-w-sm rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 shadow-lg">
           {draftNotice}
         </div>
       ) : null}
@@ -1510,15 +1510,24 @@ export default function PostWizard() {
             <StepShell title="Bước 2: Vị trí" subtitle="Địa chỉ rõ ràng giúp người thuê tin tưởng hơn.">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <FieldLabel>{draft.purpose === "ROOMMATE" ? "Địa chỉ / khu vực" : "Địa chỉ chi tiết"}</FieldLabel>
+                  <FieldLabel>{draft.purpose === "ROOMMATE" ? "Địa chỉ / khu vực" : "Số nhà - Tên đường"}</FieldLabel>
                   <Input
                     value={draft.addressText}
                     onChange={(v) => setDraft((d) => ({ ...d, addressText: v }))}
                     placeholder={
                       draft.purpose === "ROOMMATE"
                         ? "VD: 12/3 Nguyễn Gia Trí hoặc khu vực gần VLU"
-                        : "VD: 12/3 Nguyễn Gia Trí, P.25"
+                        : "VD: 12/3 Nguyễn Gia Trí"
                     }
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>Phường</FieldLabel>
+                  <Input
+                    value={draft.ward}
+                    onChange={(v) => setDraft((d) => ({ ...d, ward: v }))}
+                    placeholder="VD: Phường 01"
                   />
                 </div>
 
@@ -1528,23 +1537,32 @@ export default function PostWizard() {
                     value={draft.district}
                     onChange={(v) => setDraft((d) => ({ ...d, district: v }))}
                     options={[
-                      { value: "Bình Thạnh", label: "Bình Thạnh" },
-                      { value: "Gò Vấp", label: "Gò Vấp" },
-                      { value: "Thủ Đức", label: "Thủ Đức" },
                       { value: "Quận 1", label: "Quận 1" },
+                      { value: "Quận 3", label: "Quận 3" },
+                      { value: "Quận 4", label: "Quận 4" },
+                      { value: "Quận 5", label: "Quận 5" },
+                      { value: "Quận 6", label: "Quận 6" },
                       { value: "Quận 7", label: "Quận 7" },
+                      { value: "Quận 8", label: "Quận 8" },
+                      { value: "Quận 10", label: "Quận 10" },
+                      { value: "Quận 11", label: "Quận 11" },
+                      { value: "Quận 12", label: "Quận 12" },
+                      { value: "Quận Bình Thạnh", label: "Quận Bình Thạnh" },
+                      { value: "Quận Gò Vấp", label: "Quận Gò Vấp" },
+                      { value: "Quận Phú Nhuận", label: "Quận Phú Nhuận" },
+                      { value: "Quận Tân Bình", label: "Quận Tân Bình" },
+                      { value: "Quận Tân Phú", label: "Quận Tân Phú" },
+                      { value: "Quận Bình Tân", label: "Quận Bình Tân" },
+                      { value: "Thành phố Thủ Đức", label: "Thành phố Thủ Đức" },
+                      { value: "Huyện Bình Chánh", label: "Huyện Bình Chánh" },
+                      { value: "Huyện Cần Giờ", label: "Huyện Cần Giờ" },
+                      { value: "Huyện Củ Chi", label: "Huyện Củ Chi" },
+                      { value: "Huyện Hóc Môn", label: "Huyện Hóc Môn" },
+                      { value: "Huyện Nhà Bè", label: "Huyện Nhà Bè" },
                     ]}
                   />
                 </div>
 
-                <div>
-                  <FieldLabel>Phường</FieldLabel>
-                  <Input
-                    value={draft.ward}
-                    onChange={(v) => setDraft((d) => ({ ...d, ward: v }))}
-                    placeholder="VD: Phường 25"
-                  />
-                </div>
                 <div className="md:col-span-2">
                   <FieldLabel>Map</FieldLabel>
                   <div className="space-y-3">
@@ -1930,7 +1948,7 @@ export default function PostWizard() {
 
       {showDiscardDraftDialog ? (
         <div
-          className="fixed inset-0 z-[65] flex items-center justify-center bg-black/50 px-4"
+          className="fixed inset-0 z-65 flex items-center justify-center bg-black/50 px-4"
           onClick={cancelDiscardDraft}
         >
           <div
