@@ -67,47 +67,56 @@ Trích xuất tiêu chí tìm kiếm từ câu tiếng Việt và trả JSON duy
 - Chuẩn campus: CS1/CS2/CS3.
 ${districtHint}`;
 
-    const response = await fetch(`${endpoint}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.1,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: input },
-        ],
-        response_format: { type: 'json_object' },
-      }),
-    });
+    try {
+      const response = await fetch(`${endpoint}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          temperature: 0.1,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: input },
+          ],
+          response_format: { type: 'json_object' },
+        }),
+      });
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`AI provider error: ${response.status} ${text}`);
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`AI provider error: ${response.status} ${text}`);
+      }
+
+      const data = (await response.json()) as {
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) {
+        throw new Error('AI response empty');
+      }
+
+      const parsed = JSON.parse(content) as {
+        criteria?: HousingCriteria;
+        reply?: string;
+      };
+
+      return {
+        criteria: this.sanitizeCriteria(parsed.criteria ?? {}),
+        reply: parsed.reply || 'Mình đã phân tích tiêu chí và áp dụng bộ lọc phù hợp.',
+        provider: model,
+      };
+    } catch {
+      return {
+        criteria: null,
+        reply:
+          'AI cloud tạm thời không khả dụng. Hệ thống sẽ fallback sang parser rule-based ở frontend.',
+        provider: 'fallback',
+      };
     }
-
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) {
-      throw new Error('AI response empty');
-    }
-
-    const parsed = JSON.parse(content) as {
-      criteria?: HousingCriteria;
-      reply?: string;
-    };
-
-    return {
-      criteria: this.sanitizeCriteria(parsed.criteria ?? {}),
-      reply: parsed.reply || 'Mình đã phân tích tiêu chí và áp dụng bộ lọc phù hợp.',
-      provider: model,
-    };
   }
 
   private sanitizeCriteria(criteria: HousingCriteria): HousingCriteria {
@@ -123,7 +132,11 @@ ${districtHint}`;
     for (const key of numericKeys) {
       const value = criteria[key];
       if (typeof value === 'number' && Number.isFinite(value)) {
-        (next as any)[key] = value;
+        if (key === 'priceMin') next.priceMin = value;
+        if (key === 'priceMax') next.priceMax = value;
+        if (key === 'areaMin') next.areaMin = value;
+        if (key === 'areaMax') next.areaMax = value;
+        if (key === 'bedsMin') next.bedsMin = value;
       }
     }
 
