@@ -21,7 +21,6 @@ export default function UserTopBar() {
   useEffect(() => {
     // Nếu chưa đăng nhập HOẶC không có quyền (là admin) thì không gọi API
     if (status !== "authenticated" || !canUseChatAndNotif) return;
-    let active = true;
 
     let active = true;
 
