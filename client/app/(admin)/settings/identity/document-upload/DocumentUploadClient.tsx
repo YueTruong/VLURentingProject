@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const IDENTITY_IMAGE_KEY = "vlu.identity.document.images";
+const VERIFICATION_STORAGE_KEY = "vlu.landlord.verified";
+const VERIFICATION_PENDING_KEY = "vlu.landlord.pending";
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png"];
 
 type IdentityDocumentType = "driver-license" | "passport" | "national-id";
@@ -161,6 +163,7 @@ function UploadCard({
 }
 
 export default function DocumentUploadClient() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const frontInputRef = useRef<HTMLInputElement>(null);
   const backInputRef = useRef<HTMLInputElement>(null);
@@ -223,7 +226,13 @@ export default function DocumentUploadClient() {
           savedAt: new Date().toISOString(),
         }),
       );
+
+      // Mock verification: uploading the required images completes identity verification.
+      window.localStorage.setItem(VERIFICATION_STORAGE_KEY, "true");
+      window.localStorage.removeItem(VERIFICATION_PENDING_KEY);
     }
+
+    router.push("/settings/identity");
   }
 
   return (
