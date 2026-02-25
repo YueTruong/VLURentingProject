@@ -143,9 +143,6 @@ export function AccountSettingsSidebar() {
     { label: "Đăng nhập và bảo mật", href: "/settings?tab=login-security" },
     { label: "Quyền riêng tư", href: "/settings/privacy", active: true },
     { label: "Thông báo" },
-    { label: "Thuế", href: "/settings/tax" },
-    { label: "Thanh toán" },
-    { label: "Ngôn ngữ và tiền tệ" },
     { label: "Đối tác" },
   ];
 
