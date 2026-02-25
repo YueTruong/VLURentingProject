@@ -714,9 +714,8 @@ export default function PostWizard() {
 
   const persistDraft = useCallback(() => {
     try {
-      const rest = Object.fromEntries(
-        Object.entries(draft).filter(([key]) => key !== "images")
-      ) as DraftSnapshot["draft"];
+      const { images, ...rest } = draft;
+      void images;
       const payload: DraftSnapshot = {
         version: DRAFT_STORAGE_VERSION,
         savedAt: new Date().toISOString(),
@@ -771,7 +770,7 @@ export default function PostWizard() {
       persistDraft();
     }, DRAFT_SAVE_DELAY);
     return () => clearTimeout(timer);
-  }, [draft, step, postConsents, draftReady, persistDraft]);
+  }, [draftReady, persistDraft]);
 
   useEffect(() => {
     if (!draftNotice) return;
