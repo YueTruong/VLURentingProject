@@ -496,7 +496,7 @@ export default function ProfilePage() {
                     <p>Không tìm thấy tin phù hợp.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4">
                     {filteredListings.map((listing) => (
                       <ListingCard
                         key={listing.id}
