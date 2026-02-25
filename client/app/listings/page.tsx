@@ -672,7 +672,10 @@ export default function ListingsPage() {
     if (!resetRequested) {
       try {
         setAssistantThinking(true);
-        const aiResult = await askHousingAssistant(trimmed, districtFilterOptions);
+        const aiResult = await askHousingAssistant(
+          trimmed,
+          districtFilterOptions.filter((option) => option !== allOption),
+        );
         if (aiResult?.criteria && Object.keys(aiResult.criteria).length > 0) {
           parsed = { ...parsed, ...aiResult.criteria };
         }
