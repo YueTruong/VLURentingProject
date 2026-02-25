@@ -39,7 +39,7 @@ export default function PostPage() {
       <PostWizard />
 
       {isVerified === false ? (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/35 px-4">
+        <div className="fixed inset-0 z-120 flex items-center justify-center bg-black/35 px-4">
           <div
             role="dialog"
             aria-modal="true"
