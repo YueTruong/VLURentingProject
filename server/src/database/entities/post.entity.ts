@@ -19,6 +19,10 @@ import { ReviewEntity } from './review.entity';
 // Tạm thời dùng string
 type PostStatus = 'pending' | 'approved' | 'rejected' | 'rented' | 'hidden';
 
+
+export type Campus = 'CS1' | 'CS2' | 'CS3';
+export type AvailabilityStatus = 'available' | 'rented';
+
 @Entity({ name: 'posts' })
 export class PostEntity {
   @PrimaryGeneratedColumn()
@@ -38,6 +42,24 @@ export class PostEntity {
 
   @Column({ type: 'text' })
   address: string;
+
+  @Column({
+    type: 'enum',
+    enum: ['CS1', 'CS2', 'CS3'],
+    nullable: true,
+  })
+  campus: Campus | null;
+
+  @Column({
+    type: 'enum',
+    enum: ['available', 'rented'],
+    default: 'available',
+  })
+  availability: AvailabilityStatus;
+
+  @Column({ type: 'text', name: 'video_url', nullable: true })
+  videoUrl: string | null;
+
 
   @Column({ type: 'double precision', nullable: true })
   latitude: number;

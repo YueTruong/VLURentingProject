@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { createPost, uploadImages } from "@/app/services/posts";
@@ -35,6 +35,9 @@ type ListingDraft = {
   priceVnd: string; // giá string để format dễ đọc, backend parse sau
   areaM2: string;
   maxPeople: string;
+  campus: "CS1" | "CS2" | "CS3";
+  availability: "available" | "rented";
+  videoUrl: string;
   roommateMoveInDate: string;
   roommateGender: string;
   roommateOccupation: string;
@@ -157,6 +160,9 @@ function createEmptyDraft(): ListingDraft {
     priceVnd: "",
     areaM2: "",
     maxPeople: "1",
+    campus: "CS1",
+    availability: "available",
+    videoUrl: "",
     roommateMoveInDate: "",
     roommateGender: "Không yêu cầu",
     roommateOccupation: "Sinh viên",
@@ -651,9 +657,6 @@ export default function PostWizard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
-  const [mapQuery, setMapQuery] = useState("");
-  const [geoLoading, setGeoLoading] = useState(false);
-  const [geoError, setGeoError] = useState<string | null>(null);
   const [postConsents, setPostConsents] = useState(() => createDefaultConsents());
   const [draftReady, setDraftReady] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
@@ -698,9 +701,6 @@ export default function PostWizard() {
         const safeStep = Math.min(Math.max(parsed.step, 0), steps.length - 1);
         setStep(safeStep);
       }
-      if (typeof parsed.mapQuery === "string") {
-        setMapQuery(parsed.mapQuery);
-      }
       if (parsed.postConsents) {
         setPostConsents({ ...createDefaultConsents(), ...parsed.postConsents });
       }
@@ -712,14 +712,17 @@ export default function PostWizard() {
     }
   };
 
-  const persistDraft = () => {
+  const currentAddress = buildAddress(draft);
+
+  const persistDraft = useCallback(() => {
     try {
       const { images, ...rest } = draft;
+      void images;
       const payload: DraftSnapshot = {
         version: DRAFT_STORAGE_VERSION,
         savedAt: new Date().toISOString(),
         step,
-        mapQuery,
+        mapQuery: currentAddress,
         postConsents,
         draft: rest,
       };
@@ -728,7 +731,7 @@ export default function PostWizard() {
     } catch (error) {
       console.error("Draft save failed.", error);
     }
-  };
+  }, [currentAddress, draft, step, postConsents]);
 
   const clearDraftStorage = (resetForm: boolean) => {
     localStorage.removeItem(DRAFT_STORAGE_KEY);
@@ -736,7 +739,6 @@ export default function PostWizard() {
     if (resetForm) {
       setDraft(createEmptyDraft());
       setStep(0);
-      setMapQuery("");
       setPostConsents(createDefaultConsents());
       setActiveImageIdx(0);
       setSubmitError(null);
@@ -770,7 +772,7 @@ export default function PostWizard() {
       persistDraft();
     }, DRAFT_SAVE_DELAY);
     return () => clearTimeout(timer);
-  }, [draft, step, mapQuery, postConsents, draftReady]);
+  }, [draftReady, persistDraft]);
 
   useEffect(() => {
     if (!draftNotice) return;
@@ -862,42 +864,6 @@ export default function PostWizard() {
   const roommateRequestedCount = toNumber(draft.maxPeople);
   const roommateOverLimit = roommateMaxCount > 0 && roommateRequestedCount > roommateCapacityLeft;
 
-  async function geocodeAddress() {
-    const query = mapQuery.trim() || buildAddress(draft);
-    if (!query) {
-      setGeoError("missing");
-      return;
-    }
-    setGeoLoading(true);
-    setGeoError(null);
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
-      const res = await fetch(url);
-      if (!res.ok) {
-        setGeoError("failed");
-        return;
-      }
-      const data = (await res.json()) as Array<{ lat?: string; lon?: string }>;
-      const first = data?.[0];
-      const lat = first?.lat ? Number(first.lat) : NaN;
-      const lng = first?.lon ? Number(first.lon) : NaN;
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        setDraft((d) => ({ ...d, lat, lng }));
-        return;
-      }
-      setGeoError("not_found");
-    } catch (error) {
-      console.error(error);
-      setGeoError("failed");
-    } finally {
-      setGeoLoading(false);
-    }
-  }
-
-  function useAddressAsQuery() {
-    setMapQuery(buildAddress(draft));
-  }
-
   function next() {
     if (step < steps.length - 1) setStep(step + 1);
   }
@@ -968,7 +934,7 @@ export default function PostWizard() {
       }
       const categoryName = categoryNameMap[draft.type];
       const amenityNames = collectAmenityNames(draft.amenities);
-      const address = buildAddress(draft);
+      const address = currentAddress;
       const maxOccupancy = toNumber(draft.maxPeople);
       const imageUrls = await uploadImages(draft.images.slice(0, 10));
 
@@ -981,6 +947,9 @@ export default function PostWizard() {
         latitude: draft.lat,
         longitude: draft.lng,
         max_occupancy: maxOccupancy > 0 ? maxOccupancy : undefined,
+        campus: draft.campus,
+        availability: draft.availability,
+        videoUrl: draft.videoUrl.trim() || undefined,
         categoryName,
         amenityNames: amenityNames.length > 0 ? amenityNames : undefined,
         imageUrls,
@@ -1186,6 +1155,45 @@ export default function PostWizard() {
                     onChange={(v) => setDraft((d) => ({ ...d, maxPeople: v.replace(/[^\d]/g, "") }))}
                     placeholder={draft.purpose === "ROOMMATE" ? "VD: 1" : "VD: 2"}
                     inputMode="numeric"
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>Cơ sở VLU</FieldLabel>
+                  <Select
+                    value={draft.campus}
+                    onChange={(v) => setDraft((d) => ({ ...d, campus: v as "CS1" | "CS2" | "CS3" }))}
+                    options={[
+                      { value: "CS1", label: "CS1" },
+                      { value: "CS2", label: "CS2" },
+                      { value: "CS3", label: "CS3" },
+                    ]}
+                  />
+                </div>
+
+                <div>
+                  <FieldLabel>Tình trạng phòng</FieldLabel>
+                  <Select
+                    value={draft.availability}
+                    onChange={(v) =>
+                      setDraft((d) => ({
+                        ...d,
+                        availability: v as "available" | "rented",
+                      }))
+                    }
+                    options={[
+                      { value: "available", label: "Còn phòng" },
+                      { value: "rented", label: "Đã cho thuê" },
+                    ]}
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <FieldLabel>Video URL (không bắt buộc)</FieldLabel>
+                  <Input
+                    value={draft.videoUrl}
+                    onChange={(v) => setDraft((d) => ({ ...d, videoUrl: v }))}
+                    placeholder="VD: https://youtube.com/watch?v=..."
                   />
                 </div>
               </div>
@@ -1500,48 +1508,19 @@ export default function PostWizard() {
                 <div className="md:col-span-2">
                   <FieldLabel>Map</FieldLabel>
                   <div className="space-y-3">
-                    <Input
-                      value={mapQuery}
-                      onChange={(v) => {
-                        setMapQuery(v);
-                        setGeoError(null);
-                      }}
-                      placeholder="Search address (optional)"
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={useAddressAsQuery}
-                        className="inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                      >
-                        Use address
-                      </button>
-                      <button
-                        type="button"
-                        onClick={geocodeAddress}
-                        disabled={geoLoading}
-                        className="inline-flex h-10 items-center justify-center rounded-xl bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-black disabled:opacity-60"
-                      >
-                        {geoLoading ? "Searching..." : "Search on map"}
-                      </button>
-                    </div>
-                    {geoError ? (
-                      <div className="text-xs text-red-600">
-                        {geoError === "missing"
-                          ? "Enter an address first."
-                          : geoError === "not_found"
-                            ? "No result found."
-                            : "Search failed."}
-                      </div>
-                    ) : null}
                     <div className="h-72 overflow-hidden rounded-2xl border border-gray-200 bg-white">
                       <MapPicker
-                        value={draft.lat && draft.lng ? { lat: draft.lat, lng: draft.lng } : null}
+                        defaultAddress={currentAddress}
+                        value={
+                          Number.isFinite(draft.lat) && Number.isFinite(draft.lng)
+                            ? { lat: draft.lat as number, lng: draft.lng as number }
+                            : null
+                        }
                         onChange={(value) => setDraft((d) => ({ ...d, lat: value.lat, lng: value.lng }))}
                       />
                     </div>
-                    <div className="text-xs text-gray-500">Click on the map to set the location.</div>
-                    {draft.lat && draft.lng && (
+                    <div className="text-xs text-gray-500">Bạn có thể lấy tọa độ theo địa chỉ hoặc nhập tay latitude/longitude.</div>
+                    {Number.isFinite(draft.lat) && Number.isFinite(draft.lng) && (
                       <div className="text-xs text-gray-600">
                         lat: {draft.lat} - lng: {draft.lng}
                       </div>

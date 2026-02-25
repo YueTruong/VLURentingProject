@@ -11,6 +11,8 @@ export type Listing = {
   wifi: boolean;
   area: number;
   price: number;
+  latitude?: number;
+  longitude?: number;
   furnished: boolean;
   parking: boolean;
   rating: number;
@@ -18,6 +20,8 @@ export type Listing = {
   updatedAt: number;
   updatedLabel: string;
   tags: string[];
+  availability?: 'available' | 'rented';
+  videoUrl?: string | null;
 };
 
 export const formatPrice = (price: number) => {
