@@ -657,9 +657,6 @@ export default function PostWizard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
-  const [mapQuery, setMapQuery] = useState("");
-  const [geoLoading, setGeoLoading] = useState(false);
-  const [geoError, setGeoError] = useState<string | null>(null);
   const [postConsents, setPostConsents] = useState(() => createDefaultConsents());
   const [draftReady, setDraftReady] = useState(false);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
@@ -704,9 +701,6 @@ export default function PostWizard() {
         const safeStep = Math.min(Math.max(parsed.step, 0), steps.length - 1);
         setStep(safeStep);
       }
-      if (typeof parsed.mapQuery === "string") {
-        setMapQuery(parsed.mapQuery);
-      }
       if (parsed.postConsents) {
         setPostConsents({ ...createDefaultConsents(), ...parsed.postConsents });
       }
@@ -727,7 +721,7 @@ export default function PostWizard() {
         version: DRAFT_STORAGE_VERSION,
         savedAt: new Date().toISOString(),
         step,
-        mapQuery,
+        mapQuery: buildAddress(draft),
         postConsents,
         draft: rest,
       };
@@ -736,7 +730,7 @@ export default function PostWizard() {
     } catch (error) {
       console.error("Draft save failed.", error);
     }
-  }, [draft, step, mapQuery, postConsents]);
+  }, [draft, step, postConsents]);
 
   const clearDraftStorage = (resetForm: boolean) => {
     localStorage.removeItem(DRAFT_STORAGE_KEY);
@@ -744,7 +738,6 @@ export default function PostWizard() {
     if (resetForm) {
       setDraft(createEmptyDraft());
       setStep(0);
-      setMapQuery("");
       setPostConsents(createDefaultConsents());
       setActiveImageIdx(0);
       setSubmitError(null);
@@ -778,7 +771,7 @@ export default function PostWizard() {
       persistDraft();
     }, DRAFT_SAVE_DELAY);
     return () => clearTimeout(timer);
-  }, [draftReady, persistDraft]);
+  }, [draft, step, postConsents, draftReady, persistDraft]);
 
   useEffect(() => {
     if (!draftNotice) return;
@@ -869,42 +862,6 @@ export default function PostWizard() {
   const roommateCapacityLeft = Math.max(0, roommateMaxCount - roommateCurrentCount);
   const roommateRequestedCount = toNumber(draft.maxPeople);
   const roommateOverLimit = roommateMaxCount > 0 && roommateRequestedCount > roommateCapacityLeft;
-
-  async function geocodeAddress() {
-    const query = mapQuery.trim() || buildAddress(draft);
-    if (!query) {
-      setGeoError("missing");
-      return;
-    }
-    setGeoLoading(true);
-    setGeoError(null);
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
-      const res = await fetch(url);
-      if (!res.ok) {
-        setGeoError("failed");
-        return;
-      }
-      const data = (await res.json()) as Array<{ lat?: string; lon?: string }>;
-      const first = data?.[0];
-      const lat = first?.lat ? Number(first.lat) : NaN;
-      const lng = first?.lon ? Number(first.lon) : NaN;
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        setDraft((d) => ({ ...d, lat, lng }));
-        return;
-      }
-      setGeoError("not_found");
-    } catch (error) {
-      console.error(error);
-      setGeoError("failed");
-    } finally {
-      setGeoLoading(false);
-    }
-  }
-
-  function useAddressAsQuery() {
-    setMapQuery(buildAddress(draft));
-  }
 
   function next() {
     if (step < steps.length - 1) setStep(step + 1);
@@ -1562,48 +1519,19 @@ export default function PostWizard() {
                 <div className="md:col-span-2">
                   <FieldLabel>Map</FieldLabel>
                   <div className="space-y-3">
-                    <Input
-                      value={mapQuery}
-                      onChange={(v) => {
-                        setMapQuery(v);
-                        setGeoError(null);
-                      }}
-                      placeholder="Search address (optional)"
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={useAddressAsQuery}
-                        className="inline-flex h-10 items-center justify-center rounded-xl border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                      >
-                        Use address
-                      </button>
-                      <button
-                        type="button"
-                        onClick={geocodeAddress}
-                        disabled={geoLoading}
-                        className="inline-flex h-10 items-center justify-center rounded-xl bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-black disabled:opacity-60"
-                      >
-                        {geoLoading ? "Searching..." : "Search on map"}
-                      </button>
-                    </div>
-                    {geoError ? (
-                      <div className="text-xs text-red-600">
-                        {geoError === "missing"
-                          ? "Enter an address first."
-                          : geoError === "not_found"
-                            ? "No result found."
-                            : "Search failed."}
-                      </div>
-                    ) : null}
                     <div className="h-72 overflow-hidden rounded-2xl border border-gray-200 bg-white">
                       <MapPicker
-                        value={draft.lat && draft.lng ? { lat: draft.lat, lng: draft.lng } : null}
+                        defaultAddress={buildAddress(draft)}
+                        value={
+                          Number.isFinite(draft.lat) && Number.isFinite(draft.lng)
+                            ? { lat: draft.lat as number, lng: draft.lng as number }
+                            : null
+                        }
                         onChange={(value) => setDraft((d) => ({ ...d, lat: value.lat, lng: value.lng }))}
                       />
                     </div>
-                    <div className="text-xs text-gray-500">Click on the map to set the location.</div>
-                    {draft.lat && draft.lng && (
+                    <div className="text-xs text-gray-500">Bạn có thể lấy tọa độ theo địa chỉ hoặc nhập tay latitude/longitude.</div>
+                    {Number.isFinite(draft.lat) && Number.isFinite(draft.lng) && (
                       <div className="text-xs text-gray-600">
                         lat: {draft.lat} - lng: {draft.lng}
                       </div>
