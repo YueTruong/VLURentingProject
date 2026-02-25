@@ -1,7 +1,43 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { DataSource } from 'typeorm';
+
+async function ensurePostsSchema(dataSource: DataSource) {
+  const logger = new Logger('SchemaBootstrap');
+
+  await dataSource.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'posts' AND column_name = 'campus'
+      ) THEN
+        ALTER TABLE posts ADD COLUMN campus varchar(3);
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'posts' AND column_name = 'availability'
+      ) THEN
+        ALTER TABLE posts ADD COLUMN availability varchar(16) NOT NULL DEFAULT 'available';
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'posts' AND column_name = 'video_url'
+      ) THEN
+        ALTER TABLE posts ADD COLUMN video_url text;
+      END IF;
+    END $$;
+  `);
+
+  logger.log('Checked posts schema columns (campus, availability, video_url).');
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -11,6 +47,9 @@ async function bootstrap() {
 
   // Kích hoạt Validation tự động
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+
+  const dataSource = app.get(DataSource);
+  await ensurePostsSchema(dataSource);
 
   // Cấu hình Swagger
   const config = new DocumentBuilder()
