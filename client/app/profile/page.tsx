@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import UserPageShell from "@/app/homepage/components/UserPageShell"; 
 import { getMyPosts, type Post } from "@/app/services/posts"; 
 import { useFavorites, toggleFavorite } from "@/app/services/favorites"; 
@@ -26,6 +26,41 @@ type Listing = {
   updatedLabel: string;
   createdAtValue: number;
   tags: string[];
+};
+
+type ChatProfilePreview = {
+  id: number;
+  email?: string;
+  full_name?: string;
+  avatar_url?: string;
+  phone_number?: string;
+  role?: string;
+  isOnline?: boolean;
+  savedAt?: string;
+};
+
+const CHAT_PROFILE_PREVIEW_KEY = "vlu.chat.profile.preview";
+
+const safeParseChatProfilePreview = (raw: string | null): ChatProfilePreview | null => {
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<ChatProfilePreview>;
+    if (typeof parsed.id !== "number") return null;
+
+    return {
+      id: parsed.id,
+      email: typeof parsed.email === "string" ? parsed.email : "",
+      full_name: typeof parsed.full_name === "string" ? parsed.full_name : "",
+      avatar_url: typeof parsed.avatar_url === "string" ? parsed.avatar_url : "",
+      phone_number: typeof parsed.phone_number === "string" ? parsed.phone_number : "",
+      role: typeof parsed.role === "string" ? parsed.role : "Người dùng",
+      isOnline: Boolean(parsed.isOnline),
+      savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : "",
+    };
+  } catch {
+    return null;
+  }
 };
 
 const toNumber = (value: number | string | undefined | null) => {
@@ -182,13 +217,41 @@ function ListingCard({
 export default function ProfilePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   const [fetchedListings, setFetchedListings] = useState<Listing[]>([]);
   const [loadingListings, setLoadingListings] = useState(false);
   const [listingError, setListingError] = useState(false);
   
   const [listingSearch, setListingSearch] = useState("");
+  const [chatPreviewProfile, setChatPreviewProfile] = useState<ChatProfilePreview | null>(null);
+  const [chatPreviewResolved, setChatPreviewResolved] = useState(false);
   const favorites = useFavorites(); 
+
+  const chatProfileId = useMemo(() => {
+    const raw = searchParams.get("chatUserId");
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [searchParams]);
+
+  const isChatPreviewMode = chatProfileId !== null;
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (!isChatPreviewMode || chatProfileId === null) {
+        setChatPreviewProfile(null);
+        setChatPreviewResolved(true);
+        return;
+      }
+
+      const stored = safeParseChatProfilePreview(window.sessionStorage.getItem(CHAT_PROFILE_PREVIEW_KEY));
+      setChatPreviewProfile(stored && stored.id === chatProfileId ? stored : null);
+      setChatPreviewResolved(true);
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [chatProfileId, isChatPreviewMode]);
 
   const roleKey = session?.user?.role?.toString().toLowerCase() || "student";
   const isStudent = roleKey === "student";
@@ -211,6 +274,7 @@ export default function ProfilePage() {
 
     // ✅ Bọc logic vào một async function để tránh lỗi "synchronous setState" của ESLint
     const loadData = async () => {
+      if (isChatPreviewMode) return;
       if (status !== "authenticated" || isStudent) {
         if (active) setLoadingListings(false);
         return;
@@ -236,7 +300,7 @@ export default function ProfilePage() {
     loadData();
 
     return () => { active = false; };
-  }, [session, status, isStudent]);
+  }, [session, status, isStudent, isChatPreviewMode]);
 
   const studentListings: Listing[] = useMemo(() => {
     return favorites.map((fav) => ({
@@ -337,6 +401,136 @@ export default function ProfilePage() {
     }
     return `Đang hiển thị ${activeListings.length} tin nổi bật.`;
   }, [filteredListings.length, listingError, listingSearch, loadingListings, activeListings.length, isStudent]);
+
+  if (isChatPreviewMode) {
+    const previewName =
+      chatPreviewProfile?.full_name?.trim() || (chatProfileId !== null ? `Người dùng #${chatProfileId}` : "Người dùng");
+    const previewRole = chatPreviewProfile?.role?.trim() || "Người dùng";
+    const previewAvatar = chatPreviewProfile?.avatar_url?.trim() || "";
+    const previewEmail = chatPreviewProfile?.email?.trim() || "Đang cập nhật...";
+    const previewPhone = chatPreviewProfile?.phone_number?.trim() || "Chưa cập nhật";
+    const previewOnline = Boolean(chatPreviewProfile?.isOnline);
+    const isLandlordPreview = previewRole.toLowerCase().includes("trọ");
+
+    return (
+      <UserPageShell
+        title="Hồ sơ người dùng"
+        description="Xem thông tin tài khoản của người bạn đang trò chuyện."
+      >
+        <div className="space-y-6 lg:space-y-8">
+          <section className="relative overflow-hidden rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+            {chatPreviewResolved ? (
+              chatPreviewProfile ? (
+                <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex flex-wrap items-center gap-5">
+                    <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-gray-50 bg-gray-100 shadow-sm dark:border-gray-800 dark:bg-gray-800">
+                      {previewAvatar ? (
+                        <Image src={previewAvatar} alt={previewName} fill className="object-cover" unoptimized />
+                      ) : (
+                        <span className="text-2xl font-bold text-gray-500 dark:text-gray-300">
+                          {previewName.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{previewName}</h1>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                            isLandlordPreview
+                              ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                              : "bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
+                          }`}
+                        >
+                          {previewRole}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                        <span className={`inline-flex h-2 w-2 rounded-full ${previewOnline ? "bg-emerald-500" : "bg-gray-400"}`} />
+                        {previewOnline ? "Đang hoạt động" : "Ngoại tuyến"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => router.push("/chat")}
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#d51f35] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#b01628] active:scale-95"
+                    >
+                      <Icon name="chat" />
+                      Quay lại chat
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-gray-200 p-5 text-sm text-gray-600 dark:border-gray-700 dark:text-gray-300">
+                  Không tìm thấy dữ liệu hồ sơ từ cuộc trò chuyện. Hãy mở lại từ nút thông tin trong trang chat.
+                </div>
+              )
+            ) : (
+              <div className="space-y-3">
+                <div className="h-7 w-48 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />
+                <div className="h-4 w-32 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />
+                <div className="h-20 animate-pulse rounded-2xl bg-gray-100 dark:bg-gray-800" />
+              </div>
+            )}
+          </section>
+
+          {chatPreviewResolved && chatPreviewProfile ? (
+            <section className="grid gap-6 lg:grid-cols-12">
+              <div className="space-y-6 lg:col-span-4">
+                <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                      <Icon name="user" />
+                    </span>
+                    Thông tin liên hệ
+                  </div>
+                  <div className="mt-4 space-y-4">
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/60">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Email</div>
+                      <div className="mt-1 break-all text-sm text-gray-900 dark:text-white">{previewEmail}</div>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/60">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Số điện thoại</div>
+                      <div className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{previewPhone}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6 lg:col-span-8">
+                <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">Chế độ xem từ chat</h2>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    Đây là hồ sơ cơ bản của người dùng bạn đang trò chuyện. Dữ liệu chi tiết khác (như thống kê/tin đăng) chưa được kết nối trong chế độ xem này.
+                  </p>
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => router.push("/chat")}
+                      className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      <Icon name="chat" />
+                      Quay lại cuộc trò chuyện
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => router.push("/profile")}
+                      className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      <Icon name="user" />
+                      Về hồ sơ của tôi
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
+        </div>
+      </UserPageShell>
+    );
+  }
 
   return (
     <UserPageShell

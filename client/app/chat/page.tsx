@@ -23,6 +23,7 @@ import {
 const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 const IMAGE_PREFIX = "[[image]]";
 let socket: Socket;
+const CHAT_PROFILE_PREVIEW_KEY = "vlu.chat.profile.preview";
 
 // --- UTILS FORMAT THỜI GIAN CHUẨN ---
 // Hàm này giải quyết triệt để lỗi mất chữ Z (Múi giờ UTC) từ Database trả về
@@ -150,11 +151,13 @@ function UserProfileModal({
   user, 
   onClose, 
   isOnline,
+  onViewProfile,
   role // Thêm trường role
 }: { 
   user: User; 
   onClose: () => void; 
   isOnline: boolean;
+  onViewProfile: () => void;
   role: string;
 }) {
   return (
@@ -212,9 +215,18 @@ function UserProfileModal({
             )}
           </div>
 
+          <button
+            type="button"
+            onClick={onViewProfile}
+            className="mt-6 w-full rounded-full border border-(--theme-border) bg-(--theme-surface) py-2.5 text-sm font-semibold text-(--theme-text) shadow-sm transition hover:bg-(--theme-surface-muted) active:scale-95"
+          >
+            Xem trang cá nhân
+          </button>
+
           <button 
+            type="button"
             onClick={onClose}
-            className="mt-6 w-full rounded-full bg-(--brand-accent) py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-(--brand-accent-strong) active:scale-95"
+            className="mt-3 w-full rounded-full bg-(--brand-accent) py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-(--brand-accent-strong) active:scale-95"
           >
             Đóng
           </button>
@@ -535,6 +547,31 @@ export default function ChatPage() {
   const currentConv = conversations.find(c => c.id === selectedId);
   const isCurrentPartnerOnline = currentConv ? onlineUsers.includes(currentConv.partner.id) : false;
 
+  const handleViewPartnerProfile = useCallback(() => {
+    if (!currentConv) return;
+
+    const partnerRole = currentConv.partner.id === currentConv.landlord.id ? "Chủ trọ" : "Sinh viên";
+
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem(
+        CHAT_PROFILE_PREVIEW_KEY,
+        JSON.stringify({
+          id: currentConv.partner.id,
+          email: currentConv.partner.email || "",
+          full_name: currentConv.partner.full_name || currentConv.display_name || "",
+          avatar_url: currentConv.partner.avatar_url || currentConv.display_avatar || "",
+          phone_number: currentConv.partner.phone_number || "",
+          role: partnerRole,
+          isOnline: isCurrentPartnerOnline,
+          savedAt: new Date().toISOString(),
+        }),
+      );
+    }
+
+    setShowProfile(false);
+    router.push(`/profile?chatUserId=${currentConv.partner.id}`);
+  }, [currentConv, isCurrentPartnerOnline, router]);
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-(--theme-bg) text-(--theme-text)">
       <div className="flex-none z-50">
@@ -683,6 +720,7 @@ export default function ChatPage() {
                         onClose={() => setShowProfile(false)} 
                         isOnline={isCurrentPartnerOnline}
                         role={currentConv.partner.id === currentConv.landlord.id ? "Chủ trọ" : "Sinh viên"}
+                        onViewProfile={handleViewPartnerProfile}
                     />
                 )}
              </>
