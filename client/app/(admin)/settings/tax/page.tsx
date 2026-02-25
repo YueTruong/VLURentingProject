@@ -96,51 +96,6 @@ export default async function SettingsTaxPage() {
         </MenuIcon>
       ),
     },
-    {
-      label: "Thuế",
-      href: "/settings/tax",
-      active: true,
-      icon: (
-        <MenuIcon>
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <rect x="4" y="3" width="16" height="18" rx="2" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 8h8M8 12h8M8 16h6" />
-          </svg>
-        </MenuIcon>
-      ),
-    },
-    {
-      label: "Thanh toán",
-      icon: (
-        <MenuIcon>
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <rect x="3" y="6" width="18" height="12" rx="2" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18" />
-          </svg>
-        </MenuIcon>
-      ),
-    },
-    {
-      label: "Ngôn ngữ và loại tiền tệ",
-      icon: (
-        <MenuIcon>
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <circle cx="12" cy="12" r="9" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" />
-          </svg>
-        </MenuIcon>
-      ),
-    },
-    {
-      label: "Đi công tác",
-      icon: (
-        <MenuIcon>
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h18M3 12h18M3 17h10" />
-          </svg>
-        </MenuIcon>
-      ),
-    },
   ];
 
   return (
@@ -180,17 +135,6 @@ export default async function SettingsTaxPage() {
                 </button>
               );
             })}
-          </div>
-
-          <div className="mt-6 border-t border-[#e5e7eb] pt-5">
-            <button type="button" className="flex items-start gap-3 text-left text-[15px] leading-6 hover:text-black">
-              <MenuIcon>
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M4 12h16M4 17h10" />
-                </svg>
-              </MenuIcon>
-              <span>Công cụ đón tiếp khách chuyên nghiệp</span>
-            </button>
           </div>
         </aside>
 
