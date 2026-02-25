@@ -183,7 +183,7 @@ const mapPostToListing = (post: Post): Listing => {
     area: formatAreaText(post.area),
     rawArea: toNumberValue(post.area),
     address: post.address || "",
-    campus: post.category?.name ?? "Chưa rõ",
+    campus: post.campus ?? "Chưa rõ",
     rating: "0",
     reviews: 0,
     beds: Math.max(1, Math.round(toNumberValue(post.max_occupancy ?? 1))),
