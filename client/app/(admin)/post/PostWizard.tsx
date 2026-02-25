@@ -1069,12 +1069,6 @@ export default function PostWizard() {
             </span>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Link
-              href="/landlord-verification"
-              className="rounded-full bg-[#D51F35] px-5 py-2 text-sm font-semibold text-white hover:bg-[#b01628]"
-            >
-              Xác minh ngay
-            </Link>
             <button
               type="button"
               onClick={refreshVerificationStatus}
