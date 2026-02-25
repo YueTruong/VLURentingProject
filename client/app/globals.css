@@ -1,5 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@200..900&family=Outfit:wght@100..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap");
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /* =========================
    THEME TOKENS
@@ -8,20 +10,21 @@
 /* LIGHT (default) */
 :root {
   color-scheme: light;
-  --theme-bg: #f8fafc;
+  --theme-bg: #f4f6fb;
   --theme-surface: #ffffff;
-  --theme-surface-muted: #f1f5f9;
+  --theme-surface-muted: #f6f8fc;
   --theme-border: #e2e8f0;
-  --theme-border-strong: #cbd5f5;
+  --theme-border-strong: #cbd5e1;
   --theme-text: #0f172a;
   --theme-text-muted: #475569;
   --theme-text-subtle: #64748b;
   --brand-primary: #010433;
   --brand-primary-soft: rgba(1, 4, 51, 0.12);
   --brand-primary-text: #010433;
-  --brand-accent: #D51F35;
+  --brand-accent: #d51f35;
   --brand-accent-strong: #b01628;
   --brand-accent-soft: rgba(213, 31, 53, 0.15);
+  --focus-ring: rgba(213, 31, 53, 0.18);
   --surface-navy-900: #010433;
   --surface-navy-800: #060c4d;
   --surface-navy-700: #0b144f;
@@ -33,103 +36,95 @@
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-
-    /* nền chính: slate/navy dịu mắt */
-    --theme-bg: #0b1020;
-
-    /* surface: card/header/panel */
+    --theme-bg: #090f1d;
     --theme-surface: #0f172a;
-
-    /* surface-muted: input/hover/section */
-    --theme-surface-muted: #111c33;
-
-    /* border: nhẹ, không gắt */
-    --theme-border: rgba(148, 163, 184, 0.14);
-    --theme-border-strong: rgba(148, 163, 184, 0.22);
-
-    /* text: rõ nhưng không chói */
+    --theme-surface-muted: #141f36;
+    --theme-border: rgba(148, 163, 184, 0.16);
+    --theme-border-strong: rgba(148, 163, 184, 0.28);
     --theme-text: #e5e7eb;
     --theme-text-muted: #cbd5e1;
     --theme-text-subtle: #94a3b8;
-    --brand-primary: #9db4ff;
-    --brand-primary-soft: rgba(157, 180, 255, 0.16);
-    --brand-primary-text: #c7d2fe;
-    --brand-accent: #D51F35;
+    --brand-primary: #b2c2ff;
+    --brand-primary-soft: rgba(178, 194, 255, 0.16);
+    --brand-primary-text: #d7e0ff;
+    --brand-accent: #d51f35;
     --brand-accent-strong: #f43f5e;
     --brand-accent-soft: rgba(213, 31, 53, 0.18);
+    --focus-ring: rgba(244, 63, 94, 0.26);
   }
 }
 
 /* FORCE LIGHT */
 :root[data-theme="light"] {
   color-scheme: light;
-  --theme-bg: #f8fafc;
+  --theme-bg: #f4f6fb;
   --theme-surface: #ffffff;
-  --theme-surface-muted: #f1f5f9;
+  --theme-surface-muted: #f6f8fc;
   --theme-border: #e2e8f0;
-  --theme-border-strong: #cbd5f5;
+  --theme-border-strong: #cbd5e1;
   --theme-text: #0f172a;
   --theme-text-muted: #475569;
   --theme-text-subtle: #64748b;
   --brand-primary: #010433;
   --brand-primary-soft: rgba(1, 4, 51, 0.12);
   --brand-primary-text: #010433;
-  --brand-accent: #D51F35;
+  --brand-accent: #d51f35;
   --brand-accent-strong: #b01628;
   --brand-accent-soft: rgba(213, 31, 53, 0.15);
+  --focus-ring: rgba(213, 31, 53, 0.18);
 }
 
 /* FORCE DARK */
 :root[data-theme="dark"] {
   color-scheme: dark;
-
-  /* nền chính: slate/navy dịu mắt */
-  --theme-bg: #0b1020;
-
-  /* surface: card/header/panel */
+  --theme-bg: #090f1d;
   --theme-surface: #0f172a;
-
-  /* surface-muted: input/hover/section */
-  --theme-surface-muted: #111c33;
-
-  /* border: nhẹ, không gắt */
-  --theme-border: rgba(148, 163, 184, 0.14);
-  --theme-border-strong: rgba(148, 163, 184, 0.22);
-
-  /* text: rõ nhưng không chói */
+  --theme-surface-muted: #141f36;
+  --theme-border: rgba(148, 163, 184, 0.16);
+  --theme-border-strong: rgba(148, 163, 184, 0.28);
   --theme-text: #e5e7eb;
   --theme-text-muted: #cbd5e1;
   --theme-text-subtle: #94a3b8;
-  --brand-primary: #9db4ff;
-  --brand-primary-soft: rgba(157, 180, 255, 0.16);
-  --brand-primary-text: #c7d2fe;
-  --brand-accent: #D51F35;
+  --brand-primary: #b2c2ff;
+  --brand-primary-soft: rgba(178, 194, 255, 0.16);
+  --brand-primary-text: #d7e0ff;
+  --brand-accent: #d51f35;
   --brand-accent-strong: #f43f5e;
   --brand-accent-soft: rgba(213, 31, 53, 0.18);
+  --focus-ring: rgba(244, 63, 94, 0.26);
 }
 
 /* =========================
    GLOBAL BASE
    ========================= */
 
+html,
 body {
   background: var(--theme-bg);
   color: var(--theme-text);
+}
+
+body {
+  min-height: 100vh;
+  line-height: 1.5;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
     "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji",
     "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Plus Jakarta Sans",
     sans-serif;
 }
 
-/* focus ring đẹp hơn trên dark */
-:root[data-theme="dark"] *:focus-visible {
+*:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25); /* emerald glow */
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+::selection {
+  background: rgba(213, 31, 53, 0.16);
+  color: inherit;
 }
 
 /* =========================
    DARK OVERRIDES FOR COMMON TAILWIND UTILS
-   (giữ UI dùng bg-white/bg-gray/text-gray/border-gray mà vẫn đẹp ở dark)
    ========================= */
 
 :root[data-theme="dark"] .bg-white {
@@ -137,7 +132,7 @@ body {
 }
 
 :root[data-theme="dark"] .bg-gray-50 {
-  background-color: #0d1630;
+  background-color: #111a2f;
 }
 
 :root[data-theme="dark"] .bg-gray-100 {
@@ -150,6 +145,10 @@ body {
 
 :root[data-theme="dark"] .bg-gray-300 {
   background-color: rgba(148, 163, 184, 0.18);
+}
+
+:root[data-theme="dark"] .bg-gray-700 {
+  background-color: #1f2937;
 }
 
 :root[data-theme="dark"] .bg-gray-800 {
@@ -173,7 +172,28 @@ body {
   background-color: rgb(15 23 42 / 0.95);
 }
 
+:root[data-theme="dark"] .bg-gray-100\/80 {
+  background-color: rgb(20 31 54 / 0.8);
+}
+
+/* common danger surfaces */
+:root[data-theme="dark"] .bg-red-50 {
+  background-color: rgb(127 29 29 / 0.18);
+}
+
+:root[data-theme="dark"] .bg-red-100 {
+  background-color: rgb(127 29 29 / 0.28);
+}
+
 /* text */
+:root[data-theme="dark"] .text-white {
+  color: #f8fafc;
+}
+
+:root[data-theme="dark"] .text-black {
+  color: var(--theme-text);
+}
+
 :root[data-theme="dark"] .text-gray-900,
 :root[data-theme="dark"] .text-gray-800 {
   color: var(--theme-text);
@@ -193,8 +213,14 @@ body {
   color: #cbd5e1;
 }
 
-:root[data-theme="dark"] .text-gray-200 {
+:root[data-theme="dark"] .text-gray-200,
+:root[data-theme="dark"] .text-gray-100 {
   color: #e5e7eb;
+}
+
+:root[data-theme="dark"] .text-red-600,
+:root[data-theme="dark"] .text-red-700 {
+  color: #fda4af;
 }
 
 /* border */
@@ -207,8 +233,49 @@ body {
   border-color: var(--theme-border-strong);
 }
 
+:root[data-theme="dark"] .border-gray-700,
+:root[data-theme="dark"] .border-gray-800 {
+  border-color: var(--theme-border);
+}
+
+:root[data-theme="dark"] .border-red-200 {
+  border-color: rgb(248 113 113 / 0.25);
+}
+
 :root[data-theme="dark"] .border-gray-900 {
   border-color: rgba(148, 163, 184, 0.28);
+}
+
+/* rings / dividers / placeholders */
+:root[data-theme="dark"] .ring-gray-100,
+:root[data-theme="dark"] .ring-gray-200 {
+  --tw-ring-color: var(--theme-border);
+}
+
+:root[data-theme="dark"] .ring-gray-300 {
+  --tw-ring-color: var(--theme-border-strong);
+}
+
+:root[data-theme="dark"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--theme-border);
+}
+
+:root[data-theme="dark"] .placeholder\:text-gray-400::placeholder,
+:root[data-theme="dark"] .placeholder\:text-gray-500::placeholder {
+  color: var(--theme-text-subtle);
+}
+
+/* hover utilities common in light-only UI */
+:root[data-theme="dark"] .hover\:bg-gray-50:hover {
+  background-color: rgb(20 31 54 / 0.7);
+}
+
+:root[data-theme="dark"] .hover\:bg-gray-100:hover {
+  background-color: rgb(30 41 59 / 0.7);
+}
+
+:root[data-theme="dark"] .hover\:bg-white:hover {
+  background-color: rgb(15 23 42 / 0.95);
 }
 
 .icon-adapt-dark {

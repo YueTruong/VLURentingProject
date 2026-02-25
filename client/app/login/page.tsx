@@ -99,7 +99,7 @@ export default function LoginPage() {
 
               {/* BUTTON 2: GOOGLE */}
                 <button 
-                  onClick={() => signIn("google", { callbackUrl: "/loggedhomepage" })} // 1. Gọi hàm signIn thay vì Link
+                  onClick={() => signIn("google", { callbackUrl: "/" })} // 1. Gọi hàm signIn thay vì Link
                   type="button"
                   className="
                     w-full flex items-center jusitfy-start gap-4 px-6

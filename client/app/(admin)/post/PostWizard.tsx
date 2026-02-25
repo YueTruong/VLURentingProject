@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { createPost, uploadImages } from "@/app/services/posts";
@@ -718,9 +718,11 @@ export default function PostWizard() {
     }
   };
 
-  const persistDraft = () => {
+  const persistDraft = useCallback(() => {
     try {
-      const { images, ...rest } = draft;
+      const rest = Object.fromEntries(
+        Object.entries(draft).filter(([key]) => key !== "images")
+      ) as DraftSnapshot["draft"];
       const payload: DraftSnapshot = {
         version: DRAFT_STORAGE_VERSION,
         savedAt: new Date().toISOString(),
@@ -734,7 +736,7 @@ export default function PostWizard() {
     } catch (error) {
       console.error("Draft save failed.", error);
     }
-  };
+  }, [draft, step, mapQuery, postConsents]);
 
   const clearDraftStorage = (resetForm: boolean) => {
     localStorage.removeItem(DRAFT_STORAGE_KEY);
@@ -776,7 +778,7 @@ export default function PostWizard() {
       persistDraft();
     }, DRAFT_SAVE_DELAY);
     return () => clearTimeout(timer);
-  }, [draft, step, mapQuery, postConsents, draftReady]);
+  }, [draftReady, persistDraft]);
 
   useEffect(() => {
     if (!draftNotice) return;
@@ -1076,12 +1078,6 @@ export default function PostWizard() {
             </span>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Link
-              href="/landlord-verification"
-              className="rounded-full bg-[#D51F35] px-5 py-2 text-sm font-semibold text-white hover:bg-[#b01628]"
-            >
-              Xác minh ngay
-            </Link>
             <button
               type="button"
               onClick={refreshVerificationStatus}

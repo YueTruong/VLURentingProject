@@ -1,12 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useState, type ReactNode } from "react";
 
 type ToggleSwitchProps = {
   checked: boolean;
   onChange: () => void;
   label: string;
 };
+
+type SidebarItem = {
+  label: string;
+  href?: string;
+  active?: boolean;
+};
+
+type SettingsSectionProps = {
+  title: string;
+  children: ReactNode;
+  first?: boolean;
+};
+
+type SettingsRowProps = {
+  title: string;
+  description: ReactNode;
+  trailing: ReactNode;
+};
+
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
+}
 
 function ToggleSwitch({ checked, onChange, label }: ToggleSwitchProps) {
   return (
@@ -16,16 +39,131 @@ function ToggleSwitch({ checked, onChange, label }: ToggleSwitchProps) {
       aria-checked={checked}
       aria-label={label}
       onClick={onChange}
-      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-200 ${
-        checked ? "bg-[#111827]" : "bg-gray-300"
-      }`}
+      className={cn(
+        "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200",
+        checked ? "bg-gray-900 dark:bg-gray-100" : "bg-gray-300 dark:bg-gray-700"
+      )}
     >
       <span
-        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform duration-200 ${
-          checked ? "translate-x-6" : "translate-x-1"
-        }`}
+        className={cn(
+          "inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 dark:bg-gray-900",
+          checked ? "translate-x-5" : "translate-x-0.5"
+        )}
       />
     </button>
+  );
+}
+
+function SettingsRow({ title, description, trailing }: SettingsRowProps) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-5">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{title}</p>
+        <div className="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">{description}</div>
+      </div>
+      <div className="shrink-0 self-center">{trailing}</div>
+    </div>
+  );
+}
+
+function SettingsSection({ title, children, first = false }: SettingsSectionProps) {
+  return (
+    <section className={cn(!first && "mt-10 border-t border-gray-200 pt-8 dark:border-gray-800")}>
+      <div className="border-b border-gray-200 pb-3 dark:border-gray-800">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
+      </div>
+      <div className="divide-y divide-gray-200 dark:divide-gray-800">{children}</div>
+    </section>
+  );
+}
+
+function SettingsArrowRow({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="flex w-full items-start justify-between gap-4 py-5 text-left transition hover:bg-gray-50/70 dark:hover:bg-gray-900/40"
+    >
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{title}</p>
+        <p className="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">{description}</p>
+      </div>
+      <svg
+        viewBox="0 0 24 24"
+        className="mt-0.5 h-5 w-5 shrink-0 text-gray-400 dark:text-gray-500"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 6l6 6-6 6" />
+      </svg>
+    </button>
+  );
+}
+
+function SidebarNav({ items }: { items: SidebarItem[] }) {
+  return (
+    <nav>
+      <ul className="space-y-1">
+        {items.map((item) => {
+          const baseClass = cn(
+            "block rounded-md px-3 py-2.5 text-sm transition",
+            item.active
+              ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+              : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-900/60 dark:hover:text-gray-100"
+          );
+
+          return (
+            <li key={item.label}>
+              {item.href ? (
+                <Link href={item.href} className={baseClass} aria-current={item.active ? "page" : undefined}>
+                  {item.label}
+                </Link>
+              ) : (
+                <button type="button" className={cn(baseClass, "w-full text-left")}>
+                  {item.label}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+export function AccountSettingsSidebar() {
+  const sidebarItems: SidebarItem[] = [
+    { label: "Thông tin cá nhân", href: "/settings" },
+    { label: "Đăng nhập và bảo mật", href: "/settings?tab=login-security" },
+    { label: "Quyền riêng tư", href: "/settings/privacy", active: true },
+    { label: "Thông báo" },
+    { label: "Đối tác" },
+  ];
+
+  return (
+    <aside className="lg:sticky lg:top-8">
+      <div className="hidden lg:block">
+        <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Cài đặt tài khoản</h2>
+        <div className="mt-6">
+          <SidebarNav items={sidebarItems} />
+        </div>
+      </div>
+
+      <details className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-950 lg:hidden">
+        <summary className="cursor-pointer list-none text-sm font-semibold text-gray-900 dark:text-gray-100">
+          Cài đặt tài khoản
+        </summary>
+        <div className="mt-4">
+          <SidebarNav items={sidebarItems} />
+        </div>
+      </details>
+    </aside>
   );
 }
 
@@ -63,6 +201,14 @@ const dataPrivacyRows = [
   "Xóa tài khoản của tôi",
 ];
 
+const dataPrivacyDescriptions: Record<(typeof dataPrivacyRows)[number], string> = {
+  "Yêu cầu cho biết dữ liệu cá nhân của tôi":
+    "Xem và yêu cầu bản sao dữ liệu cá nhân mà hệ thống đang lưu trữ.",
+  "Giúp cải thiện các tính năng được hỗ trợ bởi AI":
+    "Quản lý việc sử dụng dữ liệu để cải thiện trải nghiệm và tính năng AI.",
+  "Xóa tài khoản của tôi": "Yêu cầu xóa tài khoản và dữ liệu liên quan theo chính sách hiện hành.",
+};
+
 export default function PrivacySettingsPage() {
   const [readReceiptsEnabled, setReadReceiptsEnabled] = useState(true);
   const [postPrivacy, setPostPrivacy] = useState<Record<(typeof postSettings)[number]["key"], boolean>>({
@@ -74,92 +220,89 @@ export default function PrivacySettingsPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <main className="mx-auto w-full max-w-[720px] rounded-3xl bg-white px-6 py-10 sm:px-8">
-        <section>
-          <h1 className="mb-6 text-xl font-semibold text-[#111827]">Quyền riêng tư</h1>
+    <div className="min-h-screen bg-white dark:bg-gray-950">
+      <main className="mx-auto w-full max-w-[1200px] px-4 py-10 sm:px-6 lg:px-8">
+        <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-14">
+          <AccountSettingsSidebar />
 
-          <div className="flex items-start justify-between gap-6 rounded-xl px-3 py-4 hover:bg-gray-50">
-            <div className="max-w-[520px]">
-              <h2 className="text-base font-medium text-[#111827]">Thông báo đã đọc tin nhắn</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Cho người khác biết tôi đã đọc tin nhắn của họ.{" "}
-                <button type="button" className="text-[#111827] transition hover:underline">
-                  Tìm hiểu thêm
-                </button>
-              </p>
-            </div>
-            <ToggleSwitch
-              checked={readReceiptsEnabled}
-              onChange={() => setReadReceiptsEnabled((prev) => !prev)}
-              label="Thông báo đã đọc tin nhắn"
-            />
-          </div>
-        </section>
+          <section className="min-w-0">
+            <header className="pb-2">
+              <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Quyền riêng tư</h1>
+            </header>
 
-        <div className="my-6 border-t border-gray-200" />
-
-        <section>
-          <h2 className="text-xl font-semibold text-[#111827]">Bài đăng</h2>
-          <div className="mt-2 divide-y divide-gray-200">
-            {postSettings.map((item) => (
-              <div key={item.key} className="rounded-xl px-3 py-4 transition hover:bg-gray-50">
-                <div className="flex items-start justify-between gap-6">
-                  <div className="max-w-[520px]">
-                    <h3 className="text-base font-medium text-[#111827]">{item.title}</h3>
-                    <p className="mt-1 text-sm text-gray-500">{item.description}</p>
-                  </div>
+            <SettingsSection title="Tin nhắn" first>
+              <SettingsRow
+                title="Thông báo đã đọc tin nhắn"
+                description={
+                  <>
+                    Cho người khác biết tôi đã đọc tin nhắn của họ.{" "}
+                    <button type="button" className="font-medium text-gray-700 hover:underline dark:text-gray-300">
+                      Tìm hiểu thêm
+                    </button>
+                  </>
+                }
+                trailing={
                   <ToggleSwitch
-                    checked={postPrivacy[item.key]}
-                    onChange={() =>
-                      setPostPrivacy((prev) => ({
-                        ...prev,
-                        [item.key]: !prev[item.key],
-                      }))
-                    }
-                    label={item.title}
+                    checked={readReceiptsEnabled}
+                    onChange={() => setReadReceiptsEnabled((prev) => !prev)}
+                    label="Thông báo đã đọc tin nhắn"
                   />
+                }
+              />
+            </SettingsSection>
+
+            <SettingsSection title="Bài đăng">
+              {postSettings.map((item) => (
+                <SettingsRow
+                  key={item.key}
+                  title={item.title}
+                  description={item.description}
+                  trailing={
+                    <ToggleSwitch
+                      checked={postPrivacy[item.key]}
+                      onChange={() =>
+                        setPostPrivacy((prev) => ({
+                          ...prev,
+                          [item.key]: !prev[item.key],
+                        }))
+                      }
+                      label={item.title}
+                    />
+                  }
+                />
+              ))}
+            </SettingsSection>
+
+            <SettingsSection title="Quyền riêng tư dữ liệu">
+              {dataPrivacyRows.map((row) => (
+                <SettingsArrowRow key={row} title={row} description={dataPrivacyDescriptions[row]} />
+              ))}
+            </SettingsSection>
+
+            <section className="mt-10 border-t border-gray-200 pt-8 dark:border-gray-800">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 dark:border-gray-800 dark:bg-gray-900/60">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-red-200 bg-white text-red-600 dark:border-red-900/50 dark:bg-gray-950 dark:text-red-400">
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="5" y="11" width="14" height="10" rx="2" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V8a4 4 0 118 0v3" />
+                    </svg>
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      Cam kết đảm bảo quyền riêng tư
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">
+                      Hãy kiểm tra kỹ các thiết lập trước khi chia sẻ thông tin công khai để đảm bảo quyền riêng tư và
+                      mức độ hiển thị phù hợp với bạn.
+                    </p>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        </section>
-
-        <div className="my-6 border-t border-gray-200" />
-
-        <section>
-          <h2 className="text-xl font-semibold text-[#111827]">Quyền riêng tư đối với dữ liệu</h2>
-          <div className="mt-2">
-            {dataPrivacyRows.map((row) => (
-              <button
-                key={row}
-                type="button"
-                className="flex w-full items-center justify-between rounded-xl border-b border-gray-200 px-4 py-4 text-left transition hover:bg-gray-50"
-              >
-                <span className="text-base font-medium text-[#111827]">{row}</span>
-                <svg viewBox="0 0 24 24" className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 6l6 6-6 6" />
-                </svg>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <section className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-4">
-          <div className="flex gap-3">
-            <span className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-              </svg>
-            </span>
-            <p className="text-sm text-red-700">
-              Cảnh báo: đảm bảo quyền riêng tư của bạn bằng cách kiểm tra kỹ các thiết lập trước khi chia sẻ thông tin cá nhân công khai.
-            </p>
-          </div>
-        </section>
+            </section>
+          </section>
+        </div>
       </main>
     </div>
   );
 }
-
