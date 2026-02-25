@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import UserPageShell from "@/app/homepage/components/UserPageShell";
 import ListingCard from "./components/ListingCard";
 import { getApprovedPosts, type Post } from "@/app/services/posts";
+import { askHousingAssistant } from "@/app/services/ai-assistant";
 import {
   Listing,
   formatArea,
@@ -464,6 +465,7 @@ export default function ListingsPage() {
   const [selectedMapId, setSelectedMapId] = useState<number | null>(null);
 
   const [assistantInput, setAssistantInput] = useState("");
+  const [assistantThinking, setAssistantThinking] = useState(false);
   const [assistantCriteria, setAssistantCriteria] = useState<Criteria | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -651,7 +653,7 @@ export default function ListingsPage() {
     return buildSummary(assistantExtras);
   }, [assistantExtras]);
 
-  const handleSend = (value: string) => {
+  const handleSend = async (value: string) => {
     const trimmed = value.trim();
     if (!trimmed) return;
 
@@ -662,10 +664,29 @@ export default function ListingsPage() {
       time: formatTime(),
     };
 
-    const parsed = parseCriteria(trimmed, districtFilterOptions);
-    const summary = buildSummary(parsed);
-    let assistantText = "";
     const resetRequested = isResetCommand(trimmed);
+
+    let parsed = parseCriteria(trimmed, districtFilterOptions);
+    let assistantText = "";
+
+    if (!resetRequested) {
+      try {
+        setAssistantThinking(true);
+        const aiResult = await askHousingAssistant(trimmed, districtFilterOptions);
+        if (aiResult?.criteria && Object.keys(aiResult.criteria).length > 0) {
+          parsed = { ...parsed, ...aiResult.criteria };
+        }
+        if (aiResult?.reply?.trim()) {
+          assistantText = aiResult.reply.trim();
+        }
+      } catch {
+        // fallback local parser when AI provider unavailable
+      } finally {
+        setAssistantThinking(false);
+      }
+    }
+
+    const summary = buildSummary(parsed);
 
     if (summary.length === 0 && resetRequested) {
       assistantText = "Mình đã đặt lại bộ lọc về mặc định. Bạn muốn tìm theo tiêu chí nào tiếp theo?";
@@ -683,17 +704,23 @@ export default function ListingsPage() {
     }
 
     if (summary.length === 0) {
-      assistantText = "Mình chưa thấy tiêu chí rõ ràng. Bạn có thể thêm giá, khu vực hoặc tiện ích mong muốn nhé.";
+      if (!assistantText) {
+        assistantText = "Mình chưa thấy tiêu chí rõ ràng. Bạn có thể thêm giá, khu vực hoặc tiện ích mong muốn nhé.";
+      }
     } else {
       const matched = sourceListings.filter((item) => matchesCriteria(item, parsed));
 
-      if (matched.length === 0) {
-        assistantText = `Mình đã lọc theo ${summary.join(", ")} nhưng chưa tìm thấy tin phù hợp. Bạn muốn nới tiêu chí nào không?`;
-      } else {
-        assistantText = `Mình đã lọc theo ${summary.join(", ")} và tìm thấy ${matched.length} tin phù hợp. Bạn muốn mình lọc thêm gì nữa không?`;
+      if (!assistantText) {
+        if (matched.length === 0) {
+          assistantText = `Mình đã lọc theo ${summary.join(", ")} nhưng chưa tìm thấy tin phù hợp. Bạn muốn nới tiêu chí nào không?`;
+        } else {
+          assistantText = `Mình đã lọc theo ${summary.join(", ")} và tìm thấy ${matched.length} tin phù hợp. Bạn muốn mình lọc thêm gì nữa không?`;
+        }
       }
 
-      assistantText += " Mình đã dùng bộ lọc nâng cao theo tiêu chí này.";
+      if (!assistantText.includes("bộ lọc")) {
+        assistantText += " Mình đã dùng bộ lọc nâng cao theo tiêu chí này.";
+      }
     }
 
     const assistantMessage: Message = {
@@ -805,23 +832,26 @@ export default function ListingsPage() {
 
               <div className="border-t border-gray-200 px-4 py-3 dark:border-gray-800">
                 <form
-                  onSubmit={(event) => {
+                  onSubmit={async (event) => {
                     event.preventDefault();
-                    handleSend(assistantInput);
+                    if (assistantThinking) return;
+                    await handleSend(assistantInput);
                   }}
                   className="flex flex-col gap-2 sm:flex-row sm:items-center"
                 >
                   <input
                     value={assistantInput}
+                    disabled={assistantThinking}
                     onChange={(event) => setAssistantInput(event.target.value)}
                     placeholder="Nhập tiêu chí (ví dụ: 2PN, dưới 6 triệu...)"
                     className="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-gray-600"
                   />
                   <button
                     type="submit"
-                    className="w-full rounded-full bg-[#D51F35] px-5 py-3 text-sm font-semibold text-white hover:bg-[#b01628] active:scale-95 sm:w-auto"
+                    disabled={assistantThinking}
+                    className="w-full rounded-full bg-[#D51F35] px-5 py-3 text-sm font-semibold text-white hover:bg-[#b01628] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
-                    Gửi
+                    {assistantThinking ? "AI đang phân tích..." : "Gửi"}
                   </button>
                 </form>
               </div>
