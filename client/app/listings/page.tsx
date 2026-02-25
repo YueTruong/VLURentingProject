@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import UserPageShell from "@/app/homepage/components/UserPageShell";
 import ListingCard from "./components/ListingCard";
 import { getApprovedPosts, type Post } from "@/app/services/posts";
+import { askHousingAssistant } from "@/app/services/ai-assistant";
 import {
   Listing,
   formatArea,
@@ -29,6 +30,7 @@ type Criteria = {
   campus?: string;
   district?: string;
   type?: string;
+  availability?: "available" | "rented";
   query?: string;
   tags?: string[];
 };
@@ -135,6 +137,24 @@ const buildUpdatedLabelFrom = (value?: string | null) => {
   return `Cập nhật ${diffDays} ngày trước`;
 };
 
+const hasCoordinates = (item: Listing) =>
+  typeof item.latitude === "number" &&
+  typeof item.longitude === "number" &&
+  Number.isFinite(item.latitude) &&
+  Number.isFinite(item.longitude);
+
+const hasMapQuery = (item: Listing) => {
+  if (hasCoordinates(item)) return true;
+  return Boolean(item.location?.trim());
+};
+
+const buildMapQuery = (item: Listing) => {
+  if (hasCoordinates(item)) {
+    return `${item.latitude},${item.longitude}`;
+  }
+  return item.location?.trim() || item.district || "Hồ Chí Minh";
+};
+
 const mapPostToListing = (post: Post): Listing => {
   const amenityNames = (post.amenities ?? [])
     .map((amenity) => formatAmenityLabel(amenity?.name ?? ""))
@@ -142,7 +162,7 @@ const mapPostToListing = (post: Post): Listing => {
   const amenityText = normalizeText(amenityNames.join(" "));
   const price = toPriceMillionValue(post.price);
   const area = toNumberValue(post.area);
-  const campusFallback = "Chưa xác định";
+  const campusFallback = "CS1";
   const categoryName = post.category?.name ?? "Unknown";
   const districtRaw = extractLastSegment(post.address || "");
   const updatedSource = post.updatedAt ?? post.createdAt ?? "";
@@ -154,20 +174,24 @@ const mapPostToListing = (post: Post): Listing => {
     image: post.images?.[0]?.image_url || "/images/House.svg",
     location: post.address || "Unknown",
     district: districtRaw || "Chưa cập nhật",
-    campus: campusFallback,
+    campus: post.campus || campusFallback,
     type: categoryName,
     beds: Math.max(1, Math.round(toNumberValue(post.max_occupancy ?? 1))),
     baths: 1,
     wifi: amenityText.includes("wifi"),
     area: Number.isFinite(area) && area > 0 ? area : 0,
     price: Number.isFinite(price) && price > 0 ? price : 0,
-    furnished: false,
+    latitude: typeof post.latitude === "number" ? post.latitude : undefined,
+    longitude: typeof post.longitude === "number" ? post.longitude : undefined,
+    furnished: amenityText.includes("noi that"),
     parking: amenityText.includes("giu xe") || amenityText.includes("parking"),
     rating: 0,
     reviews: 0,
     updatedAt: Number.isFinite(updatedAtValue) ? updatedAtValue : Date.now(),
     updatedLabel: buildUpdatedLabelFrom(updatedSource),
     tags: amenityNames,
+    availability: post.availability || 'available',
+    videoUrl: post.videoUrl || null,
   };
 };
 
@@ -217,7 +241,7 @@ const parseCriteria = (
 
   const campusMatch = normalized.match(/(?:co so|cs|campus|c)\s*[:#-]?\s*(1|2|3)/);
   if (campusMatch) {
-    criteria.campus = `Cơ sở ${campusMatch[1]}`;
+    criteria.campus = `CS${campusMatch[1]}`;
   }
 
   const districtCandidates = districtOptions.filter((d) => d !== "Tất cả");
@@ -242,6 +266,12 @@ const parseCriteria = (
       criteria.type = matcher.type;
       break;
     }
+  }
+
+  if (/da cho thue|het phong|kin phong|full phong/.test(normalized)) {
+    criteria.availability = "rented";
+  } else if (/con phong|con trong|dang mo cho thue/.test(normalized)) {
+    criteria.availability = "available";
   }
 
   const tags = tagMatchers
@@ -337,6 +367,7 @@ const matchesCriteria = (item: Listing, criteria?: Criteria | null) => {
   if (criteria.campus && item.campus !== criteria.campus) return false;
   if (criteria.district && item.district !== criteria.district) return false;
   if (criteria.type && item.type !== criteria.type) return false;
+  if (criteria.availability && item.availability !== criteria.availability) return false;
 
   if (criteria.priceMin !== undefined && item.price < criteria.priceMin) return false;
   if (criteria.priceMax !== undefined && item.price > criteria.priceMax) return false;
@@ -363,6 +394,7 @@ const buildSummary = (criteria: Criteria) => {
   if (criteria.type) parts.push(`loại ${criteria.type}`);
   if (criteria.campus) parts.push(`cơ sở ${criteria.campus.replace("Cơ sở ", "")}`);
   if (criteria.district) parts.push(`khu vực ${criteria.district}`);
+  if (criteria.availability) parts.push(criteria.availability === "rented" ? "trạng thái đã cho thuê" : "trạng thái còn phòng");
 
   if (criteria.priceMin !== undefined && criteria.priceMax !== undefined) {
     parts.push(`giá từ ${formatPrice(criteria.priceMin)} đến ${formatPrice(criteria.priceMax)}`);
@@ -422,6 +454,7 @@ export default function ListingsPage() {
   const [campus, setCampus] = useState(allOption);
   const [district, setDistrict] = useState(allOption);
   const [type, setType] = useState(allOption);
+  const [availability, setAvailability] = useState(allOption);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [minBeds, setMinBeds] = useState("Bất kỳ");
@@ -429,8 +462,10 @@ export default function ListingsPage() {
   const [parkingOnly, setParkingOnly] = useState(false);
   const [furnishedOnly, setFurnishedOnly] = useState(false);
   const [sortBy, setSortBy] = useState("latest");
+  const [selectedMapId, setSelectedMapId] = useState<number | null>(null);
 
   const [assistantInput, setAssistantInput] = useState("");
+  const [assistantThinking, setAssistantThinking] = useState(false);
   const [assistantCriteria, setAssistantCriteria] = useState<Criteria | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -502,6 +537,7 @@ export default function ListingsPage() {
     setCampus(criteria.campus ?? allOption);
     setDistrict(criteria.district ?? allOption);
     setType(criteria.type ?? allOption);
+    setAvailability(criteria.availability ?? allOption);
     setMinPrice(criteria.priceMin !== undefined ? String(criteria.priceMin) : "");
     setMaxPrice(criteria.priceMax !== undefined ? String(criteria.priceMax) : "");
     setMinBeds(criteria.bedsMin !== undefined ? String(criteria.bedsMin) : "Bất kỳ");
@@ -520,6 +556,7 @@ export default function ListingsPage() {
     if (campus !== allOption) criteria.campus = campus;
     if (district !== allOption) criteria.district = district;
     if (type !== allOption) criteria.type = type;
+    if (availability !== allOption) criteria.availability = availability as "available" | "rented";
 
     if (parsedMinPrice !== undefined) criteria.priceMin = parsedMinPrice;
     if (parsedMaxPrice !== undefined) criteria.priceMax = parsedMaxPrice;
@@ -534,7 +571,7 @@ export default function ListingsPage() {
     if (furnishedOnly) criteria.furnished = true;
 
     return criteria;
-  }, [allOption, campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, query, type, wifiOnly]);
+  }, [allOption, availability, campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, query, type, wifiOnly]);
 
   const assistantExtras = useMemo(() => {
     if (!assistantCriteria) return null;
@@ -567,6 +604,20 @@ export default function ListingsPage() {
       });
   }, [assistantExtras, manualCriteria, sortBy, sourceListings]);
 
+
+  const mapListings = useMemo(() => {
+    return filtered.filter((item) => hasMapQuery(item));
+  }, [filtered]);
+
+  const currentMapListing = useMemo(() => {
+    if (mapListings.length === 0) return null;
+    if (selectedMapId) {
+      const matched = mapListings.find((item) => item.id === selectedMapId);
+      if (matched) return matched;
+    }
+    return mapListings[0];
+  }, [mapListings, selectedMapId]);
+
   const stats = useMemo(() => {
     if (filtered.length === 0) {
       return { avgPrice: "--", avgArea: "--", withParking: 0 };
@@ -587,6 +638,7 @@ export default function ListingsPage() {
     if (campus !== allOption) items.push(`Cơ sở: ${campus}`);
     if (district !== allOption) items.push(`Khu vực: ${district}`);
     if (type !== allOption) items.push(`Loại: ${type}`);
+    if (availability !== allOption) items.push(`Tình trạng: ${availability === "rented" ? "Đã cho thuê" : "Còn phòng"}`);
     if (minPrice.trim()) items.push(`Giá từ: ${minPrice} triệu`);
     if (maxPrice.trim()) items.push(`Giá đến: ${maxPrice} triệu`);
     if (minBeds !== "Bất kỳ") items.push(`Giường: ${minBeds}+`);
@@ -594,14 +646,14 @@ export default function ListingsPage() {
     if (parkingOnly) items.push("Có bãi xe");
     if (furnishedOnly) items.push("Đầy đủ nội thất");
     return items;
-  }, [allOption, campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, query, type, wifiOnly]);
+  }, [allOption, availability, campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, query, type, wifiOnly]);
 
   const assistantExtraBadges = useMemo(() => {
     if (!assistantExtras) return [];
     return buildSummary(assistantExtras);
   }, [assistantExtras]);
 
-  const handleSend = (value: string) => {
+  const handleSend = async (value: string) => {
     const trimmed = value.trim();
     if (!trimmed) return;
 
@@ -612,10 +664,32 @@ export default function ListingsPage() {
       time: formatTime(),
     };
 
-    const parsed = parseCriteria(trimmed, districtFilterOptions);
-    const summary = buildSummary(parsed);
-    let assistantText = "";
     const resetRequested = isResetCommand(trimmed);
+
+    let parsed = parseCriteria(trimmed, districtFilterOptions);
+    let assistantText = "";
+
+    if (!resetRequested) {
+      try {
+        setAssistantThinking(true);
+        const aiResult = await askHousingAssistant(
+          trimmed,
+          districtFilterOptions.filter((option) => option !== allOption),
+        );
+        if (aiResult?.criteria && Object.keys(aiResult.criteria).length > 0) {
+          parsed = { ...parsed, ...aiResult.criteria };
+        }
+        if (aiResult?.reply?.trim()) {
+          assistantText = aiResult.reply.trim();
+        }
+      } catch {
+        // fallback local parser when AI provider unavailable
+      } finally {
+        setAssistantThinking(false);
+      }
+    }
+
+    const summary = buildSummary(parsed);
 
     if (summary.length === 0 && resetRequested) {
       assistantText = "Mình đã đặt lại bộ lọc về mặc định. Bạn muốn tìm theo tiêu chí nào tiếp theo?";
@@ -633,17 +707,23 @@ export default function ListingsPage() {
     }
 
     if (summary.length === 0) {
-      assistantText = "Mình chưa thấy tiêu chí rõ ràng. Bạn có thể thêm giá, khu vực hoặc tiện ích mong muốn nhé.";
+      if (!assistantText) {
+        assistantText = "Mình chưa thấy tiêu chí rõ ràng. Bạn có thể thêm giá, khu vực hoặc tiện ích mong muốn nhé.";
+      }
     } else {
       const matched = sourceListings.filter((item) => matchesCriteria(item, parsed));
 
-      if (matched.length === 0) {
-        assistantText = `Mình đã lọc theo ${summary.join(", ")} nhưng chưa tìm thấy tin phù hợp. Bạn muốn nới tiêu chí nào không?`;
-      } else {
-        assistantText = `Mình đã lọc theo ${summary.join(", ")} và tìm thấy ${matched.length} tin phù hợp. Bạn muốn mình lọc thêm gì nữa không?`;
+      if (!assistantText) {
+        if (matched.length === 0) {
+          assistantText = `Mình đã lọc theo ${summary.join(", ")} nhưng chưa tìm thấy tin phù hợp. Bạn muốn nới tiêu chí nào không?`;
+        } else {
+          assistantText = `Mình đã lọc theo ${summary.join(", ")} và tìm thấy ${matched.length} tin phù hợp. Bạn muốn mình lọc thêm gì nữa không?`;
+        }
       }
 
-      assistantText += " Mình đã dùng bộ lọc nâng cao theo tiêu chí này.";
+      if (!assistantText.includes("bộ lọc")) {
+        assistantText += " Mình đã dùng bộ lọc nâng cao theo tiêu chí này.";
+      }
     }
 
     const assistantMessage: Message = {
@@ -667,6 +747,7 @@ export default function ListingsPage() {
     setCampus(allOption);
     setDistrict(allOption);
     setType(allOption);
+    setAvailability(allOption);
     setMinPrice("");
     setMaxPrice("");
     setMinBeds("Bất kỳ");
@@ -754,23 +835,26 @@ export default function ListingsPage() {
 
               <div className="border-t border-gray-200 px-4 py-3 dark:border-gray-800">
                 <form
-                  onSubmit={(event) => {
+                  onSubmit={async (event) => {
                     event.preventDefault();
-                    handleSend(assistantInput);
+                    if (assistantThinking) return;
+                    await handleSend(assistantInput);
                   }}
                   className="flex flex-col gap-2 sm:flex-row sm:items-center"
                 >
                   <input
                     value={assistantInput}
+                    disabled={assistantThinking}
                     onChange={(event) => setAssistantInput(event.target.value)}
                     placeholder="Nhập tiêu chí (ví dụ: 2PN, dưới 6 triệu...)"
                     className="w-full rounded-full border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-gray-600"
                   />
                   <button
                     type="submit"
-                    className="w-full rounded-full bg-[#D51F35] px-5 py-3 text-sm font-semibold text-white hover:bg-[#b01628] active:scale-95 sm:w-auto"
+                    disabled={assistantThinking}
+                    className="w-full rounded-full bg-[#D51F35] px-5 py-3 text-sm font-semibold text-white hover:bg-[#b01628] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
-                    Gửi
+                    {assistantThinking ? "AI đang phân tích..." : "Gửi"}
                   </button>
                 </form>
               </div>
@@ -853,6 +937,22 @@ export default function ListingsPage() {
                       {option}
                     </option>
                   ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="availability" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Tình trạng phòng
+                </label>
+                <select
+                  id="availability"
+                  value={availability}
+                  onChange={(event) => setAvailability(event.target.value)}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                >
+                  <option value={allOption}>{allOption}</option>
+                  <option value="available">Còn phòng</option>
+                  <option value="rented">Đã cho thuê</option>
                 </select>
               </div>
 
@@ -975,6 +1075,58 @@ export default function ListingsPage() {
                   </select>
                 </div>
               </div>
+            </div>
+
+
+            <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-base font-semibold text-gray-900 dark:text-white">Bản đồ trực quan</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {mapListings.length > 0
+                      ? `Có ${mapListings.length} tin có thể hiển thị bản đồ (tọa độ hoặc địa chỉ).`
+                      : "Chưa có tin nào có tọa độ/địa chỉ để hiển thị trên bản đồ."}
+                  </p>
+                </div>
+              </div>
+
+              {currentMapListing ? (
+                <div className="space-y-3">
+                  <div className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700">
+                    <iframe
+                      title="Bản đồ tin đăng"
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(buildMapQuery(currentMapListing))}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                      className="h-80 w-full"
+                      loading="lazy"
+                      allowFullScreen
+                    />
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {mapListings.slice(0, 6).map((mapItem) => (
+                      <button
+                        key={mapItem.id}
+                        type="button"
+                        onClick={() => setSelectedMapId(mapItem.id)}
+                        className={`rounded-xl border px-3 py-2 text-left transition ${
+                          currentMapListing.id === mapItem.id
+                            ? "border-(--brand-accent) bg-(--brand-accent-soft)"
+                            : "border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+                        }`}
+                      >
+                        <p className="line-clamp-1 text-sm font-semibold text-gray-900 dark:text-white">{mapItem.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {mapItem.district} • {formatPrice(mapItem.price)} • {hasCoordinates(mapItem) ? "Theo tọa độ" : "Theo địa chỉ"}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
+                  Hãy bổ sung tọa độ hoặc địa chỉ chi tiết ở bài đăng để bật bản đồ trực quan.
+                </div>
+              )}
             </div>
 
             {/* TRẠNG THÁI LOADING / ERROR / EMPTY */}

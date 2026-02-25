@@ -8,12 +8,17 @@ import {
   Param,
   Query,
   Patch,
+  Delete,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { ReviewsService } from './reviews.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { UserRole } from 'src/auth/dto/register.dto';
 
 @ApiTags('reviews')
 @Controller('reviews')
@@ -48,6 +53,27 @@ export class ReviewsController {
     const parsedLimit = Number.parseInt(limit ?? '', 10);
     const safeLimit = Number.isFinite(parsedLimit) ? parsedLimit : 10;
     return this.reviewsService.findByPostId(parsedPostId, safeLimit);
+  }
+
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @Get('admin')
+  @ApiOperation({ summary: 'Admin lay danh sach review de kiem duyet' })
+  async findForAdmin(@Query('limit') limit?: string, @Query('q') q?: string) {
+    const parsed = Number.parseInt(limit ?? '', 10);
+    const safeLimit = Number.isFinite(parsed) ? parsed : 50;
+    return this.reviewsService.findForAdmin(safeLimit, q);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @Delete('admin/:id')
+  @ApiOperation({ summary: 'Admin xoa review vi pham' })
+  async deleteForAdmin(@Param('id', ParseIntPipe) id: number) {
+    return this.reviewsService.deleteForAdmin(id);
   }
 
   @UseGuards(JwtAuthGuard)

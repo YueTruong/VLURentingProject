@@ -15,19 +15,20 @@ const emitChange = () => {
   listeners.forEach((listener) => listener());
 };
 
-const normalizeFavorite = (item: any): FavoriteRoom | null => {
+const normalizeFavorite = (item: unknown): FavoriteRoom | null => {
   if (!item || typeof item !== "object") return null;
-  if (typeof item.id !== "number") return null;
-  if (typeof item.title !== "string") return null;
-  if (typeof item.image !== "string") return null;
-  if (typeof item.location !== "string") return null;
-  if (typeof item.beds !== "number") return null;
-  if (typeof item.baths !== "number") return null;
-  if (typeof item.wifi !== "boolean") return null;
-  if (typeof item.area !== "string") return null;
-  if (typeof item.price !== "string") return null;
-  const savedAt = typeof item.savedAt === "string" ? item.savedAt : new Date(0).toISOString();
-  return { ...item, savedAt };
+  const candidate = item as Partial<FavoriteRoom>;
+  if (typeof candidate.id !== "number") return null;
+  if (typeof candidate.title !== "string") return null;
+  if (typeof candidate.image !== "string") return null;
+  if (typeof candidate.location !== "string") return null;
+  if (typeof candidate.beds !== "number") return null;
+  if (typeof candidate.baths !== "number") return null;
+  if (typeof candidate.wifi !== "boolean") return null;
+  if (typeof candidate.area !== "string") return null;
+  if (typeof candidate.price !== "string") return null;
+  const savedAt = typeof candidate.savedAt === "string" ? candidate.savedAt : new Date(0).toISOString();
+  return { ...(candidate as FavoriteRoom), savedAt };
 };
 
 const readFavorites = (): FavoriteRoom[] => {

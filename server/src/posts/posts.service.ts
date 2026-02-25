@@ -150,6 +150,8 @@ export class PostsService {
       lat,
       lng,
       radius,
+      campus,
+      availability,
     } = searchPostDto;
 
     const queryBuilder = this.postRepository.createQueryBuilder('post');
@@ -191,6 +193,17 @@ export class PostsService {
     }
     if (area_max) {
       queryBuilder.andWhere('post.area <= :area_max', { area_max });
+    }
+
+
+    if (campus) {
+      queryBuilder.andWhere('post.campus = :campus', { campus });
+    }
+
+    if (availability) {
+      queryBuilder.andWhere('post.availability = :availability', {
+        availability,
+      });
     }
 
     if (category_id) {

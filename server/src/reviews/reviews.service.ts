@@ -164,6 +164,47 @@ export class ReviewsService {
     return this.serializeReview(saved);
   }
 
+
+  async findForAdmin(limit = 50, keyword?: string) {
+    const safeLimit = Number.isFinite(limit)
+      ? Math.min(Math.max(Math.floor(limit), 1), 200)
+      : 50;
+
+    const qb = this.reviewRepository
+      .createQueryBuilder('review')
+      .leftJoinAndSelect('review.user', 'user')
+      .leftJoinAndSelect('user.profile', 'profile')
+      .leftJoinAndSelect('review.post', 'post')
+      .leftJoinAndSelect('post.category', 'category')
+      .orderBy('review.createdAt', 'DESC')
+      .take(safeLimit);
+
+    const term = (keyword ?? '').trim();
+    if (term) {
+      qb.andWhere(
+        '(review.comment ILIKE :term OR user.email ILIKE :term OR user.username ILIKE :term OR post.title ILIKE :term)',
+        { term: `%${term}%` },
+      );
+    }
+
+    const reviews = await qb.getMany();
+    return reviews.map((review) => this.serializeReviewForAdmin(review));
+  }
+
+  async deleteForAdmin(reviewId: number) {
+    if (!Number.isFinite(reviewId) || reviewId <= 0) {
+      throw new BadRequestException('reviewId không hợp lệ');
+    }
+
+    const review = await this.reviewRepository.findOneBy({ id: reviewId });
+    if (!review) {
+      throw new NotFoundException('Không tìm thấy đánh giá');
+    }
+
+    await this.reviewRepository.remove(review);
+    return { success: true, deletedId: reviewId };
+  }
+
   async findByUserId(userId: number, limit = 20) {
     if (!Number.isFinite(userId) || userId <= 0) {
       throw new BadRequestException('userId khong hop le');
@@ -200,6 +241,27 @@ export class ReviewsService {
           }
         : undefined,
     }));
+  }
+
+
+  private serializeReviewForAdmin(review: ReviewEntity) {
+    return {
+      ...this.serializeReview(review),
+      post: review.post
+        ? {
+            id: review.post.id,
+            title: review.post.title,
+            address: review.post.address,
+            status: review.post.status,
+            category: review.post.category
+              ? {
+                  id: review.post.category.id,
+                  name: review.post.category.name,
+                }
+              : undefined,
+          }
+        : undefined,
+    };
   }
 
   private serializeReview(review: ReviewEntity) {
