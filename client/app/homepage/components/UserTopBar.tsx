@@ -23,8 +23,6 @@ export default function UserTopBar() {
     if (status !== "authenticated" || !canUseChatAndNotif) return;
     let active = true;
 
-    let active = true;
-
     const fetchUnread = async () => {
       try {
         const token = session?.user?.accessToken;
