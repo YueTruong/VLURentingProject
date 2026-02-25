@@ -20,6 +20,9 @@ type EditDraft = {
   address: string;
   description: string;
   maxOccupancy: string;
+  campus: "CS1" | "CS2" | "CS3";
+  availability: "available" | "rented";
+  videoUrl: string;
   existingImages: string[];
   newImages: File[];
   imagesTouched: boolean;
@@ -89,9 +92,6 @@ export default function MyPostsPage() {
   
   const { data: session, status } = useSession();
 
-  console.log("Status:", status);
-  console.log("Session:", session);
-  console.log("Token:", session?.user?.accessToken);
 
   useEffect(() => {
     // 1. Nếu session chưa sẵn sàng, không làm gì cả
@@ -149,6 +149,9 @@ export default function MyPostsPage() {
         post.max_occupancy !== undefined && post.max_occupancy !== null
           ? String(post.max_occupancy)
           : "",
+      campus: post.campus ?? "CS1",
+      availability: post.availability ?? "available",
+      videoUrl: post.videoUrl ?? "",
       existingImages,
       newImages: [],
       imagesTouched: false,
@@ -192,6 +195,10 @@ export default function MyPostsPage() {
 
     const maxOcc = parseNumberInput(editDraft.maxOccupancy);
     if (maxOcc !== undefined) payload.max_occupancy = Math.max(1, Math.floor(maxOcc));
+
+    payload.campus = editDraft.campus;
+    payload.availability = editDraft.availability;
+    payload.videoUrl = editDraft.videoUrl.trim() || undefined;
 
     if (Object.keys(payload).length === 0 && !editDraft.imagesTouched) {
       setEditError("Vui lòng nhập ít nhất một thông tin để cập nhật.");
@@ -388,6 +395,8 @@ export default function MyPostsPage() {
                         <span>Giá: {formatPriceVnd(post.price)}</span>
                         <span>Diện tích: {post.area ?? "--"} m²</span>
                         <span>Ngày tạo: {formatDate(post.createdAt)}</span>
+                        <span>Cơ sở: {post.campus ?? "--"}</span>
+                        <span>Trạng thái phòng: {post.availability === "rented" ? "Đã cho thuê" : "Còn phòng"}</span>
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2">
@@ -497,6 +506,62 @@ export default function MyPostsPage() {
                   inputMode="numeric"
                 />
               </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-700" htmlFor="edit-campus">
+                  Cơ sở VLU
+                </label>
+                <select
+                  id="edit-campus"
+                  value={editDraft.campus}
+                  onChange={(event) =>
+                    setEditDraft((prev) =>
+                      prev ? { ...prev, campus: event.target.value as "CS1" | "CS2" | "CS3" } : prev,
+                    )
+                  }
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-300"
+                >
+                  <option value="CS1">CS1</option>
+                  <option value="CS2">CS2</option>
+                  <option value="CS3">CS3</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-gray-700" htmlFor="edit-availability">
+                  Tình trạng phòng
+                </label>
+                <select
+                  id="edit-availability"
+                  value={editDraft.availability}
+                  onChange={(event) =>
+                    setEditDraft((prev) =>
+                      prev
+                        ? { ...prev, availability: event.target.value as "available" | "rented" }
+                        : prev,
+                    )
+                  }
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-300"
+                >
+                  <option value="available">Còn phòng</option>
+                  <option value="rented">Đã cho thuê</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="text-sm font-semibold text-gray-700" htmlFor="edit-video-url">
+                  Video URL (không bắt buộc)
+                </label>
+                <input
+                  id="edit-video-url"
+                  value={editDraft.videoUrl}
+                  onChange={(event) =>
+                    setEditDraft((prev) => (prev ? { ...prev, videoUrl: event.target.value } : prev))
+                  }
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-300"
+                  placeholder="https://youtube.com/watch?v=..."
+                />
+              </div>
+
               <div className="md:col-span-2">
                 <label className="text-sm font-semibold text-gray-700" htmlFor="edit-address">
                   Địa chỉ

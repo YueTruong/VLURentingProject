@@ -11,6 +11,7 @@ import { UserEntity } from 'src/database/entities/user.entity';
 import { RoleEntity } from 'src/database/entities/role.entity';
 import { UserProfileEntity } from 'src/database/entities/user-profile.entity';
 import { RegisterDto } from './dto/register.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 
@@ -169,6 +170,56 @@ export class AuthService {
         roles: roleName,
         full_name: fullName, // <-- Trả thẳng về cho Frontend dễ đọc
       },
+    };
+  }
+
+
+  async updateProfile(userId: number, updateProfileDto: UpdateProfileDto) {
+    const profile = await this.profileRepository.findOne({
+      where: { userId },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('Không tìm thấy thông tin profile');
+    }
+
+    const normalizedPhone = updateProfileDto.phoneNumber?.trim();
+    if (normalizedPhone) {
+      const existedPhone = await this.profileRepository.findOne({
+        where: { phone_number: normalizedPhone },
+      });
+
+      if (existedPhone && existedPhone.userId !== userId) {
+        throw new ConflictException('Số điện thoại đã tồn tại');
+      }
+      profile.phone_number = normalizedPhone;
+    } else if (typeof updateProfileDto.phoneNumber === 'string') {
+      profile.phone_number = null;
+    }
+
+    if (typeof updateProfileDto.fullName === 'string') {
+      profile.full_name = updateProfileDto.fullName.trim() || null;
+    }
+
+    if (typeof updateProfileDto.avatarUrl === 'string') {
+      profile.avatar_url = updateProfileDto.avatarUrl.trim() || null;
+    }
+
+    if (typeof updateProfileDto.address === 'string') {
+      profile.address = updateProfileDto.address.trim() || null;
+    }
+
+    const saved = await this.profileRepository.save(profile);
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['role'],
+    });
+
+    return {
+      email: user?.email,
+      role: user?.role?.name,
+      ...saved,
     };
   }
 

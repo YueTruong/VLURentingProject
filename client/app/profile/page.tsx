@@ -9,6 +9,7 @@ import UserPageShell from "@/app/homepage/components/UserPageShell";
 import { getMyPosts, type Post } from "@/app/services/posts"; 
 import { useFavorites, toggleFavorite } from "@/app/services/favorites"; 
 import toast from "react-hot-toast";
+import { getMyProfile, updateMyProfile } from "@/app/services/auth";
 
 type Listing = {
   id: number;
@@ -111,14 +112,14 @@ function Icon({ name }: { name: string }) {
 
 function StatCard({ label, value, icon }: { label: string; value: string; icon: string }) {
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+    <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-4 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-(--theme-text-subtle) dark:text-(--theme-text-subtle)">{label}</span>
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
           <Icon name={icon} />
         </span>
       </div>
-      <div className="mt-3 text-2xl font-semibold text-gray-900 dark:text-white">{value}</div>
+      <div className="mt-3 text-2xl font-semibold text-(--theme-text) dark:text-white">{value}</div>
     </div>
   );
 }
@@ -133,31 +134,31 @@ function ListingCard({
   onToggleSave: () => void;
 }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+    <div className="overflow-hidden rounded-2xl border border-(--theme-border) bg-(--theme-surface) shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
       <div className="flex flex-col md:flex-row">
         <div className="relative h-44 w-full shrink-0 md:h-auto md:w-52">
           <Image src={listing.image} alt={listing.title} fill sizes="(max-width: 768px) 100vw, 208px" className="object-cover" />
           <div className="absolute left-3 top-3 flex flex-wrap gap-2">
-            <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-gray-800 backdrop-blur-sm dark:bg-gray-900/80 dark:text-gray-200">
+            <span className="rounded-full bg-(--theme-surface)/90 px-2.5 py-1 text-[11px] font-semibold text-(--theme-text) backdrop-blur-sm dark:bg-gray-900/80 dark:text-gray-200">
               {listing.category}
             </span>
           </div>
         </div>
         <div className="flex flex-1 flex-col p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{listing.updatedLabel}</p>
-          <div className="mt-1 text-base font-semibold text-gray-900 dark:text-white md:text-lg line-clamp-1">{listing.title}</div>
-          <div className="mt-1 text-sm text-gray-500 dark:text-gray-400 truncate">{listing.location}</div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-(--theme-text-subtle) dark:text-(--theme-text-subtle)">{listing.updatedLabel}</p>
+          <div className="mt-1 text-base font-semibold text-(--theme-text) dark:text-white md:text-lg line-clamp-1">{listing.title}</div>
+          <div className="mt-1 text-sm text-(--theme-text-subtle) dark:text-(--theme-text-subtle) truncate">{listing.location}</div>
 
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-700 dark:text-gray-300">
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-(--theme-text-muted) dark:text-gray-300">
             <span className="inline-flex items-center gap-1.5"><Image src="/icons/Bed-Icon.svg" alt="Giường" width={14} height={14} className="dark:invert opacity-80" />{listing.beds} giường</span>
             <span className="inline-flex items-center gap-1.5"><Image src="/icons/Bath-Icon.svg" alt="Phòng tắm" width={14} height={14} className="dark:invert opacity-80" />{listing.baths} phòng</span>
             <span className="inline-flex items-center gap-1.5"><span className="text-xs">DT</span>{listing.area}</span>
           </div>
 
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-            <span className="text-lg font-bold text-[#d51f35] dark:text-red-400">{listing.price}</span>
+            <span className="text-lg font-bold text-(--brand-accent) dark:text-red-400">{listing.price}</span>
             <div className="flex items-center gap-2">
-              <Link href={`/listings/${listing.id}`} className="rounded-full bg-[#d51f35] px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-[#b01628] dark:hover:bg-red-700">
+              <Link href={`/listings/${listing.id}`} className="rounded-full bg-(--brand-accent) px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-(--brand-accent-strong) dark:hover:bg-red-700">
                 Xem chi tiết
               </Link>
               <button
@@ -166,7 +167,7 @@ function ListingCard({
                 className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition active:scale-95 ${
                   isSaved
                     ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/30 dark:text-red-400"
-                    : "border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                    : "border-(--theme-border) text-(--theme-text-muted) hover:bg-(--theme-surface-muted) dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
                 }`}
               >
                 {isSaved ? "Đã lưu ♥" : "Lưu tin ♡"}
@@ -188,6 +189,9 @@ export default function ProfilePage() {
   const [listingError, setListingError] = useState(false);
   
   const [listingSearch, setListingSearch] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
+  const [profileAddress, setProfileAddress] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
   const favorites = useFavorites(); 
 
   const roleKey = session?.user?.role?.toString().toLowerCase() || "student";
@@ -205,6 +209,26 @@ export default function ProfilePage() {
   }, [session]);
 
   const avatarUrl = session?.user?.image || "/images/Admins.png";
+
+  useEffect(() => {
+    const token = session?.user?.accessToken;
+    if (!token || status !== "authenticated") return;
+
+    let active = true;
+    getMyProfile(token)
+      .then((profile) => {
+        if (!active) return;
+        setProfilePhone(profile.phone_number || "");
+        setProfileAddress(profile.address || "");
+      })
+      .catch(() => {
+        if (!active) return;
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [session, status]);
 
   useEffect(() => {
     let active = true;
@@ -237,6 +261,25 @@ export default function ProfilePage() {
 
     return () => { active = false; };
   }, [session, status, isStudent]);
+
+  const handleSaveProfile = async () => {
+    const token = session?.user?.accessToken;
+    if (!token) return;
+
+    setSavingProfile(true);
+    try {
+      await updateMyProfile(token, {
+        phoneNumber: profilePhone,
+        address: profileAddress,
+      });
+      toast.success("Cập nhật hồ sơ thành công");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Không thể cập nhật hồ sơ";
+      toast.error(message);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const studentListings: Listing[] = useMemo(() => {
     return favorites.map((fav) => ({
@@ -346,7 +389,7 @@ export default function ProfilePage() {
       <div className="space-y-6 lg:space-y-8">
         
         {/* HEADER CÁ NHÂN */}
-        <section className="relative overflow-hidden rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+        <section className="relative overflow-hidden rounded-3xl border border-(--theme-border) bg-(--theme-surface) p-6 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-5">
               <div className="relative h-20 w-20 overflow-hidden rounded-full border-4 border-gray-50 shadow-sm dark:border-gray-800">
@@ -354,12 +397,12 @@ export default function ProfilePage() {
               </div>
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white capitalize">{displayName}</h1>
+                  <h1 className="text-2xl font-bold text-(--theme-text) dark:text-white capitalize">{displayName}</h1>
                   <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
                     {roleKey === "landlord" ? "Chủ trọ" : roleKey === "admin" ? "Admin" : "Sinh viên"}
                   </span>
                 </div>
-                <div className="mt-1 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                <div className="mt-1 flex items-center gap-2 text-sm text-(--theme-text-subtle) dark:text-(--theme-text-subtle)">
                   <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
                   Đang hoạt động
                 </div>
@@ -374,11 +417,11 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <button className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
+              <button className="inline-flex items-center gap-2 rounded-xl border border-(--theme-border) bg-(--theme-surface) px-4 py-2 text-sm font-semibold text-(--theme-text-muted) shadow-sm transition-colors hover:bg-(--theme-surface-muted) dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
                 <Icon name="share" />
                 Chia sẻ
               </button>
-              <button onClick={() => router.push("/chat")} className="inline-flex items-center gap-2 rounded-xl bg-[#d51f35] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#b01628] active:scale-95">
+              <button onClick={() => router.push("/chat")} className="inline-flex items-center gap-2 rounded-xl bg-(--brand-accent) px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-(--brand-accent-strong) active:scale-95">
                 <Icon name="chat" />
                 Hộp thư
               </button>
@@ -397,16 +440,44 @@ export default function ProfilePage() {
         <section className="grid gap-6 lg:grid-cols-12">
           
           <div className="space-y-6 lg:col-span-4">
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
-              <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+            <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-5 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex items-center gap-2 text-sm font-semibold text-(--theme-text) dark:text-white">
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400">
                   <Icon name="user" />
                 </span>
                 Về {displayName}
               </div>
-              <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">{profileBio}</p>
-              
-              <div className="mt-4 space-y-2 text-sm text-gray-600 dark:text-gray-400">
+              <p className="mt-3 text-sm text-(--theme-text-muted) dark:text-(--theme-text-subtle)">{profileBio}</p>
+
+              <div className="mt-4 rounded-2xl border border-(--theme-border) bg-(--theme-surface-muted) p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-(--theme-text-subtle)">Thông tin liên hệ</p>
+                <div className="mt-2 space-y-2">
+                  <input
+                    value={profilePhone}
+                    onChange={(e) => setProfilePhone(e.target.value)}
+                    placeholder="Số điện thoại"
+                    className="w-full rounded-xl border border-(--theme-border) bg-(--theme-surface) px-3 py-2 text-sm text-(--theme-text) outline-none focus:border-(--theme-border-strong)"
+                  />
+                  <input
+                    value={profileAddress}
+                    onChange={(e) => setProfileAddress(e.target.value)}
+                    placeholder="Địa chỉ"
+                    className="w-full rounded-xl border border-(--theme-border) bg-(--theme-surface) px-3 py-2 text-sm text-(--theme-text) outline-none focus:border-(--theme-border-strong)"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveProfile}
+                      disabled={savingProfile}
+                      className="rounded-full bg-(--brand-accent) px-3 py-1.5 text-xs font-semibold text-white hover:bg-(--brand-accent-strong) disabled:opacity-60"
+                    >
+                      {savingProfile ? "Đang lưu..." : "Lưu thông tin"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-2 text-sm text-(--theme-text-muted) dark:text-(--theme-text-subtle)">
                 {!isStudent && (
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-emerald-500" />
@@ -421,18 +492,18 @@ export default function ProfilePage() {
             </div>
 
             {!isStudent && (
-              <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
-                <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
+              <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-5 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex items-center gap-2 text-sm font-semibold text-(--theme-text) dark:text-white">
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
                     <Icon name="calendar" />
                   </span>
                   Thời gian hoạt động
                 </div>
-                <div className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-                  Có bài đăng đầu tiên từ <span className="font-semibold text-gray-900 dark:text-white">{joinedLabel}</span>
+                <div className="mt-3 text-sm text-(--theme-text-muted) dark:text-(--theme-text-subtle)">
+                  Có bài đăng đầu tiên từ <span className="font-semibold text-(--theme-text) dark:text-white">{joinedLabel}</span>
                 </div>
-                <div className="mt-1 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                  <span className="inline-flex h-2 w-2 rounded-full bg-[#d51f35]" />
+                <div className="mt-1 flex items-center gap-2 text-sm text-(--theme-text-muted) dark:text-(--theme-text-subtle)">
+                  <span className="inline-flex h-2 w-2 rounded-full bg-(--brand-accent)" />
                   Khu vực: {listingLocation}
                 </div>
               </div>
@@ -440,20 +511,20 @@ export default function ProfilePage() {
           </div>
 
           <div className="space-y-6 lg:col-span-8">
-            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
-              <div className="flex flex-col gap-4 border-b border-gray-100 pb-5 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+            <div className="rounded-3xl border border-(--theme-border) bg-(--theme-surface) p-6 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+              <div className="flex flex-col gap-4 border-b border-(--theme-border) pb-5 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                  <h2 className="text-lg font-bold text-(--theme-text) dark:text-white">
                     {isStudent ? "Phòng trọ bạn đã lưu" : "Danh sách phòng đang cho thuê"}
                   </h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-sm text-(--theme-text-subtle) dark:text-(--theme-text-subtle) mt-1">
                     {listingSummary}
                   </p>
                 </div>
                 
                 {activeListings.length > 0 && (
                   <div className="relative w-full sm:w-72">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-(--theme-text-subtle)">
                       <Icon name="search" />
                     </span>
                     <input
@@ -461,7 +532,7 @@ export default function ProfilePage() {
                       value={listingSearch}
                       onChange={(e) => setListingSearch(e.target.value)}
                       placeholder="Tìm kiếm nhanh..."
-                      className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-3 text-sm text-gray-700 outline-none transition focus:border-[#d51f35] dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                      className="h-10 w-full rounded-xl border border-(--theme-border) bg-(--theme-surface-muted) pl-10 pr-3 text-sm text-(--theme-text-muted) outline-none transition focus:border-[#d51f35] dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                     />
                   </div>
                 )}
@@ -469,7 +540,7 @@ export default function ProfilePage() {
 
               <div className="mt-5">
                 {loadingListings ? (
-                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-16 text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-(--theme-border) py-16 text-(--theme-text-subtle) dark:border-gray-700 dark:text-(--theme-text-subtle)">
                     <span className="mb-3 animate-spin text-3xl">⏳</span>
                     <p>Đang tải dữ liệu...</p>
                   </div>
@@ -479,19 +550,19 @@ export default function ProfilePage() {
                     <p>Lỗi kết nối. Không thể tải danh sách!</p>
                   </div>
                 ) : activeListings.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-16 text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-(--theme-border) py-16 text-(--theme-text-subtle) dark:border-gray-700 dark:text-(--theme-text-subtle)">
                     <span className="mb-3 text-4xl opacity-40">📂</span>
-                    <p className="font-semibold text-gray-700 dark:text-gray-300">
+                    <p className="font-semibold text-(--theme-text-muted) dark:text-gray-300">
                       {isStudent ? "Bạn chưa lưu phòng yêu thích nào." : "Bạn chưa có tin đăng nào."}
                     </p>
                     {isStudent && (
-                      <Link href="/listings" className="mt-3 text-sm font-semibold text-[#d51f35] hover:underline dark:text-red-400">
+                      <Link href="/listings" className="mt-3 text-sm font-semibold text-(--brand-accent) hover:underline dark:text-red-400">
                         Khám phá phòng trọ ngay →
                       </Link>
                     )}
                   </div>
                 ) : filteredListings.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-16 text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-(--theme-border) py-16 text-(--theme-text-subtle) dark:border-gray-700 dark:text-(--theme-text-subtle)">
                     <span className="mb-3 text-4xl opacity-40">🔍</span>
                     <p>Không tìm thấy tin phù hợp.</p>
                   </div>

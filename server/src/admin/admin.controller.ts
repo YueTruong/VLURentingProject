@@ -9,6 +9,8 @@ import {
   HttpStatus,
   Get,
   Query,
+  Post,
+  Delete,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
@@ -17,6 +19,8 @@ import { Roles } from 'src/common/decorators/roles.decorator';
 import { UpdatePostStatusDto } from './dto/update-post-status.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ManageCategoryDto } from './dto/manage-category.dto';
+import { ManageAmenityDto } from './dto/manage-amenity.dto';
 
 @ApiTags('Admin Management')
 @ApiBearerAuth()
@@ -70,6 +74,78 @@ export class AdminController {
   @ApiOperation({ summary: 'Lấy tất cả người dùng' })
   async getAllUsers() {
     return this.adminService.getAllUsers();
+  }
+
+
+
+  @Get('/categories')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Lấy danh sách danh mục' })
+  async getAllCategories() {
+    return this.adminService.getAllCategories();
+  }
+
+  @Post('/categories')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Tạo danh mục mới' })
+  async createCategory(@Body() payload: ManageCategoryDto) {
+    return this.adminService.createCategory(payload);
+  }
+
+  @Patch('/categories/:id')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Cập nhật danh mục' })
+  async updateCategory(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() payload: ManageCategoryDto,
+  ) {
+    return this.adminService.updateCategory(id, payload);
+  }
+
+  @Delete('/categories/:id')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Xóa danh mục' })
+  async deleteCategory(@Param('id', ParseIntPipe) id: number) {
+    return this.adminService.deleteCategory(id);
+  }
+
+  @Get('/amenities')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Lấy danh sách tiện ích' })
+  async getAllAmenities() {
+    return this.adminService.getAllAmenities();
+  }
+
+  @Post('/amenities')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Tạo tiện ích mới' })
+  async createAmenity(@Body() payload: ManageAmenityDto) {
+    return this.adminService.createAmenity(payload);
+  }
+
+  @Patch('/amenities/:id')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Cập nhật tiện ích' })
+  async updateAmenity(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() payload: ManageAmenityDto,
+  ) {
+    return this.adminService.updateAmenity(id, payload);
+  }
+
+  @Delete('/amenities/:id')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Xóa tiện ích' })
+  async deleteAmenity(@Param('id', ParseIntPipe) id: number) {
+    return this.adminService.deleteAmenity(id);
   }
 
   // API cho phép Admin mở/khoá người dùng
