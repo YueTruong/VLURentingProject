@@ -20,7 +20,7 @@ function cn(...parts: Array<string | false | null | undefined>) {
 
 // Airbnb-ish icon style: inherit color from parent (no hard-coded #111827)
 const IconWrap = ({ children }: { children: React.ReactNode }) => (
-  <span className="inline-flex h-5 w-5 items-center justify-center text-[#111827]">{children}</span>
+  <span className="inline-flex h-6 w-6 items-center justify-center text-[#111827]">{children}</span>
 );
 
 const documentOptions: DocumentOption[] = [
@@ -28,7 +28,7 @@ const documentOptions: DocumentOption[] = [
     key: "driver-license",
     label: "Giấy phép lái xe",
     icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -44,7 +44,7 @@ const documentOptions: DocumentOption[] = [
     key: "passport",
     label: "Hộ chiếu",
     icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
         <circle cx="12" cy="12" r="9" />
         <path
           strokeLinecap="round"
@@ -57,7 +57,7 @@ const documentOptions: DocumentOption[] = [
     key: "national-id",
     label: "Giấy tờ tùy thân",
     icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
         <rect x="3.5" y="5" width="17" height="14" rx="2.2" />
         <circle cx="9" cy="11" r="2.1" />
         <path strokeLinecap="round" d="M6.8 15.2c.9-1.4 2.2-2.2 3.6-2.2s2.7.8 3.6 2.2M14.5 10h4M14.5 13h4" />
@@ -102,16 +102,16 @@ export default function DocumentTypeClient() {
 
   return (
     // Airbnb-like page: centered narrow content, plenty whitespace
-    <div className="min-h-[calc(100vh-72px)] bg-white">
-      <main className="mx-auto w-full max-w-[640px] px-6 pb-16 pt-10">
+    <div className="min-h-[calc(100vh-96px)] bg-white">
+      <main className="mx-auto w-full max-w-[720px] px-4 pb-20 pt-12 sm:px-6">
         {/* Title */}
-        <h1 className="text-[28px] font-semibold leading-[1.15] tracking-[-0.01em] text-[#111827]">
+        <h1 className="text-[32px] font-semibold leading-[1.12] tracking-[-0.01em] text-[#111827] sm:text-[34px]">
           Chọn một loại giấy tờ tùy thân để thêm vào
         </h1>
 
         {/* Country select */}
-        <div className="mt-8">
-          <label htmlFor="country" className="mb-2 block text-sm font-medium text-[#6b7280]">
+        <div className="mt-9">
+          <label htmlFor="country" className="mb-3 block text-[15px] font-medium text-[#6b7280]">
             Quốc gia/khu vực cấp
           </label>
 
@@ -121,7 +121,7 @@ export default function DocumentTypeClient() {
               value={country}
               onChange={(event) => setCountry(event.target.value)}
               className={cn(
-                "h-12 w-full appearance-none rounded-xl border bg-white px-4 pr-10 text-[16px] text-[#111827]",
+                "h-14 w-full appearance-none rounded-2xl border bg-white px-5 pr-12 text-[17px] text-[#111827]",
                 "border-[#d1d5db] outline-none transition",
                 "focus:border-[#111827]"
               )}
@@ -133,7 +133,7 @@ export default function DocumentTypeClient() {
 
             <svg
               viewBox="0 0 24 24"
-              className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]"
+              className="pointer-events-none absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2 text-[#6b7280]"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
@@ -144,7 +144,7 @@ export default function DocumentTypeClient() {
         </div>
 
         {/* Options list (Airbnb style: simple list cards) */}
-        <div className="mt-6 space-y-4">
+        <div className="mt-7 space-y-5">
           {documentOptions.map((option) => {
             const isActive = selectedDocument === option.key;
 
@@ -157,21 +157,21 @@ export default function DocumentTypeClient() {
                   setErrorMessage("");
                 }}
                 className={cn(
-                  "flex w-full items-center gap-4 rounded-2xl border px-6 py-5 text-left transition-all duration-200 ease-out",
+                  "flex w-full items-center gap-5 rounded-2xl border px-7 py-6 text-left transition-all duration-200 ease-out",
                   isActive
                     ? "border-2 border-[#111827] bg-white shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)]"
                     : "border-gray-200 bg-white shadow-none hover:scale-[1.01] hover:border-gray-400 hover:bg-[#fafafa]"
                 )}
               >
                 <IconWrap>{option.icon}</IconWrap>
-                <span className="text-[16px] font-medium text-[#111827]">{option.label}</span>
+                <span className="text-[18px] font-medium text-[#111827]">{option.label}</span>
               </button>
             );
           })}
         </div>
 
         {/* Privacy note */}
-        <p className="mt-6 text-sm leading-6 text-[#6b7280]">
+        <p className="mt-7 text-[15px] leading-7 text-[#6b7280]">
           Thông tin giấy tờ tùy thân của bạn sẽ được xử lý theo{" "}
           <Link href="/user-policy" className="underline underline-offset-2 hover:text-[#111827]">
             Chính sách quyền riêng tư
@@ -181,16 +181,16 @@ export default function DocumentTypeClient() {
 
         {/* Error */}
         {errorMessage ? (
-          <div className="mt-4 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-3 text-sm text-[#b91c1c]">
+          <div className="mt-5 rounded-2xl border border-[#fecaca] bg-[#fef2f2] px-5 py-4 text-[15px] text-[#b91c1c]">
             {errorMessage}
           </div>
         ) : null}
 
         {/* Bottom actions (Airbnb-like) */}
-        <div className="mt-10 flex items-center justify-between border-t border-[#e5e7eb] pt-6">
+        <div className="mt-12 flex items-center justify-between border-t border-[#e5e7eb] pt-7">
           <Link
             href="/settings/identity/capture-method"
-            className="inline-flex items-center gap-2 -ml-1 text-[16px] font-medium text-[#111827] hover:text-black"
+            className="inline-flex items-center gap-2 -ml-1 text-[17px] font-medium text-[#111827] hover:text-black"
           >
             <span aria-hidden>←</span>
             <span className="underline underline-offset-4 decoration-1">Quay lại</span>
@@ -201,7 +201,7 @@ export default function DocumentTypeClient() {
             onClick={handleContinue}
             disabled={!canContinue}
             className={cn(
-              "inline-flex items-center justify-center rounded-full px-7 py-3 text-[16px] font-semibold transition",
+              "inline-flex items-center justify-center rounded-full px-8 py-3.5 text-[17px] font-semibold transition",
               canContinue
                 ? "bg-[#111827] text-white hover:bg-black"
                 : "cursor-not-allowed bg-[#e5e7eb] text-[#9ca3af]"
