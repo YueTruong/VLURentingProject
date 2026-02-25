@@ -712,6 +712,8 @@ export default function PostWizard() {
     }
   };
 
+  const currentAddress = buildAddress(draft);
+
   const persistDraft = useCallback(() => {
     try {
       const { images, ...rest } = draft;
@@ -720,7 +722,7 @@ export default function PostWizard() {
         version: DRAFT_STORAGE_VERSION,
         savedAt: new Date().toISOString(),
         step,
-        mapQuery: buildAddress(draft),
+        mapQuery: currentAddress,
         postConsents,
         draft: rest,
       };
@@ -729,7 +731,7 @@ export default function PostWizard() {
     } catch (error) {
       console.error("Draft save failed.", error);
     }
-  }, [draft, step, postConsents]);
+  }, [currentAddress, draft, step, postConsents]);
 
   const clearDraftStorage = (resetForm: boolean) => {
     localStorage.removeItem(DRAFT_STORAGE_KEY);
@@ -932,7 +934,7 @@ export default function PostWizard() {
       }
       const categoryName = categoryNameMap[draft.type];
       const amenityNames = collectAmenityNames(draft.amenities);
-      const address = buildAddress(draft);
+      const address = currentAddress;
       const maxOccupancy = toNumber(draft.maxPeople);
       const imageUrls = await uploadImages(draft.images.slice(0, 10));
 
@@ -1520,7 +1522,7 @@ export default function PostWizard() {
                   <div className="space-y-3">
                     <div className="h-72 overflow-hidden rounded-2xl border border-gray-200 bg-white">
                       <MapPicker
-                        defaultAddress={buildAddress(draft)}
+                        defaultAddress={currentAddress}
                         value={
                           Number.isFinite(draft.lat) && Number.isFinite(draft.lng)
                             ? { lat: draft.lat as number, lng: draft.lng as number }
