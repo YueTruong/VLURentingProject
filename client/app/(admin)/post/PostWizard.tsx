@@ -1904,13 +1904,3 @@ export default function PostWizard() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
