@@ -29,6 +29,7 @@ type Criteria = {
   campus?: string;
   district?: string;
   type?: string;
+  availability?: "available" | "rented";
   query?: string;
   tags?: string[];
 };
@@ -248,6 +249,12 @@ const parseCriteria = (
     }
   }
 
+  if (/da cho thue|het phong|kin phong|full phong/.test(normalized)) {
+    criteria.availability = "rented";
+  } else if (/con phong|con trong|dang mo cho thue/.test(normalized)) {
+    criteria.availability = "available";
+  }
+
   const tags = tagMatchers
     .filter((matcher) => normalized.includes(matcher.keyword))
     .map((matcher) => matcher.tag);
@@ -341,6 +348,7 @@ const matchesCriteria = (item: Listing, criteria?: Criteria | null) => {
   if (criteria.campus && item.campus !== criteria.campus) return false;
   if (criteria.district && item.district !== criteria.district) return false;
   if (criteria.type && item.type !== criteria.type) return false;
+  if (criteria.availability && item.availability !== criteria.availability) return false;
 
   if (criteria.priceMin !== undefined && item.price < criteria.priceMin) return false;
   if (criteria.priceMax !== undefined && item.price > criteria.priceMax) return false;
@@ -367,6 +375,7 @@ const buildSummary = (criteria: Criteria) => {
   if (criteria.type) parts.push(`loại ${criteria.type}`);
   if (criteria.campus) parts.push(`cơ sở ${criteria.campus.replace("Cơ sở ", "")}`);
   if (criteria.district) parts.push(`khu vực ${criteria.district}`);
+  if (criteria.availability) parts.push(criteria.availability === "rented" ? "trạng thái đã cho thuê" : "trạng thái còn phòng");
 
   if (criteria.priceMin !== undefined && criteria.priceMax !== undefined) {
     parts.push(`giá từ ${formatPrice(criteria.priceMin)} đến ${formatPrice(criteria.priceMax)}`);
@@ -426,6 +435,7 @@ export default function ListingsPage() {
   const [campus, setCampus] = useState(allOption);
   const [district, setDistrict] = useState(allOption);
   const [type, setType] = useState(allOption);
+  const [availability, setAvailability] = useState(allOption);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [minBeds, setMinBeds] = useState("Bất kỳ");
@@ -507,6 +517,7 @@ export default function ListingsPage() {
     setCampus(criteria.campus ?? allOption);
     setDistrict(criteria.district ?? allOption);
     setType(criteria.type ?? allOption);
+    setAvailability(criteria.availability ?? allOption);
     setMinPrice(criteria.priceMin !== undefined ? String(criteria.priceMin) : "");
     setMaxPrice(criteria.priceMax !== undefined ? String(criteria.priceMax) : "");
     setMinBeds(criteria.bedsMin !== undefined ? String(criteria.bedsMin) : "Bất kỳ");
@@ -525,6 +536,7 @@ export default function ListingsPage() {
     if (campus !== allOption) criteria.campus = campus;
     if (district !== allOption) criteria.district = district;
     if (type !== allOption) criteria.type = type;
+    if (availability !== allOption) criteria.availability = availability as "available" | "rented";
 
     if (parsedMinPrice !== undefined) criteria.priceMin = parsedMinPrice;
     if (parsedMaxPrice !== undefined) criteria.priceMax = parsedMaxPrice;
@@ -539,7 +551,7 @@ export default function ListingsPage() {
     if (furnishedOnly) criteria.furnished = true;
 
     return criteria;
-  }, [allOption, campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, query, type, wifiOnly]);
+  }, [allOption, availability, campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, query, type, wifiOnly]);
 
   const assistantExtras = useMemo(() => {
     if (!assistantCriteria) return null;
@@ -612,6 +624,7 @@ export default function ListingsPage() {
     if (campus !== allOption) items.push(`Cơ sở: ${campus}`);
     if (district !== allOption) items.push(`Khu vực: ${district}`);
     if (type !== allOption) items.push(`Loại: ${type}`);
+    if (availability !== allOption) items.push(`Tình trạng: ${availability === "rented" ? "Đã cho thuê" : "Còn phòng"}`);
     if (minPrice.trim()) items.push(`Giá từ: ${minPrice} triệu`);
     if (maxPrice.trim()) items.push(`Giá đến: ${maxPrice} triệu`);
     if (minBeds !== "Bất kỳ") items.push(`Giường: ${minBeds}+`);
@@ -619,7 +632,7 @@ export default function ListingsPage() {
     if (parkingOnly) items.push("Có bãi xe");
     if (furnishedOnly) items.push("Đầy đủ nội thất");
     return items;
-  }, [allOption, campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, query, type, wifiOnly]);
+  }, [allOption, availability, campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, query, type, wifiOnly]);
 
   const assistantExtraBadges = useMemo(() => {
     if (!assistantExtras) return [];
@@ -692,6 +705,7 @@ export default function ListingsPage() {
     setCampus(allOption);
     setDistrict(allOption);
     setType(allOption);
+    setAvailability(allOption);
     setMinPrice("");
     setMaxPrice("");
     setMinBeds("Bất kỳ");
@@ -878,6 +892,22 @@ export default function ListingsPage() {
                       {option}
                     </option>
                   ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="availability" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Tình trạng phòng
+                </label>
+                <select
+                  id="availability"
+                  value={availability}
+                  onChange={(event) => setAvailability(event.target.value)}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                >
+                  <option value={allOption}>{allOption}</option>
+                  <option value="available">Còn phòng</option>
+                  <option value="rented">Đã cho thuê</option>
                 </select>
               </div>
 
