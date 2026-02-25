@@ -144,3 +144,46 @@ Nếu đây là bản hiện tại trước nghiệm thu:
 ### Trạng thái hiện tại sau rà soát
 - Dự án đã quay về trạng thái **có thể build + test ổn định**, phù hợp mốc **60-70%** đã đánh giá ở trên.
 - Vì vậy, có thể chuyển sang giai đoạn triển khai các hạng mục ưu tiên ở mục 5 theo thứ tự đã đề xuất.
+
+---
+
+## 7) Ma trận tính năng theo phạm vi khóa luận
+
+| Phân hệ | Mã tính năng | Tính năng | Người dùng | Độ ưu tiên | Trạng thái |
+|---|---|---|---|---|---|
+| Sinh viên | SV-01 | Đăng ký tài khoản | Student | Cao | Đã hoàn thiện cơ bản |
+| Sinh viên | SV-02 | Đăng nhập/đăng xuất | Student | Cao | Đã hoàn thiện cơ bản |
+| Sinh viên | SV-03 | Tìm kiếm cơ bản theo từ khóa/địa chỉ | Student | Cao | Đã hoàn thiện |
+| Sinh viên | SV-04 | Tìm kiếm nâng cao (giá, diện tích, loại phòng, tiện ích) | Student | Cao | Đã hoàn thiện một phần |
+| Sinh viên | SV-05 | Lọc theo cơ sở VLU (CS1/CS2/CS3) | Student | Cao | Chưa hoàn thiện toàn bộ UI |
+| Sinh viên | SV-06 | Lọc theo trạng thái còn phòng/đã cho thuê | Student | Cao | Chưa hoàn thiện toàn bộ luồng |
+| Sinh viên | SV-07 | Tìm kiếm trực quan trên bản đồ với marker bài đăng | Student | Cao | Chưa hoàn thiện |
+| Sinh viên | SV-08 | Xem chi tiết tin đăng (ảnh, mô tả, tiện ích, review) | Student | Cao | Đã hoàn thiện |
+| Sinh viên | SV-09 | Xem video tin đăng | Student | Trung bình | Đã có dữ liệu, chưa phủ hết UI |
+| Sinh viên | SV-10 | Quản lý hồ sơ cá nhân (xem/cập nhật) | Student | Cao | Đã có xem, thiếu cập nhật đầy đủ |
+| Sinh viên | SV-11 | Đánh giá/nhận xét phòng trọ | Student | Trung bình | Đã hoàn thiện cơ bản |
+| Chủ trọ | CT-01 | Đăng ký/đăng nhập theo role | Landlord | Cao | Đã hoàn thiện cơ bản |
+| Chủ trọ | CT-02 | Tạo tin đăng | Landlord | Cao | Đã hoàn thiện |
+| Chủ trọ | CT-03 | Cập nhật tin đăng | Landlord | Cao | Đã hoàn thiện |
+| Chủ trọ | CT-04 | Xóa tin đăng | Landlord | Trung bình | Đã hoàn thiện |
+| Chủ trọ | CT-05 | Quản lý trạng thái tin đăng (pending/approved/rejected/hidden) | Landlord | Cao | Đã hoàn thiện một phần (phụ thuộc admin) |
+| Chủ trọ | CT-06 | Cập nhật trạng thái còn phòng/đã cho thuê | Landlord | Cao | Chưa hoàn thiện toàn bộ UI |
+| Chủ trọ | CT-07 | Quản lý thông tin liên hệ/hồ sơ chủ trọ | Landlord | Cao | Chưa hoàn thiện |
+| Chủ trọ | CT-08 | Theo dõi đánh giá các tin của mình | Landlord | Trung bình | Đã có dữ liệu, thiếu màn hình tổng hợp |
+| Quản trị viên | AD-01 | Đăng nhập khu vực quản trị | Admin | Cao | Đã hoàn thiện cơ bản |
+| Quản trị viên | AD-02 | Quản lý người dùng (xem danh sách, bật/tắt hoạt động) | Admin | Cao | Đã hoàn thiện một phần |
+| Quản trị viên | AD-03 | Duyệt/từ chối/ẩn bài đăng | Admin | Cao | Đã hoàn thiện |
+| Quản trị viên | AD-04 | Kiểm duyệt/xóa review vi phạm | Admin | Cao | Đã hoàn thiện |
+| Quản trị viên | AD-05 | Quản lý danh mục loại phòng | Admin | Trung bình | Đã hoàn thiện |
+| Quản trị viên | AD-06 | Quản lý danh mục tiện ích | Admin | Trung bình | Đã hoàn thiện |
+| Chat/AI | AI-01 | Chat giữa người dùng theo thời gian thực | Student/Landlord | Trung bình | Đã hoàn thiện cơ bản |
+| Chat/AI | AI-02 | Trợ lý AI parse câu truy vấn và gợi ý bộ lọc | Student | Cao | Đã hoàn thiện mức MVP |
+| Chat/AI | AI-03 | Chatbot AI tích hợp NLP/LLM thực thụ | Student | Trung bình | Chưa hoàn thiện |
+| Nền tảng | PL-01 | Kiến trúc FE-BE tách biệt | Tất cả | Cao | Đã hoàn thiện |
+| Nền tảng | PL-02 | Xác thực JWT và phân quyền role | Tất cả | Cao | Đã hoàn thiện cơ bản |
+| Nền tảng | PL-03 | PostgreSQL + ORM + migration | Tất cả | Cao | Đã hoàn thiện |
+| Nền tảng | PL-04 | Google Maps tích hợp dữ liệu động từ listing | Student | Trung bình | Chưa hoàn thiện |
+
+### Ghi chú sử dụng trong báo cáo
+- Cột **Trạng thái** có thể quy đổi sang thang đo định lượng (0 = chưa có, 0.5 = một phần, 1 = hoàn thiện) để lập biểu đồ mức đáp ứng phạm vi.
+- Các mục trạng thái “chưa hoàn thiện” nên được đưa vào kế hoạch sprint tiếp theo để chứng minh lộ trình cải tiến sau nghiệm thu.
