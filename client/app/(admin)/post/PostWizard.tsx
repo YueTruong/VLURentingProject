@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { createPost, uploadImages } from "@/app/services/posts";
@@ -712,9 +712,10 @@ export default function PostWizard() {
     }
   };
 
-  const persistDraft = () => {
+  const persistDraft = useCallback(() => {
     try {
       const { images, ...rest } = draft;
+      void images;
       const payload: DraftSnapshot = {
         version: DRAFT_STORAGE_VERSION,
         savedAt: new Date().toISOString(),
@@ -728,7 +729,7 @@ export default function PostWizard() {
     } catch (error) {
       console.error("Draft save failed.", error);
     }
-  };
+  }, [draft, step, postConsents]);
 
   const clearDraftStorage = (resetForm: boolean) => {
     localStorage.removeItem(DRAFT_STORAGE_KEY);
@@ -769,7 +770,7 @@ export default function PostWizard() {
       persistDraft();
     }, DRAFT_SAVE_DELAY);
     return () => clearTimeout(timer);
-  }, [draft, step, postConsents, draftReady]);
+  }, [draftReady, persistDraft]);
 
   useEffect(() => {
     if (!draftNotice) return;
