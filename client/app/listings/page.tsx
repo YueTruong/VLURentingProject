@@ -136,6 +136,24 @@ const buildUpdatedLabelFrom = (value?: string | null) => {
   return `Cập nhật ${diffDays} ngày trước`;
 };
 
+const hasCoordinates = (item: Listing) =>
+  typeof item.latitude === "number" &&
+  typeof item.longitude === "number" &&
+  Number.isFinite(item.latitude) &&
+  Number.isFinite(item.longitude);
+
+const hasMapQuery = (item: Listing) => {
+  if (hasCoordinates(item)) return true;
+  return Boolean(item.location?.trim());
+};
+
+const buildMapQuery = (item: Listing) => {
+  if (hasCoordinates(item)) {
+    return `${item.latitude},${item.longitude}`;
+  }
+  return item.location?.trim() || item.district || "Hồ Chí Minh";
+};
+
 const mapPostToListing = (post: Post): Listing => {
   const amenityNames = (post.amenities ?? [])
     .map((amenity) => formatAmenityLabel(amenity?.name ?? ""))
@@ -586,13 +604,7 @@ export default function ListingsPage() {
 
 
   const mapListings = useMemo(() => {
-    return filtered.filter(
-      (item) =>
-        typeof item.latitude === "number" &&
-        typeof item.longitude === "number" &&
-        Number.isFinite(item.latitude) &&
-        Number.isFinite(item.longitude)
-    );
+    return filtered.filter((item) => hasMapQuery(item));
   }, [filtered]);
 
   const currentMapListing = useMemo(() => {
@@ -1039,8 +1051,8 @@ export default function ListingsPage() {
                   <p className="text-base font-semibold text-gray-900 dark:text-white">Bản đồ trực quan</p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     {mapListings.length > 0
-                      ? `Có ${mapListings.length} tin có tọa độ để xem trên bản đồ.`
-                      : "Chưa có tin nào có tọa độ để hiển thị marker."}
+                      ? `Có ${mapListings.length} tin có thể hiển thị bản đồ (tọa độ hoặc địa chỉ).`
+                      : "Chưa có tin nào có tọa độ/địa chỉ để hiển thị trên bản đồ."}
                   </p>
                 </div>
               </div>
@@ -1050,7 +1062,7 @@ export default function ListingsPage() {
                   <div className="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700">
                     <iframe
                       title="Bản đồ tin đăng"
-                      src={`https://maps.google.com/maps?q=${encodeURIComponent(`${currentMapListing.latitude},${currentMapListing.longitude}`)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(buildMapQuery(currentMapListing))}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
                       className="h-80 w-full"
                       loading="lazy"
                       allowFullScreen
@@ -1070,14 +1082,16 @@ export default function ListingsPage() {
                         }`}
                       >
                         <p className="line-clamp-1 text-sm font-semibold text-gray-900 dark:text-white">{mapItem.title}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{mapItem.district} • {formatPrice(mapItem.price)}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {mapItem.district} • {formatPrice(mapItem.price)} • {hasCoordinates(mapItem) ? "Theo tọa độ" : "Theo địa chỉ"}
+                        </p>
                       </button>
                     ))}
                   </div>
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400">
-                  Hãy bổ sung tọa độ (latitude/longitude) ở bài đăng để bật bản đồ trực quan.
+                  Hãy bổ sung tọa độ hoặc địa chỉ chi tiết ở bài đăng để bật bản đồ trực quan.
                 </div>
               )}
             </div>
