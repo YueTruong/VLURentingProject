@@ -66,6 +66,22 @@ npm run test       # unit tests
 npm run test:e2e   # end-to-end tests
 ```
 
+## Quick health checks
+
+From each workspace, run these commands before opening a PR:
+
+```bash
+# frontend
+cd client
+npm run lint
+npm run build
+
+# backend
+cd ../server
+npm run lint
+npm run build
+```
+
 ## Notes
 
 - Configure backend environment variables before running in development.
