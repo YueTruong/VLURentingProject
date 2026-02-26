@@ -303,10 +303,10 @@ export class PostsService {
 
     const { categoryId, amenityIds, imageUrls, ...postData } = updatePostDto;
 
-    const wasRejected = post.status === 'rejected';
+    const requiresReapproval = post.status !== 'pending';
     Object.assign(post, postData);
 
-    if (wasRejected) {
+    if (requiresReapproval) {
       post.status = 'pending';
       post.rejectionReason = null;
       post.resubmittedAt = new Date();
