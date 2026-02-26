@@ -289,10 +289,9 @@ export default function ListingDetailPage() {
     const parsed = Number(id);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }, [id]);
-
   const myReview = useMemo(() => {
     if (!currentUserId) return null;
-    return reviews.find((review) => review.userId === currentUserId) ?? null;
+    return reviews.find((review) => Number(review.userId) === currentUserId) ?? null;
   }, [reviews, currentUserId]);
 
   // Setup Logic Lưu Tin
