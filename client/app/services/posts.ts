@@ -196,7 +196,9 @@ export async function updatePost(id: number, payload: UpdatePostPayload, token: 
   return res.data;
 }
 
-export async function deletePost(id: number) {
-  const res = await api.delete(`/posts/${id}`);
+export async function deletePost(id: number, token: string) {
+  const res = await axios.delete(`${getBaseUrl()}/posts/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return res.data;
 }
