@@ -8,32 +8,18 @@ async function ensurePostsSchema(dataSource: DataSource) {
   const logger = new Logger('SchemaBootstrap');
 
   await dataSource.query(`
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_name = 'posts' AND column_name = 'campus'
-      ) THEN
-        ALTER TABLE posts ADD COLUMN campus varchar(3);
-      END IF;
+    ALTER TABLE IF EXISTS public.posts
+    ADD COLUMN IF NOT EXISTS campus varchar(3);
+  `);
 
-      IF NOT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_name = 'posts' AND column_name = 'availability'
-      ) THEN
-        ALTER TABLE posts ADD COLUMN availability varchar(16) NOT NULL DEFAULT 'available';
-      END IF;
+  await dataSource.query(`
+    ALTER TABLE IF EXISTS public.posts
+    ADD COLUMN IF NOT EXISTS availability varchar(16) NOT NULL DEFAULT 'available';
+  `);
 
-      IF NOT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_name = 'posts' AND column_name = 'video_url'
-      ) THEN
-        ALTER TABLE posts ADD COLUMN video_url text;
-      END IF;
-    END $$;
+  await dataSource.query(`
+    ALTER TABLE IF EXISTS public.posts
+    ADD COLUMN IF NOT EXISTS video_url text;
   `);
 
   logger.log('Checked posts schema columns (campus, availability, video_url).');
