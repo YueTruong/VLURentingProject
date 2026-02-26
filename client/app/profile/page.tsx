@@ -163,10 +163,12 @@ function ListingCard({
   listing,
   isSaved,
   onToggleSave,
+  canSave,
 }: {
   listing: Listing;
   isSaved: boolean;
   onToggleSave: () => void;
+  canSave: boolean;
 }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-(--theme-border) bg-(--theme-surface) shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
@@ -196,17 +198,19 @@ function ListingCard({
               <Link href={`/listings/${listing.id}`} className="rounded-full bg-(--brand-accent) px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-(--brand-accent-strong) dark:hover:bg-red-700">
                 Xem chi tiết
               </Link>
-              <button
-                type="button"
-                onClick={onToggleSave}
-                className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition active:scale-95 ${
-                  isSaved
-                    ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/30 dark:text-red-400"
-                    : "border-(--theme-border) text-(--theme-text-muted) hover:bg-(--theme-surface-muted) dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-                }`}
-              >
-                {isSaved ? "Đã lưu ♥" : "Lưu tin ♡"}
-              </button>
+              {canSave ? (
+                <button
+                  type="button"
+                  onClick={onToggleSave}
+                  className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition active:scale-95 ${
+                    isSaved
+                      ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/30 dark:text-red-400"
+                      : "border-(--theme-border) text-(--theme-text-muted) hover:bg-(--theme-surface-muted) dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  {isSaved ? "Đã lưu ♥" : "Lưu tin ♡"}
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
@@ -259,6 +263,8 @@ export default function ProfilePage() {
 
   const roleKey = session?.user?.role?.toString().toLowerCase() || "student";
   const isStudent = roleKey === "student";
+  const isLandlord = roleKey === "landlord";
+  const isAdmin = roleKey === "admin";
 
   const displayName = useMemo(() => {
     const rawFullName = (session?.user as { full_name?: string })?.full_name;
@@ -298,8 +304,7 @@ export default function ProfilePage() {
 
     // ✅ Bọc logic vào một async function để tránh lỗi "synchronous setState" của ESLint
     const loadData = async () => {
-      if (isChatPreviewMode) return;
-      if (status !== "authenticated" || isStudent) {
+      if (status !== "authenticated" || !isLandlord) {
         if (active) setLoadingListings(false);
         return;
       }
@@ -324,7 +329,7 @@ export default function ProfilePage() {
     loadData();
 
     return () => { active = false; };
-  }, [session, status, isStudent, isChatPreviewMode]);
+  }, [session, status, isLandlord]);
 
   const handleSaveProfile = async () => {
     const token = session?.user?.accessToken;
@@ -365,7 +370,11 @@ export default function ProfilePage() {
     }));
   }, [favorites]);
 
-  const activeListings = isStudent ? studentListings : fetchedListings;
+  const activeListings = useMemo(() => {
+    if (isStudent) return studentListings;
+    if (isLandlord) return fetchedListings;
+    return [];
+  }, [fetchedListings, isLandlord, isStudent, studentListings]);
 
   const filteredListings = useMemo(() => {
     const keyword = listingSearch.trim().toLowerCase();
@@ -376,6 +385,7 @@ export default function ProfilePage() {
   }, [listingSearch, activeListings]);
 
   const handleToggleSave = (listing: Listing) => {
+    if (!isStudent) return;
     const roomData = {
       id: listing.id,
       title: listing.title,
@@ -401,17 +411,17 @@ export default function ProfilePage() {
     const avgArea = total > 0 ? activeListings.reduce((s, l) => s + l.areaValue, 0) / total : 0;
     
     const stats = [];
-    if (!isStudent) {
+    if (isLandlord) {
       stats.push({ label: "Phòng đã đăng", value: String(total), icon: "calendar" });
     }
     stats.push({ label: "Đã yêu thích", value: String(favorites.length), icon: "heart" });
-    
-    if (!isStudent) {
+
+    if (isLandlord) {
       stats.push({ label: "Giá trung bình", value: total > 0 ? formatPrice(avgPrice) : "--", icon: "bolt" });
       stats.push({ label: "Diện tích TB", value: total > 0 ? formatArea(avgArea) : "--", icon: "key" });
     }
     return stats;
-  }, [activeListings, favorites.length, isStudent]);
+  }, [activeListings, favorites.length, isLandlord]);
 
   const verifiedItems = [
     session?.user?.email ? "Email" : null,
@@ -429,12 +439,14 @@ export default function ProfilePage() {
 
   const profileBio = useMemo(() => {
     if (isStudent) return "Hồ sơ cá nhân của sinh viên. Chúc bạn tìm được phòng trọ ưng ý tại VLU Renting.";
+    if (isAdmin) return "Tài khoản quản trị: theo dõi hệ thống và truy cập các công cụ điều hành từ trang quản trị.";
     if (fetchedListings.length === 0) return "Hiện chưa có tin cho thuê được duyệt trên hệ thống.";
     return `Hiện đang có ${fetchedListings.length} tin cho thuê đã được duyệt và hiển thị công khai.`;
-  }, [fetchedListings.length, isStudent]);
+  }, [fetchedListings.length, isStudent, isAdmin]);
 
   const listingSummary = useMemo(() => {
     if (isStudent) return "Hãy dạo một vòng trang chủ để tìm và lưu các phòng bạn yêu thích nhé.";
+    if (isAdmin) return "Quản trị viên không có danh sách phòng cá nhân trong mục này.";
     if (loadingListings) return "Đang tải danh sách...";
     if (listingError) return "Không thể tải danh sách từ hệ thống.";
     if (activeListings.length === 0) return "Chưa có tin cho thuê.";
@@ -443,7 +455,7 @@ export default function ProfilePage() {
       return `Tìm thấy ${filteredListings.length}/${activeListings.length} tin phù hợp.`;
     }
     return `Đang hiển thị ${activeListings.length} tin nổi bật.`;
-  }, [filteredListings.length, listingError, listingSearch, loadingListings, activeListings.length, isStudent]);
+  }, [filteredListings.length, listingError, listingSearch, loadingListings, activeListings.length, isStudent, isAdmin]);
 
   if (isChatPreviewMode) {
     const previewName =
@@ -578,7 +590,7 @@ export default function ProfilePage() {
   return (
     <UserPageShell
       title="Hồ sơ cá nhân"
-      description={isStudent ? "Xem thông tin tài khoản và danh sách các phòng trọ bạn đã lưu." : "Bảng điều khiển quản lý và thống kê các phòng trọ của bạn."}
+      description={isStudent ? "Xem thông tin tài khoản và danh sách các phòng trọ bạn đã lưu." : isLandlord ? "Bảng điều khiển quản lý và thống kê các phòng trọ của bạn." : "Thông tin hồ sơ và truy cập nhanh các chức năng quản trị."}
     >
       <div className="space-y-6 lg:space-y-8">
         
@@ -672,7 +684,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="mt-4 space-y-2 text-sm text-(--theme-text-muted) dark:text-(--theme-text-subtle)">
-                {!isStudent && (
+                {isLandlord && (
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-emerald-500" />
                     Đang hiển thị {fetchedListings.length} tin đã duyệt
@@ -685,7 +697,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {!isStudent && (
+            {isLandlord && (
               <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-5 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
                 <div className="flex items-center gap-2 text-sm font-semibold text-(--theme-text) dark:text-white">
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
@@ -709,14 +721,14 @@ export default function ProfilePage() {
               <div className="flex flex-col gap-4 border-b border-(--theme-border) pb-5 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-(--theme-text) dark:text-white">
-                    {isStudent ? "Phòng trọ bạn đã lưu" : "Danh sách phòng đang cho thuê"}
+                    {isStudent ? "Phòng trọ bạn đã lưu" : isLandlord ? "Danh sách phòng đang cho thuê" : "Thông tin theo vai trò quản trị"}
                   </h2>
                   <p className="text-sm text-(--theme-text-subtle) dark:text-(--theme-text-subtle) mt-1">
                     {listingSummary}
                   </p>
                 </div>
                 
-                {activeListings.length > 0 && (
+                {(isStudent || isLandlord) && activeListings.length > 0 && (
                   <div className="relative w-full sm:w-72">
                     <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-(--theme-text-subtle)">
                       <Icon name="search" />
@@ -747,7 +759,7 @@ export default function ProfilePage() {
                   <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-(--theme-border) py-16 text-(--theme-text-subtle) dark:border-gray-700 dark:text-(--theme-text-subtle)">
                     <span className="mb-3 text-4xl opacity-40">📂</span>
                     <p className="font-semibold text-(--theme-text-muted) dark:text-gray-300">
-                      {isStudent ? "Bạn chưa lưu phòng yêu thích nào." : "Bạn chưa có tin đăng nào."}
+                      {isStudent ? "Bạn chưa lưu phòng yêu thích nào." : isLandlord ? "Bạn chưa có tin đăng nào." : "Tài khoản admin không có danh sách phòng cá nhân."}
                     </p>
                     {isStudent && (
                       <Link href="/listings" className="mt-3 text-sm font-semibold text-(--brand-accent) hover:underline dark:text-red-400">
@@ -768,6 +780,7 @@ export default function ProfilePage() {
                         listing={listing}
                         isSaved={favorites.some((f) => f.id === listing.id)}
                         onToggleSave={() => handleToggleSave(listing)}
+                        canSave={isStudent}
                       />
                     ))}
                   </div>
