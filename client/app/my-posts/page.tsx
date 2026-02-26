@@ -442,13 +442,16 @@ export default function MyPostsPage() {
 
       {editingId && editDraft ? (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-xl">
-            <div className="text-lg font-semibold text-gray-900">Cập nhật bài đăng</div>
-            <div className="mt-1 text-sm text-gray-500">
-              {editingPost?.title || "Bài đăng"} • Các thay đổi sẽ được gửi lại để duyệt nếu cần.
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl">
+            <div className="border-b border-gray-100 px-5 pb-3 pt-5">
+              <div className="text-lg font-semibold text-gray-900">Cập nhật bài đăng</div>
+              <div className="mt-1 text-sm text-gray-500">
+                {editingPost?.title || "Bài đăng"} • Các thay đổi sẽ được gửi lại để duyệt nếu cần.
+              </div>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              <div className="grid gap-4 md:grid-cols-2">
               <div className="md:col-span-2">
                 <label className="text-sm font-semibold text-gray-700" htmlFor="edit-title">
                   Tiêu đề
@@ -657,24 +660,27 @@ export default function MyPostsPage() {
               </div>
             </div>
 
-            {editError ? <div className="mt-3 text-sm text-rose-600">{editError}</div> : null}
+              {editError ? <div className="mt-3 text-sm text-rose-600">{editError}</div> : null}
+            </div>
 
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={closeEdit}
-                className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={savingId === editingId}
-                className="inline-flex h-9 items-center justify-center rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {savingId === editingId ? "Đang lưu..." : "Lưu thay đổi"}
-              </button>
+            <div className="border-t border-gray-100 px-5 py-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeEdit}
+                  className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={savingId === editingId}
+                  className="inline-flex h-9 items-center justify-center rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {savingId === editingId ? "Đang lưu..." : "Lưu thay đổi"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
