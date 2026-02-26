@@ -282,7 +282,6 @@ export default function ListingDetailPage() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState("");
   const [editSuccess, setEditSuccess] = useState("");
-  const [isEditingReview, setIsEditingReview] = useState(false);
 
   const imageCount = listing?.images.length ?? 0;
   const postId = useMemo(() => {
@@ -440,7 +439,6 @@ export default function ListingDetailPage() {
       setReviewSummary({ averageRating: 0, totalReviews: 0 });
       setReviewsLoading(false);
       setReviewsError(false);
-      setIsEditingReview(false);
       return;
     }
 
@@ -479,7 +477,6 @@ export default function ListingDetailPage() {
       setEditComment("");
       setEditError("");
       setEditSuccess("");
-      setIsEditingReview(false);
       return;
     }
     setEditRating(Number.isFinite(myReview.rating) ? myReview.rating : 5);
@@ -489,9 +486,9 @@ export default function ListingDetailPage() {
   const handleSubmitReview = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!postId || !myReview) return;
+    if (!postId) return;
     if (!currentUserId) {
-      setEditError("Vui lòng đăng nhập để chỉnh sửa đánh giá.");
+      setEditError("Vui lòng đăng nhập để gửi đánh giá.");
       return;
     }
     if (!editComment.trim()) {
@@ -507,10 +504,18 @@ export default function ListingDetailPage() {
     setEditSuccess("");
     setEditSubmitting(true);
     try {
-      await updateReview(myReview.id, {
-        rating: editRating,
-        comment: editComment.trim(),
-      });
+      if (myReview) {
+        await updateReview(myReview.id, {
+          rating: editRating,
+          comment: editComment.trim(),
+        });
+      } else {
+        await createReview({
+          postId,
+          rating: editRating,
+          comment: editComment.trim(),
+        });
+      }
 
       const refreshed = await getPostReviews(postId, 20);
       setReviewSummary({
@@ -523,7 +528,11 @@ export default function ListingDetailPage() {
       });
       setReviews((refreshed.reviews ?? []).map(mapPublicReview));
 
-      setEditSuccess("Cập nhật đánh giá thành công.");
+      setEditSuccess(myReview ? "Cập nhật đánh giá thành công." : "Gửi đánh giá thành công.");
+      if (!myReview) {
+        setEditRating(5);
+        setEditComment("");
+      }
     } catch (error) {
       setEditError(getSubmitErrorMessage(error));
     } finally {
@@ -724,7 +733,7 @@ export default function ListingDetailPage() {
                 ) : (
                   <form className="space-y-3" onSubmit={handleSubmitReview}>
                     <div>
-                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Chọn số sao</p>
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{myReview ? "Chỉnh sửa đánh giá của bạn" : "Chọn số sao"}</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {[1, 2, 3, 4, 5].map((value) => (
                           <button
@@ -750,7 +759,7 @@ export default function ListingDetailPage() {
 
                     <div className="flex justify-end">
                       <button type="submit" disabled={editSubmitting} className="rounded-full bg-[#d51f35] px-6 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#b01628] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
-                        {editSubmitting ? "Đang gửi..." : "Gửi đánh giá"}
+                        {editSubmitting ? "Đang gửi..." : myReview ? "Cập nhật đánh giá" : "Gửi đánh giá"}
                       </button>
                     </div>
                   </form>
