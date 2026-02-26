@@ -178,7 +178,6 @@ export default function MyPostsPage() {
     }
 
     const payload: UpdatePostPayload = {};
-    const wasRejected = editingPost?.status === "rejected";
 
     const title = editDraft.title.trim();
     const address = editDraft.address.trim();
@@ -217,10 +216,14 @@ export default function MyPostsPage() {
       
       const updated = (result as { data?: Post })?.data ?? (result as Post);
       setPosts((prev) =>
-        prev.map((post) => (post.id === editingId ? { ...post, ...updated } : post)),
+        prev.map((post) =>
+          post.id === editingId
+            ? { ...post, ...updated, status: "pending", rejectionReason: null }
+            : post,
+        ),
       );
       closeEdit();
-      setNotice(wasRejected ? "Đã gửi lại cho admin duyệt." : "Cập nhật bài đăng thành công.");
+      setNotice("Đã cập nhật và gửi lại cho admin duyệt.");
     } catch (error) {
       console.error(error);
       setEditError("Cập nhật thất bại. Vui lòng thử lại.");
