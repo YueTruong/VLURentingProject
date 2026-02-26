@@ -134,6 +134,12 @@ export default function MyPostsPage() {
     [posts, editingId],
   );
 
+
+  const mapPreviewQuery = useMemo(() => {
+    if (!editDraft?.address) return "";
+    return editDraft.address.trim();
+  }, [editDraft?.address]);
+
   const openEdit = (post: Post) => {
     const existingImages = (post.images ?? [])
       .map((image) => image?.image_url ?? "")
@@ -581,6 +587,35 @@ export default function MyPostsPage() {
                   className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-300"
                 />
               </div>
+              <div className="md:col-span-2">
+                <label className="text-sm font-semibold text-gray-700">Bản đồ kiểm tra địa chỉ</label>
+                <div className="mt-2 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
+                  {mapPreviewQuery ? (
+                    <iframe
+                      title="Xem trước vị trí"
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(mapPreviewQuery)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                      className="h-64 w-full"
+                      loading="lazy"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <div className="flex h-64 items-center justify-center px-4 text-center text-sm text-gray-500">
+                      Vui lòng nhập địa chỉ để hiển thị bản đồ kiểm tra vị trí.
+                    </div>
+                  )}
+                </div>
+                {mapPreviewQuery ? (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapPreviewQuery)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-flex text-xs font-semibold text-blue-600 hover:underline"
+                  >
+                    Mở Google Maps trong tab mới
+                  </a>
+                ) : null}
+              </div>
+
               <div className="md:col-span-2">
                 <label className="text-sm font-semibold text-gray-700" htmlFor="edit-description">
                   Mô tả
