@@ -960,7 +960,7 @@ export default function PostWizard() {
         (result as { message?: string })?.message ||
         (draft.purpose === "ROOMMATE"
           ? "Đăng tin ở ghép thành công. Tin đang chờ chủ trọ xác nhận."
-          : "Dang tin thanh cong. Tin dang cho duyet.");
+          : "Đăng tin thành công. Tin đang chờ duyệt và sẽ sớm được hiển thị.");
       setSubmitSuccess(message);
       clearDraftStorage(false);
     } catch (err) {
