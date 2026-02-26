@@ -21,8 +21,10 @@ type Listing = {
   rawArea: number;
   address: string;
   campus: string;
-  rating: string;
-  reviews: number;
+  categoryName: string;
+  status: string;
+  availability: string;
+  maxOccupancy: number;
   beds: number;
   baths: number;
   parking: string;
@@ -30,6 +32,9 @@ type Listing = {
   utilities: { label: string; value: string }[];
   amenities: string[];
   description: string;
+  videoUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
   landlord: {
     id: number;
     name: string;
@@ -86,25 +91,11 @@ const formatPriceText = (value: number | string | undefined | null) => {
   return `${trimmed} triệu / tháng`;
 };
 
-const formatPriceShort = (value: number | string | undefined | null) => {
-  const price = toPriceMillion(value);
-  if (!price) return "0";
-  const trimmed = Number.isInteger(price) ? price.toFixed(0) : price.toFixed(1);
-  return `${trimmed}tr`;
-};
-
 const formatAreaText = (value: number | string | undefined | null) => {
   const area = toNumberValue(value);
   if (!area) return "0 m²";
   const trimmed = Number.isInteger(area) ? area.toFixed(0) : area.toFixed(1);
   return `${trimmed} m²`;
-};
-
-const formatAreaShort = (value: number | string | undefined | null) => {
-  const area = toNumberValue(value);
-  if (!area) return "0m2";
-  const trimmed = Number.isInteger(area) ? area.toFixed(0) : area.toFixed(1);
-  return `${trimmed}m2`;
 };
 
 const getAmenityNames = (post: Post) =>
@@ -120,6 +111,19 @@ const formatReviewDate = (value?: string) => {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+  });
+};
+
+const formatDateTime = (value?: string) => {
+  if (!value) return "--";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "--";
+  return parsed.toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 };
 
@@ -147,6 +151,16 @@ const getSubmitErrorMessage = (error: unknown) => {
   if (Array.isArray(message)) return message.join(", ");
   if (typeof message === "string" && message.trim()) return message;
   return "Không thể cập nhật đánh giá. Vui lòng thử lại.";
+};
+
+const mapPostStatusLabel = (status?: string) => {
+  const normalized = (status ?? "pending").toLowerCase();
+  if (normalized === "approved") return "Đã duyệt";
+  if (normalized === "pending") return "Chờ duyệt";
+  if (normalized === "rejected") return "Từ chối";
+  if (normalized === "hidden") return "Ẩn";
+  if (normalized === "rented") return "Đã cho thuê";
+  return status ?? "Chờ duyệt";
 };
 
 // --- Mapper ---
@@ -184,15 +198,29 @@ const mapPostToListing = (post: Post): Listing => {
     rawArea: toNumberValue(post.area),
     address: post.address || "",
     campus: post.campus ?? "Chưa rõ",
-    rating: "0",
-    reviews: 0,
+    categoryName: post.category?.name?.trim() || "Chưa phân loại",
+    status: post.status ?? "pending",
+    availability: post.availability === "rented" ? "Đã cho thuê" : "Còn phòng",
+    maxOccupancy: Math.max(1, Math.round(toNumberValue(post.max_occupancy ?? 1))),
     beds: Math.max(1, Math.round(toNumberValue(post.max_occupancy ?? 1))),
     baths: 1,
-    parking: hasParkingAmenity ? "Gửi xe" : "Chưa rõ",
+    parking: hasParkingAmenity ? "Có chỗ gửi xe" : "Chưa rõ",
     wifi: amenityText.includes("wifi"),
-    utilities: [],
+    utilities: [
+      { label: "Mức giá", value: formatPriceText(post.price) },
+      { label: "Diện tích", value: formatAreaText(post.area) },
+      { label: "Sức chứa", value: `${Math.max(1, Math.round(toNumberValue(post.max_occupancy ?? 1)))} người` },
+      { label: "Danh mục", value: post.category?.name?.trim() || "Chưa phân loại" },
+      { label: "Trạng thái duyệt", value: mapPostStatusLabel(post.status) },
+      { label: "Tình trạng phòng", value: post.availability === "rented" ? "Đã cho thuê" : "Còn phòng" },
+      { label: "Đăng lúc", value: formatDateTime(post.createdAt) },
+      { label: "Cập nhật", value: formatDateTime(post.updatedAt) },
+    ],
     amenities: amenityNames,
     description: post.description || "",
+    videoUrl: post.videoUrl ?? undefined,
+    createdAt: post.createdAt,
+    updatedAt: post.updatedAt,
     landlord: {
       id: landlordId, 
       name: landlordName,
@@ -594,7 +622,7 @@ export default function ListingDetailPage() {
               <p className="text-sm text-gray-600 dark:text-gray-400">{listing.address}</p>
             </div>
             <div className="text-right space-y-1">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Đã cập nhật hôm nay</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Cập nhật: {formatDateTime(listing.updatedAt)}</p>
               <p className="text-3xl font-extrabold text-[#d51f35] dark:text-red-400">{listing.price}</p>
             </div>
           </div>
@@ -628,9 +656,9 @@ export default function ListingDetailPage() {
         {/* Stats row */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard label="Diện tích" value={listing.area} />
-          <StatCard label="Giường ngủ" value={`${listing.beds} giường`} icon={<Image src="/icons/Bed-Icon.svg" alt="Giường" width={20} height={20} className="dark:invert dark:opacity-80" />} />
-          <StatCard label="Phòng tắm" value={`${listing.baths} phòng`} icon={<Image src="/icons/Bath-Icon.svg" alt="Phòng tắm" width={18} height={18} className="dark:invert dark:opacity-80" />} />
-          <StatCard label="Gửi xe" value={listing.parking} />
+          <StatCard label="Sức chứa" value={`${listing.maxOccupancy} người`} icon={<Image src="/icons/Bed-Icon.svg" alt="Sức chứa" width={20} height={20} className="dark:invert dark:opacity-80" />} />
+          <StatCard label="Tình trạng" value={listing.availability} />
+          <StatCard label="Danh mục" value={listing.categoryName} />
         </div>
 
         {/* Cột Layout */}
@@ -643,7 +671,7 @@ export default function ListingDetailPage() {
 
             <section className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-4 transition-colors dark:border-gray-800 dark:bg-gray-900">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tiện ích & Chi phí</h2>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {listing.utilities.map((item) => (
                   <div key={item.label} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 transition-colors dark:border-gray-700 dark:bg-gray-800">
                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{item.label}</p>
@@ -652,9 +680,11 @@ export default function ListingDetailPage() {
                 ))}
               </div>
               <div className="flex flex-wrap gap-2">
-                {listing.amenities.map((a) => (
-                  <AmenityTag key={a} text={a} />
-                ))}
+                {listing.amenities.length > 0 ? (
+                  listing.amenities.map((a) => <AmenityTag key={a} text={a} />)
+                ) : (
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Chưa khai báo tiện ích.</span>
+                )}
               </div>
             </section>
 
@@ -672,14 +702,29 @@ export default function ListingDetailPage() {
             </section>
 
             <section className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-3 transition-colors dark:border-gray-800 dark:bg-gray-900">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Chính sách & Lưu ý</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Thông tin bài đăng</h2>
               <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                <li>• Đặt cọc 1 tháng, thanh toán đầu kỳ.</li>
-                <li>• Giờ giấc tự do, không giới nghiêm.</li>
-                <li>• Cho phép thú cưng nhỏ, giữ vệ sinh chung.</li>
-                <li>• Ưu tiên sinh viên VLU, kiểm tra giấy tờ khi vào ở.</li>
+                <li>• Trạng thái kiểm duyệt: <span className="font-semibold">{mapPostStatusLabel(listing.status)}</span></li>
+                <li>• Tình trạng phòng: <span className="font-semibold">{listing.availability}</span></li>
+                <li>• Cơ sở gần nhất: <span className="font-semibold">{listing.campus}</span></li>
+                <li>• Danh mục: <span className="font-semibold">{listing.categoryName}</span></li>
+                <li>• Đăng lúc: <span className="font-semibold">{formatDateTime(listing.createdAt)}</span></li>
               </ul>
             </section>
+
+            {listing.videoUrl ? (
+              <section className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-3 transition-colors dark:border-gray-800 dark:bg-gray-900">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Video bài đăng</h2>
+                <a
+                  href={listing.videoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-semibold text-blue-600 hover:underline"
+                >
+                  Mở video trong tab mới
+                </a>
+              </section>
+            ) : null}
 
             <section className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-4 transition-colors dark:border-gray-800 dark:bg-gray-900">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -776,9 +821,15 @@ export default function ListingDetailPage() {
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <a href={`tel:${listing.landlord.phone.replace(/\s/g, "")}`} className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 active:scale-95 text-center shadow-sm">
-                  Gọi {listing.landlord.phone}
-                </a>
+                {listing.landlord.phone ? (
+                  <a href={`tel:${listing.landlord.phone.replace(/\s/g, "")}`} className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 active:scale-95 text-center shadow-sm">
+                    Gọi {listing.landlord.phone}
+                  </a>
+                ) : (
+                  <div className="rounded-full bg-gray-100 px-4 py-2 text-center text-sm font-semibold text-gray-500">
+                    Chủ trọ chưa cập nhật số điện thoại
+                  </div>
+                )}
                 <button
                   onClick={handleStartChat} disabled={isChatting}
                   className="rounded-full border border-transparent bg-[#d51f35] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b01628] active:scale-95 text-center shadow-sm disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
