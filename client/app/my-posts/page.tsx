@@ -91,7 +91,8 @@ export default function MyPostsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   
   const { data: session, status } = useSession();
-
+  const roleKey = session?.user?.role?.toString().toLowerCase() || "student";
+  const isLandlord = roleKey === "landlord";
 
   useEffect(() => {
     // 1. Nếu session chưa sẵn sàng, không làm gì cả
@@ -103,6 +104,13 @@ export default function MyPostsPage() {
     // 3. Nếu load xong mà không có token => Người dùng chưa đăng nhập
     if (!accessToken) {
       setLoadError("load_failed");
+      setLoading(false);
+      return;
+    }
+
+    if (!isLandlord) {
+      setPosts([]);
+      setLoadError(null);
       setLoading(false);
       return;
     }
@@ -127,7 +135,7 @@ export default function MyPostsPage() {
     return () => {
       active = false;
     };
-  }, [session, status]);
+  }, [session, status, isLandlord]);
 
   const editingPost = useMemo(
     () => posts.find((post) => post.id === editingId) ?? null,
@@ -297,7 +305,7 @@ export default function MyPostsPage() {
 
     setDeletingId(id);
     try {
-      await deletePost(id); 
+      await deletePost(id, accessToken); 
       setPosts((prev) => prev.filter((post) => post.id !== id));
     } catch (error) {
       console.error(error);
@@ -321,16 +329,23 @@ export default function MyPostsPage() {
   return (
     <UserPageShell
       title="Tin đăng của tôi"
-      description="Theo dõi trạng thái duyệt, chỉnh sửa hoặc xóa bài đăng nhanh chóng."
+      description={isLandlord ? "Theo dõi trạng thái duyệt, chỉnh sửa hoặc xóa bài đăng nhanh chóng." : "Mục này dành cho tài khoản chủ trọ để quản lý tin đăng."}
       actions={
-        <Link
-          href="/post"
-          className="rounded-full bg-white/10 px-5 py-2 text-sm font-semibold text-white hover:bg-white/20"
-        >
-          Đăng tin mới
-        </Link>
+        isLandlord ? (
+          <Link
+            href="/post"
+            className="rounded-full bg-white/10 px-5 py-2 text-sm font-semibold text-white hover:bg-white/20"
+          >
+            Đăng tin mới
+          </Link>
+        ) : null
       }
     >
+      {!isLandlord ? (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-10 text-center text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+          Tài khoản của bạn không phải chủ trọ. Hãy truy cập <Link href="/listings" className="font-semibold text-[#d51f35] hover:underline">danh sách phòng</Link> để tìm phòng phù hợp.
+        </div>
+      ) : (
       <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-4">
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -448,8 +463,9 @@ export default function MyPostsPage() {
           )}
         </div>
       </div>
+      )}
 
-      {editingId && editDraft ? (
+      {isLandlord && editingId && editDraft ? (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
           <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl">
             <div className="border-b border-gray-100 px-5 pb-3 pt-5">
