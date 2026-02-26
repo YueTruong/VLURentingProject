@@ -593,6 +593,12 @@ export default function ListingDetailPage() {
 
   const images = listing.images ?? [];
   const activeImageSrc = images[activeImageIndex] ?? images[0];
+  const isLandlordRole = userRole === "landlord";
+  const isAdminRole = userRole === "admin";
+  const isOwner = currentUserId !== null && currentUserId === listing.landlord.id;
+  const canViewModerationInfo = isOwner || isAdminRole;
+  const canUseTenantActions = !isLandlordRole && !isOwner;
+  const canContactLandlord = !isOwner;
 
   return (
     // ✅ Bọc toàn bộ trong UserPageShell giống hệt trang Listings / Favorites
@@ -708,7 +714,9 @@ export default function ListingDetailPage() {
             <section className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-3 transition-colors dark:border-gray-800 dark:bg-gray-900">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Thông tin bài đăng</h2>
               <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                <li>• Trạng thái kiểm duyệt: <span className="font-semibold">{mapPostStatusLabel(listing.status)}</span></li>
+                {canViewModerationInfo ? (
+                  <li>• Trạng thái kiểm duyệt: <span className="font-semibold">{mapPostStatusLabel(listing.status)}</span></li>
+                ) : null}
                 <li>• Tình trạng phòng: <span className="font-semibold">{listing.availability}</span></li>
                 <li>• Cơ sở gần nhất: <span className="font-semibold">{listing.campus}</span></li>
                 <li>• Danh mục: <span className="font-semibold">{listing.categoryName}</span></li>
@@ -771,7 +779,11 @@ export default function ListingDetailPage() {
               )}
 
               <div className="border-t border-gray-200 pt-4 dark:border-gray-700">
-                {!session ? (
+                {!canUseTenantActions ? (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                    {isOwner ? "Bạn là chủ của tin đăng này nên không thể tự đánh giá." : "Tính năng đánh giá hiện áp dụng cho sinh viên/người thuê."}
+                  </div>
+                ) : !session ? (
                   <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
                     Bạn cần <Link href="/login" className="font-semibold text-[#d51f35] hover:underline dark:text-red-400">đăng nhập</Link> để viết đánh giá.
                   </div>
@@ -825,35 +837,48 @@ export default function ListingDetailPage() {
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                {listing.landlord.phone ? (
-                  <a href={`tel:${listing.landlord.phone.replace(/\s/g, "")}`} className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 active:scale-95 text-center shadow-sm">
-                    Gọi {listing.landlord.phone}
-                  </a>
+                {canContactLandlord ? (
+                  <>
+                    {listing.landlord.phone ? (
+                      <a href={`tel:${listing.landlord.phone.replace(/\s/g, "")}`} className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 active:scale-95 text-center shadow-sm">
+                        Gọi {listing.landlord.phone}
+                      </a>
+                    ) : (
+                      <div className="rounded-full bg-gray-100 px-4 py-2 text-center text-sm font-semibold text-gray-500">
+                        Chủ trọ chưa cập nhật số điện thoại
+                      </div>
+                    )}
+                    <button
+                      onClick={handleStartChat} disabled={isChatting}
+                      className="rounded-full border border-transparent bg-[#d51f35] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b01628] active:scale-95 text-center shadow-sm disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
+                    >
+                      {isChatting ? "Đang kết nối..." : "Nhắn tin cho chủ trọ"}
+                    </button>
+                  </>
                 ) : (
-                  <div className="rounded-full bg-gray-100 px-4 py-2 text-center text-sm font-semibold text-gray-500">
-                    Chủ trọ chưa cập nhật số điện thoại
+                  <div className="rounded-xl bg-gray-100 px-4 py-2 text-center text-sm font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                    Đây là tin đăng của bạn.
                   </div>
                 )}
-                <button
-                  onClick={handleStartChat} disabled={isChatting}
-                  className="rounded-full border border-transparent bg-[#d51f35] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b01628] active:scale-95 text-center shadow-sm disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
-                >
-                  {isChatting ? "Đang kết nối..." : "Nhắn tin cho chủ trọ"}
-                </button>
               </div>
             </div>
 
             <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-3 sticky top-24 transition-colors dark:border-gray-800 dark:bg-gray-900">
               <h3 className="text-base font-semibold text-gray-900 dark:text-white">Hành động nhanh</h3>
               <div className="flex flex-col gap-2">
-                <button onClick={() => toast("Tính năng đặt lịch đang được phát triển!", { icon: '📅' })} className="rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black active:scale-95 transition-all shadow-sm dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100">
-                  Đặt lịch xem phòng
-                </button>
-                
-                {userRole !== 'landlord' && (
-                  <button onClick={handleToggleFavorite} className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all active:scale-95 ${isSaved ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40" : "border-gray-300 bg-white text-gray-800 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"}`}>
-                    {isSaved ? "Đã lưu tin ♥" : "Lưu tin ♡"}
-                  </button>
+                {canUseTenantActions ? (
+                  <>
+                    <button onClick={() => toast("Tính năng đặt lịch đang được phát triển!", { icon: '📅' })} className="rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black active:scale-95 transition-all shadow-sm dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100">
+                      Đặt lịch xem phòng
+                    </button>
+                    <button onClick={handleToggleFavorite} className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all active:scale-95 ${isSaved ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40" : "border-gray-300 bg-white text-gray-800 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"}`}>
+                      {isSaved ? "Đã lưu tin ♥" : "Lưu tin ♡"}
+                    </button>
+                  </>
+                ) : (
+                  <div className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                    Tài khoản chủ trọ chỉ có thể xem và quản lý tin đăng của mình.
+                  </div>
                 )}
 
                 <button onClick={handleShare} className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 active:scale-95 transition-all dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
