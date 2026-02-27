@@ -52,11 +52,27 @@ export default function ListingCard({ item }: ListingCardProps) {
   const availabilityLabel = item.availability === "rented" ? "Đã cho thuê" : "Còn phòng";
   const availabilityClass = item.availability === "rented" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700";
   const districtLabel = item.district?.trim() || "Chưa cập nhật";
-  const amenityBadges = [
-    item.wifi ? "Wi-Fi" : null,
-    item.parking ? "Bãi xe" : null,
-    item.furnished ? "Nội thất" : null,
-  ].filter(Boolean) as string[];
+  const amenityBadges = useMemo(() => {
+    const baseAmenities = [
+      item.wifi ? "Wi-Fi" : null,
+      item.parking ? "Bãi xe" : null,
+      item.furnished ? "Nội thất" : null,
+    ].filter(Boolean) as string[];
+
+    const normalized = new Set<string>();
+    const merged: string[] = [];
+
+    for (const amenity of [...baseAmenities, ...item.tags]) {
+      const value = amenity?.trim();
+      if (!value) continue;
+      const key = value.toLowerCase();
+      if (normalized.has(key)) continue;
+      normalized.add(key);
+      merged.push(value);
+    }
+
+    return merged;
+  }, [item.furnished, item.parking, item.tags, item.wifi]);
 
   return (
     <article className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
@@ -125,23 +141,27 @@ export default function ListingCard({ item }: ListingCardProps) {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 text-xs font-semibold text-gray-700 dark:text-gray-200">
-            {item.videoUrl ? <span className="rounded-full bg-violet-100 px-3 py-1 text-violet-700">Có video</span> : null}
-            {amenityBadges.map((badge) => (
-              <span key={`${item.id}-amenity-${badge}`} className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                {badge}
-              </span>
-            ))}
-            {item.tags.slice(0, 6).map((tag, index) => (
-              <span key={`${item.id}-${tag}-${index}`} className="rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800">
-                {tag}
-              </span>
-            ))}
-            {item.tags.length > 6 ? (
-              <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                +{item.tags.length - 6} tiện ích
-              </span>
-            ) : null}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Tiện ích</p>
+            <div className="flex flex-wrap gap-2 text-xs font-semibold text-gray-700 dark:text-gray-200">
+              {item.videoUrl ? <span className="rounded-full bg-violet-100 px-3 py-1 text-violet-700">Có video</span> : null}
+              {amenityBadges.slice(0, 8).map((badge, index) => (
+                <span
+                  key={`${item.id}-amenity-${badge}-${index}`}
+                  className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                >
+                  {badge}
+                </span>
+              ))}
+              {amenityBadges.length > 8 ? (
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                  +{amenityBadges.length - 8} tiện ích
+                </span>
+              ) : null}
+              {amenityBadges.length === 0 && !item.videoUrl ? (
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-600 dark:bg-gray-800 dark:text-gray-300">Chưa cập nhật tiện ích</span>
+              ) : null}
+            </div>
           </div>
 
           <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-2">
