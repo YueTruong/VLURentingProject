@@ -23,18 +23,77 @@ export class AiService {
   constructor(private readonly configService: ConfigService) {}
 
   async parseHousingQuery(input: string, districtOptions: string[] = []) {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    const model = this.configService.get<string>('OPENAI_MODEL') || 'gpt-4o-mini';
+    const providerPreference = (this.configService.get<string>('AI_PROVIDER') || 'auto').toLowerCase();
 
-    if (!apiKey) {
-      return {
-        criteria: null,
-        reply:
-          'AI cloud chưa được cấu hình (thiếu OPENAI_API_KEY). Hệ thống sẽ fallback sang parser rule-based ở frontend.',
-        provider: 'fallback',
-      };
+    if (providerPreference !== 'openai') {
+      const dialogflowResult = await this.tryDialogflow(input, districtOptions);
+      if (dialogflowResult) return dialogflowResult;
     }
 
+    if (providerPreference !== 'dialogflow') {
+      const openAiResult = await this.tryOpenAI(input, districtOptions);
+      if (openAiResult) return openAiResult;
+    }
+
+    return {
+      criteria: null,
+      reply:
+        'AI cloud chưa được cấu hình hoặc tạm thời gián đoạn. Hệ thống đang chạy AI local parser để đảm bảo lọc ổn định.',
+      provider: 'fallback',
+    };
+  }
+
+  private async tryDialogflow(input: string, districtOptions: string[]) {
+    const endpoint = this.configService.get<string>('DIALOGFLOW_WEBHOOK_URL');
+    if (!endpoint) return null;
+
+    const token = this.configService.get<string>('DIALOGFLOW_TOKEN');
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          message: input,
+          districtOptions,
+        }),
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = (await response.json()) as {
+        criteria?: HousingCriteria;
+        reply?: string;
+        response?: {
+          criteria?: HousingCriteria;
+          reply?: string;
+        };
+      };
+
+      const resolvedCriteria = data.criteria ?? data.response?.criteria ?? {};
+      const resolvedReply =
+        data.reply ?? data.response?.reply ?? 'Mình đã phân tích bằng Dialogflow và áp dụng tiêu chí phù hợp.';
+
+      return {
+        criteria: this.sanitizeCriteria(resolvedCriteria),
+        reply: resolvedReply,
+        provider: 'dialogflow',
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private async tryOpenAI(input: string, districtOptions: string[]) {
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+    if (!apiKey) return null;
+
+    const model = this.configService.get<string>('OPENAI_MODEL') || 'gpt-4o-mini';
     const endpoint = this.configService.get<string>('OPENAI_BASE_URL') || 'https://api.openai.com/v1';
     const districtHint = districtOptions.length
       ? `Danh sách khu vực hợp lệ: ${districtOptions.join(', ')}.`
@@ -86,8 +145,7 @@ ${districtHint}`;
       });
 
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`AI provider error: ${response.status} ${text}`);
+        return null;
       }
 
       const data = (await response.json()) as {
@@ -96,7 +154,7 @@ ${districtHint}`;
 
       const content = data.choices?.[0]?.message?.content;
       if (!content) {
-        throw new Error('AI response empty');
+        return null;
       }
 
       const parsed = JSON.parse(content) as {
@@ -110,12 +168,7 @@ ${districtHint}`;
         provider: model,
       };
     } catch {
-      return {
-        criteria: null,
-        reply:
-          'AI cloud tạm thời không khả dụng. Hệ thống sẽ fallback sang parser rule-based ở frontend.',
-        provider: 'fallback',
-      };
+      return null;
     }
   }
 
