@@ -536,6 +536,28 @@ const formatTime = () =>
     minute: "2-digit",
   });
 
+const CLOUD_AI_ENABLED = process.env.NEXT_PUBLIC_ENABLE_CLOUD_AI === "true";
+
+const buildAssistantReply = (
+  criteria: Criteria,
+  matchedCount: number,
+  totalCount: number,
+  usedCloud: boolean,
+) => {
+  const summary = buildSummary(criteria);
+
+  if (summary.length === 0) {
+    return "Mình chưa thấy tiêu chí rõ ràng. Bạn có thể nói cụ thể hơn về giá, khu vực, loại phòng, diện tích hoặc tiện ích.";
+  }
+
+  const modeLabel = usedCloud ? "AI cloud + mô phỏng local" : "AI mô phỏng local";
+  if (matchedCount === 0) {
+    return `(${modeLabel}) Mình đã lọc theo ${summary.join(", ")} nhưng chưa thấy kết quả phù hợp trong ${totalCount} tin hiện có. Bạn thử nới giá/khu vực nhé.`;
+  }
+
+  return `(${modeLabel}) Mình đã lọc theo ${summary.join(", ")} và tìm thấy ${matchedCount}/${totalCount} tin phù hợp.`;
+};
+
 const isResetCommand = (input: string) => {
   const normalized = normalizeText(input).trim();
   if (!normalized) return false;
@@ -576,7 +598,7 @@ export default function ListingsPage() {
     {
       id: "intro",
       role: "assistant",
-      text: "Xin chào! Mình là trợ lý AI của VLU Renting. Hãy nói tiêu chí bạn cần (giá, khu vực, diện tích, tiện ích...) để mình gợi ý tin đăng phù hợp nhé.",
+      text: "Xin chào! Mình là trợ lý AI mô phỏng của VLU Renting (rule-based). Bạn cứ nhập tiêu chí tự nhiên như người thật: giá, khu vực, diện tích, tiện ích... để mình lọc chính xác nhé.",
       time: "",
     },
   ]);
@@ -773,27 +795,24 @@ export default function ListingsPage() {
 
     let parsed = parseCriteria(trimmed, districtFilterOptions);
     let assistantText = "";
-    let assistantProvider: string | null = null;
+    let usedCloud = false;
 
-    if (!resetRequested) {
+    if (!resetRequested && CLOUD_AI_ENABLED) {
       try {
         setAssistantThinking(true);
         const aiResult = await askHousingAssistant(
           trimmed,
           districtFilterOptions.filter((option) => option !== allOption),
         );
-        assistantProvider = aiResult?.provider ?? null;
         const normalizedAiCriteria = normalizeAiCriteria(
           aiResult?.criteria ?? null,
           districtFilterOptions,
           typeFilterOptions,
         );
         parsed = mergeCriteria(parsed, normalizedAiCriteria);
-        if (aiResult?.reply?.trim()) {
-          assistantText = aiResult.reply.trim();
-        }
+        usedCloud = aiResult?.provider !== "fallback";
       } catch {
-        assistantProvider = "fallback";
+        usedCloud = false;
       } finally {
         setAssistantThinking(false);
       }
@@ -816,28 +835,8 @@ export default function ListingsPage() {
       return;
     }
 
-    if (summary.length === 0) {
-      if (!assistantText) {
-        assistantText = "Mình chưa thấy tiêu chí rõ ràng. Bạn có thể thêm giá, khu vực hoặc tiện ích mong muốn nhé.";
-      }
-    } else {
-      const matched = sourceListings.filter((item) => matchesCriteria(item, parsed));
-
-      if (!assistantText) {
-        if (matched.length === 0) {
-          assistantText = `Mình đã lọc theo ${summary.join(", ")} nhưng chưa tìm thấy tin phù hợp. Bạn muốn nới tiêu chí nào không?`;
-        } else {
-          assistantText = `Mình đã lọc theo ${summary.join(", ")} và tìm thấy ${matched.length} tin phù hợp. Bạn muốn mình lọc thêm gì nữa không?`;
-        }
-      }
-
-      if (!assistantText.includes("bộ lọc")) {
-        assistantText += " Mình đã dùng bộ lọc nâng cao theo tiêu chí này.";
-      }
-      if (assistantProvider === "fallback") {
-        assistantText += " (Đang mô phỏng bằng parser local để giữ độ chính xác.)";
-      }
-    }
+    const matched = summary.length > 0 ? sourceListings.filter((item) => matchesCriteria(item, parsed)) : [];
+    assistantText = buildAssistantReply(parsed, matched.length, sourceListings.length, usedCloud);
 
     const assistantMessage: Message = {
       id: nextMessageId("a"),
@@ -904,9 +903,22 @@ export default function ListingsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Trợ lý AI</h2>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Gợi ý tin đăng theo tiêu chí của bạn</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {CLOUD_AI_ENABLED
+                        ? "Cloud AI đang bật (kèm mô phỏng local fallback)."
+                        : "Mô phỏng AI local đang bật (không tốn phí API). Có thể bật cloud/Dialogflow sau qua API gateway."}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    <span
+                      className={`rounded-full px-2 py-1 text-xs font-semibold ${
+                        CLOUD_AI_ENABLED
+                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                          : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                      }`}
+                    >
+                      {CLOUD_AI_ENABLED ? "Cloud" : "Local"}
+                    </span>
                     <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                       Online
                     </span>
