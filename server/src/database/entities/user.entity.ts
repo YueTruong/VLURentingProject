@@ -13,6 +13,7 @@ import { RoleEntity } from './role.entity';
 import { UserProfileEntity } from './user-profile.entity';
 import { PostEntity } from './post.entity';
 import { NotificationEntity } from './notification.entity';
+import { UserOauthAccountEntity } from './user-oauth-account.entity';
 
 @Entity({ name: 'users' })
 export class UserEntity {
@@ -25,8 +26,8 @@ export class UserEntity {
   @Column({ type: 'varchar', length: 255, unique: true, nullable: true })
   username: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  password_hash: string;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  password_hash: string | null;
 
   // Cột này sẽ lưu ID của vai trò
   @Column({ name: 'role_id' })
@@ -61,4 +62,7 @@ export class UserEntity {
   // Mối quan hệ với NotificationEntity
   @OneToMany(() => NotificationEntity, (notification) => notification.user)
   notifications: NotificationEntity[];
+
+  @OneToMany(() => UserOauthAccountEntity, (oauthAccount) => oauthAccount.user)
+  oauthAccounts: UserOauthAccountEntity[];
 }
