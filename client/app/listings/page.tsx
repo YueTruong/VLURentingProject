@@ -363,7 +363,11 @@ const parseCriteria = (
   if (extractedQuery) {
     criteria.query = extractedQuery;
   } else if (Object.keys(criteria).length === 0 && input.trim()) {
-    criteria.query = input.trim();
+    const isExplicitKeywordSearch = /(tim|tim kiem|search|ten)/.test(normalized);
+    const tokenCount = input.trim().split(/\s+/).length;
+    if (isExplicitKeywordSearch || tokenCount <= 4) {
+      criteria.query = input.trim();
+    }
   }
 
   return criteria;
@@ -567,6 +571,34 @@ const formatTime = () =>
   });
 
 const CLOUD_AI_ENABLED = process.env.NEXT_PUBLIC_ENABLE_CLOUD_AI === "true";
+
+const countStructuredCriteria = (criteria: Criteria) => {
+  let score = 0;
+  if (criteria.campus) score += 1;
+  if (criteria.district) score += 1;
+  if (criteria.type) score += 1;
+  if (criteria.availability) score += 1;
+  if (criteria.priceMin !== undefined || criteria.priceMax !== undefined) score += 1;
+  if (criteria.areaMin !== undefined || criteria.areaMax !== undefined) score += 1;
+  if (criteria.bedsMin !== undefined) score += 1;
+  if (criteria.wifi) score += 1;
+  if (criteria.parking) score += 1;
+  if (criteria.furnished) score += 1;
+  if (criteria.videoOnly) score += 1;
+  if (criteria.tags && criteria.tags.length > 0) score += 1;
+  return score;
+};
+
+const optimizeCloudMergedCriteria = (merged: Criteria, cloudCriteria: Criteria | null) => {
+  if (!cloudCriteria) return merged;
+
+  const structuredScore = countStructuredCriteria(cloudCriteria);
+  if (structuredScore >= 2 && merged.query) {
+    return { ...merged, query: undefined };
+  }
+
+  return merged;
+};
 
 const buildAssistantReply = (
   criteria: Criteria,
@@ -839,6 +871,7 @@ export default function ListingsPage() {
     let parsed = parseCriteria(trimmed, districtFilterOptions);
     let assistantText = "";
     let cloudProvider = "fallback";
+    let cloudReply: string | undefined;
 
     if (!resetRequested && CLOUD_AI_ENABLED) {
       try {
@@ -852,8 +885,9 @@ export default function ListingsPage() {
           districtFilterOptions,
           typeFilterOptions,
         );
-        parsed = mergeCriteria(parsed, normalizedAiCriteria);
+        parsed = optimizeCloudMergedCriteria(mergeCriteria(parsed, normalizedAiCriteria), normalizedAiCriteria);
         cloudProvider = aiResult?.provider ?? "fallback";
+        cloudReply = typeof aiResult?.reply === "string" ? aiResult.reply.trim() : undefined;
       } catch {
         cloudProvider = "fallback";
       } finally {
@@ -879,7 +913,10 @@ export default function ListingsPage() {
     }
 
     const matched = summary.length > 0 ? sourceListings.filter((item) => matchesCriteria(item, parsed)) : [];
-    assistantText = buildAssistantReply(parsed, matched.length, sourceListings.length, cloudProvider);
+    assistantText = cloudReply && cloudProvider !== "fallback"
+      ? `${cloudReply}
+${buildAssistantReply(parsed, matched.length, sourceListings.length, cloudProvider)}`
+      : buildAssistantReply(parsed, matched.length, sourceListings.length, cloudProvider);
 
     const assistantMessage: Message = {
       id: nextMessageId("a"),
