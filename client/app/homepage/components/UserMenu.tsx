@@ -159,6 +159,13 @@ export default function UserMenu({ variant = "default" }: UserMenuProps) {
   };
   const roleLabel = roleLabelMap[roleKey] ?? "Người dùng";
 
+  const roleBadgeClassName =
+    roleKey === "landlord"
+      ? "border-yellow-200 bg-yellow-50 text-yellow-700"
+      : roleKey === "admin"
+        ? "border-blue-200 bg-blue-50 text-blue-700"
+        : "border-red-200 bg-red-50 text-red-700";
+
   const menuConfig = {
     dashboard: [
       { href: "/profile", label: "Thông tin cá nhân", roles: ["admin", "landlord", "student"], icon: <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M20 21a8 8 0 10-16 0" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 13a4 4 0 100-8 4 4 0 000 8z" /></svg> },
@@ -257,7 +264,7 @@ export default function UserMenu({ variant = "default" }: UserMenuProps) {
                 <div className="flex items-center justify-center gap-2">
                   {/* Hiển thị tên kề bên vai trò */}
                   <p className="text-sm font-bold text-(--theme-text)">{displayName}</p>
-                  <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-(--theme-border) bg-(--theme-surface-muted) px-2.5 py-1 text-xs font-semibold text-(--theme-text-muted)">
+                  <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold ${roleBadgeClassName}`}>
                     {roleLabel}
                   </span>
                 </div>

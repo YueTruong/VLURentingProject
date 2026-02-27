@@ -1,78 +1,99 @@
 import {
-  Controller,
-  Post,
   Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
   HttpCode,
   HttpStatus,
+  Param,
+  Post,
+  Req,
   UseGuards,
-  Request,
-  Get,
-  Patch,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
+import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { UpdateProfileDto } from './dto/update-profile.dto';
-import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
+import { OauthLoginDto } from './dto/oauth-login.dto';
+import { LinkProviderDto } from './dto/link-provider.dto';
 
-@ApiTags('Auth - Xác thực và Quản lý Tài khoản')
-@Controller('auth') // Tiền tố chung cho tất cả API trong file này là /auth
+type AuthenticatedRequest = Request & {
+  user?: {
+    userId?: number;
+  };
+};
+
+@ApiTags('Auth')
+@Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // API Endpoint cho chức năng Đăng ký
-  // POST /auth/register
   @Post('register')
-  @HttpCode(HttpStatus.CREATED) // Trả về mã 201 Created khi thành công
+  @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Đăng ký tài khoản mới' })
   async register(@Body() registerDto: RegisterDto) {
-    // Nhờ ValidationPipe ở main.ts, registerDto sẽ tự động được kiểm tra
-    // Nếu sai (ví dụ: email không hợp lệ), NestJS sẽ tự động trả về lỗi 400
-
     const user = await this.authService.register(registerDto);
-
     return {
       message: 'Đăng ký tài khoản thành công',
       data: user,
     };
   }
 
-  // API Endpoint cho chức năng Đăng nhập
-  // POST /auth/login
   @Post('login')
   @UseGuards(AuthGuard('local'))
-  @HttpCode(HttpStatus.OK) // Trả về mã 200 OK khi thành công
-  @ApiOperation({ summary: 'Đăng nhập' })
-  async login(@Request() req: any, @Body() loginDto: LoginDto) {
-    // Nếu đến được đây, tức là LocalAuthGuard đã xác thực thành công
-    // req.user sẽ chứa thông tin user do LocalStrategy trả về
-
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Đăng nhập bằng email/username và mật khẩu' })
+  async login(@Req() req: any, @Body() _loginDto: LoginDto) {
     return this.authService.login(req.user);
   }
 
-
-  @UseGuards(JwtAuthGuard)
-  @Patch('profile')
-  @ApiOperation({ summary: 'Cập nhật thông tin tài khoản hiện tại' })
-  async updateProfile(@Request() req: any, @Body() updateProfileDto: UpdateProfileDto) {
-    const userId = req.user.userId;
-    return this.authService.updateProfile(userId, updateProfileDto);
+  @Post('oauth-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Đăng nhập OAuth từ NextAuth bridge' })
+  async oauthLogin(
+    @Body() dto: OauthLoginDto,
+    @Headers('x-oauth-bridge-secret') bridgeSecret?: string,
+  ) {
+    return this.authService.oauthLogin(dto, bridgeSecret);
   }
 
-  // API Endpoint để lấy thông tin user hiện tại
-  // GET /auth/profile
-  @UseGuards(JwtAuthGuard) // Kích hoạt JwtAuthGuard cho route này
-  @Get('profile')
-  @ApiOperation({ summary: 'Lấy thông tin tài khoản hiện tại' })
-  async getProfile(@Request() req: any) {
-    // Nếu đến được đây, tức là JwtAuthGuard đã xác thực thành công
-    // req.user sẽ chứa thông tin user do JwtStrategy trả về
-    const userId = req.user.userId;
+  @Post('link/:provider')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Liên kết provider OAuth vào tài khoản hiện tại' })
+  async linkProvider(
+    @Req() req: AuthenticatedRequest,
+    @Param('provider') provider: string,
+    @Body() dto: LinkProviderDto,
+  ) {
+    const userId = req.user?.userId;
+    return this.authService.linkProvider(userId, provider, dto);
+  }
 
-    // Gọi service để lấy thông tin chi tiết của user
+  @Delete('link/:provider')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Ngắt liên kết provider OAuth khỏi tài khoản hiện tại',
+  })
+  async unlinkProvider(
+    @Req() req: AuthenticatedRequest,
+    @Param('provider') provider: string,
+  ) {
+    const userId = req.user?.userId;
+    return this.authService.unlinkProvider(userId, provider);
+  }
+
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy thông tin tài khoản hiện tại' })
+  async getProfile(@Req() req: AuthenticatedRequest) {
+    const userId = req.user?.userId;
     return this.authService.getProfile(userId);
   }
 }

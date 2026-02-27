@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { useSession } from "next-auth/react"; // 👈 1. Import useSession
+import { useSession } from "next-auth/react";
 import SectionCard from "../../components/SectionCard";
 import FiltersBar from "../../components/FiltersBar";
 import DataTable, { Column } from "../../components/DataTable";
@@ -98,27 +98,37 @@ const formatDateTime = (value?: string) => {
   });
 };
 
-const statusTone = (status: string): "green" | "yellow" | "red" | "gray" => {
-  const normalized = status.toLowerCase();
+const normalizeStatus = (status?: string | null) => (status ?? "pending").toLowerCase();
+
+const statusTone = (status?: string | null): "green" | "yellow" | "red" | "gray" => {
+  const normalized = normalizeStatus(status);
   if (normalized === "approved") return "green";
+  if (normalized === "rented") return "green";
   if (normalized === "pending") return "yellow";
   if (normalized === "rejected") return "red";
   if (normalized === "hidden") return "gray";
   return "gray";
 };
 
-const statusLabel = (status: string, resubmittedAt?: string | null) => {
-  const normalized = status.toLowerCase();
+const statusLabel = (status?: string | null, resubmittedAt?: string | null) => {
+  const normalized = normalizeStatus(status);
   if (normalized === "approved") return "Đã duyệt";
   if (normalized === "pending") return resubmittedAt ? "Chờ duyệt lại" : "Chờ duyệt";
   if (normalized === "rejected") return "Từ chối";
   if (normalized === "hidden") return "Cân nhắc";
   if (normalized === "rented") return "Đã cho thuê";
-  return status;
+  return status ?? "pending";
 };
 
 const actionButtonBase =
   "inline-flex h-8 w-full min-w-[96px] items-center justify-center rounded-lg border px-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60";
+
+const rejectReasonPresets = [
+  "Ảnh không rõ/thiếu ảnh",
+  "Thiếu địa chỉ cụ thể",
+  "Thiếu thông tin giá/diện tích",
+  "Nội dung không phù hợp/quảng cáo",
+];
 
 const mapPostToRow = (post: Post): AdminPostRow => {
   const owner =
@@ -133,7 +143,7 @@ const mapPostToRow = (post: Post): AdminPostRow => {
     owner,
     city: post.address || "-",
     price: toNumberValue(post.price),
-    status: post.status ?? "pending",
+    status: normalizeStatus(post.status),
     resubmittedAt: post.resubmittedAt ?? null,
     createdAt: formatDate(createdSource),
     createdAtValue: createdSource ? new Date(createdSource).getTime() : 0,
@@ -144,7 +154,6 @@ export default function ListingsPage() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
   const [posts, setPosts] = useState<Post[]>([]);
-  const [rows, setRows] = useState<AdminPostRow[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -154,52 +163,43 @@ export default function ListingsPage() {
   const [rejectError, setRejectError] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  // 👈 2. Lấy session và đổi tên biến status thành sessionStatus để tránh trùng tên
   const { data: session, status: sessionStatus } = useSession();
+  const accessToken = session?.user?.accessToken;
 
-  useEffect(() => {
+  const fetchPosts = useCallback(async () => {
     if (sessionStatus === "loading") return;
-    const accessToken = session?.user?.accessToken;
-
     if (!accessToken) {
-        setLoadError("auth_failed");
-        setLoading(false);
-        return;
+      setPosts([]);
+      setLoadError("auth_failed");
+      setLoading(false);
+      return;
     }
 
-    let active = true;
+    setLoading(true);
     setLoadError(null);
-    
-    getAdminPosts(undefined, accessToken)
-      .then((data) => { // 👈 1. Đặt tên biến trả về là 'data' (tránh trùng tên với state 'posts')
-        if (!active) return;
-        
-        // 👈 2. Dùng 'data' để map, KHÔNG dùng 'posts'
-        const mappedRows = data 
-          .map(mapPostToRow)
-          .sort((a: AdminPostRow, b: AdminPostRow) => b.createdAtValue - a.createdAtValue);
 
-        setPosts(data); // 👈 3. Set state bằng 'data'
-        setRows(mappedRows);
-        
-        if (mappedRows.length > 0) {
-          setSelectedId((current) => current ?? mappedRows[0].id);
-        }
-      })
-      .catch((err) => {
-        if (!active) return;
-        console.error("Lỗi load admin posts:", err);
-        setLoadError("load_failed");
-      })
-      .finally(() => {
-        if (!active) return;
-        setLoading(false);
-      });
-      
-    return () => {
-      active = false;
-    };
-  }, [session, sessionStatus]);
+    try {
+      const data = await getAdminPosts(undefined, accessToken);
+      setPosts(data);
+    } catch (err) {
+      console.error("Lỗi load admin posts:", err);
+      setLoadError("load_failed");
+    } finally {
+      setLoading(false);
+    }
+  }, [accessToken, sessionStatus]);
+
+  useEffect(() => {
+    void fetchPosts();
+  }, [fetchPosts]);
+
+  const rows = useMemo(
+    () =>
+      posts
+        .map(mapPostToRow)
+        .sort((a: AdminPostRow, b: AdminPostRow) => b.createdAtValue - a.createdAtValue),
+    [posts],
+  );
 
   const statusOptions = [
     { value: "all", label: "Tất cả trạng thái" },
@@ -207,9 +207,10 @@ export default function ListingsPage() {
     { value: "pending", label: "Chờ duyệt" },
     { value: "rejected", label: "Từ chối" },
     { value: "hidden", label: "Cân nhắc" },
+    { value: "rented", label: "Đã cho thuê" },
   ];
 
-  const filtered = useMemo(() => {
+  const filteredRows = useMemo(() => {
     const qq = q.trim().toLowerCase();
     return rows.filter((l) => {
       const okQ =
@@ -217,15 +218,35 @@ export default function ListingsPage() {
         l.title.toLowerCase().includes(qq) ||
         l.owner.toLowerCase().includes(qq) ||
         l.city.toLowerCase().includes(qq);
-      const okS = status === "all" ? true : l.status.toLowerCase() === status;
+      const okS = status === "all" ? true : normalizeStatus(l.status) === status;
       return okQ && okS;
     });
   }, [q, rows, status]);
+
+  useEffect(() => {
+    if (filteredRows.length === 0) {
+      if (selectedId !== null) {
+        setSelectedId(null);
+      }
+      return;
+    }
+
+    if (selectedId === null) {
+      setSelectedId(filteredRows[0].id);
+      return;
+    }
+
+    const stillExists = filteredRows.some((row) => row.id === selectedId);
+    if (!stillExists) {
+      setSelectedId(filteredRows[0].id);
+    }
+  }, [filteredRows, selectedId]);
 
   const selectedPost = useMemo(
     () => posts.find((post) => post.id === selectedId) ?? null,
     [posts, selectedId],
   );
+  const selectedNormalizedStatus = normalizeStatus(selectedPost?.status);
   const rejectTargetPost = useMemo(
     () => posts.find((post) => post.id === rejectTargetId) ?? null,
     [posts, rejectTargetId],
@@ -250,24 +271,22 @@ export default function ListingsPage() {
     ? `https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=16&hl=vi&output=embed`
     : "";
   const imageCount = selectedImages.length;
-  const activeImageSrc =
-    lightboxIndex !== null ? selectedImages[lightboxIndex] : null;
+  const activeImageSrc = lightboxIndex !== null ? selectedImages[lightboxIndex] ?? null : null;
 
   const updateLocalStatus = (
     id: number,
     nextStatus: string,
     rejectionReason?: string | null,
   ) => {
-    setRows((prev) =>
-      prev.map((row) => (row.id === id ? { ...row, status: nextStatus } : row)),
-    );
+    const normalizedNextStatus = normalizeStatus(nextStatus);
     setPosts((prev) =>
       prev.map((post) =>
         post.id === id
           ? {
               ...post,
-              status: nextStatus,
-              rejectionReason: nextStatus === "rejected" ? rejectionReason ?? null : null,
+              status: normalizedNextStatus,
+              rejectionReason:
+                normalizedNextStatus === "rejected" ? rejectionReason ?? null : null,
             }
           : post,
       ),
@@ -283,40 +302,72 @@ export default function ListingsPage() {
     setLightboxIndex(index);
   };
 
-  const closeLightbox = () => {
+  const closeLightbox = useCallback(() => {
     setLightboxIndex(null);
-  };
+  }, []);
 
-  const showPrevImage = () => {
+  const showPrevImage = useCallback(() => {
     if (imageCount <= 1) return;
     setLightboxIndex((current) => {
       if (current === null) return null;
       return (current - 1 + imageCount) % imageCount;
     });
-  };
+  }, [imageCount]);
 
-  const showNextImage = () => {
+  const showNextImage = useCallback(() => {
     if (imageCount <= 1) return;
     setLightboxIndex((current) => {
       if (current === null) return null;
       return (current + 1) % imageCount;
     });
-  };
+  }, [imageCount]);
+
+  useEffect(() => {
+    if (!activeImageSrc) return;
+
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeLightbox();
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        showPrevImage();
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        showNextImage();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [activeImageSrc, closeLightbox, showNextImage, showPrevImage]);
 
   // Hàm xử lý duyệt/từ chối
   const handleStatusChange = async (id: number, nextStatus: string, rejectionReason?: string) => {
-    const accessToken = session?.user?.accessToken;
-    if (!accessToken) return alert("Vui lòng đăng nhập lại!");
+    if (!accessToken) {
+      setLoadError("auth_failed");
+      return false;
+    }
 
-    const key = `${id}:${nextStatus}`;
+    const normalizedNextStatus = normalizeStatus(nextStatus);
+
+    const key = `${id}:${normalizedNextStatus}`;
     setActionKey(key);
     try {
-      await updatePostStatus(id, nextStatus, accessToken, rejectionReason);
-      updateLocalStatus(id, nextStatus, rejectionReason); // Cập nhật UI ngay lập tức
+      await updatePostStatus(id, normalizedNextStatus, accessToken, rejectionReason);
+      updateLocalStatus(id, normalizedNextStatus, rejectionReason);
       return true;
     } catch (error) {
       console.error(error);
-      alert("Lỗi khi cập nhật trạng thái!");
       return false;
     } finally {
       setActionKey(null);
@@ -333,6 +384,14 @@ export default function ListingsPage() {
   const closeRejectDialog = () => {
     setRejectTargetId(null);
     setRejectReason("");
+    setRejectError(null);
+  };
+
+  const appendRejectPreset = (preset: string) => {
+    setRejectReason((current) => {
+      if (!current.trim()) return `- ${preset}`;
+      return `${current}\n- ${preset}`;
+    });
     setRejectError(null);
   };
 
@@ -353,7 +412,13 @@ export default function ListingsPage() {
   };
 
   const emptyText =
-    loading ? "Đang tải dữ liệu..." : loadError ? "Tải dữ liệu thất bại" : "Không có dữ liệu";
+    loading
+      ? "Đang tải dữ liệu..."
+      : loadError === "auth_failed"
+        ? "Phiên đăng nhập hết hạn."
+        : loadError === "load_failed"
+          ? "Tải dữ liệu thất bại"
+          : "Không có dữ liệu";
 
   const cols: Column<AdminPostRow>[] = [
     { key: "title", header: "Tiêu đề", width: "24%" },
@@ -388,43 +453,46 @@ export default function ListingsPage() {
       header: "Thao tác",
       align: "right",
       width: "10%",
-      render: (r) => (
-        <div className="flex flex-col items-stretch gap-2">
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              handleStatusChange(r.id, "approved");
-            }}
-            disabled={r.status.toLowerCase() === "approved" || actionKey === `${r.id}:approved`}
-            className={`${actionButtonBase} border-emerald-200 text-emerald-700 hover:bg-emerald-50`}
-          >
-            {actionKey === `${r.id}:approved` ? "Đang duyệt..." : "Duyệt"}
-          </button>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              openRejectDialog(r.id);
-            }}
-            disabled={actionKey === `${r.id}:rejected`}
-            className={`${actionButtonBase} border-rose-200 text-rose-700 hover:bg-rose-50`}
-          >
-            {actionKey === `${r.id}:rejected` ? "Đang từ chối..." : "Từ chối"}
-          </button>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              handleStatusChange(r.id, "hidden");
-            }}
-            disabled={r.status.toLowerCase() === "hidden" || actionKey === `${r.id}:hidden`}
-            className={`${actionButtonBase} border-gray-200 text-gray-700 hover:bg-gray-50`}
-          >
-            {actionKey === `${r.id}:hidden` ? "Đang cập nhật..." : "Cân nhắc"}
-          </button>
-        </div>
-      ),
+      render: (r) => {
+        const normalizedRowStatus = normalizeStatus(r.status);
+        return (
+          <div className="flex flex-col items-stretch gap-2">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                handleStatusChange(r.id, "approved");
+              }}
+              disabled={normalizedRowStatus === "approved" || actionKey === `${r.id}:approved`}
+              className={`${actionButtonBase} border-emerald-200 text-emerald-700 hover:bg-emerald-50`}
+            >
+              {actionKey === `${r.id}:approved` ? "Đang duyệt..." : "Duyệt"}
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                openRejectDialog(r.id);
+              }}
+              disabled={actionKey === `${r.id}:rejected`}
+              className={`${actionButtonBase} border-rose-200 text-rose-700 hover:bg-rose-50`}
+            >
+              {actionKey === `${r.id}:rejected` ? "Đang từ chối..." : "Từ chối"}
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                handleStatusChange(r.id, "hidden");
+              }}
+              disabled={normalizedRowStatus === "hidden" || actionKey === `${r.id}:hidden`}
+              className={`${actionButtonBase} border-gray-200 text-gray-700 hover:bg-gray-50`}
+            >
+              {actionKey === `${r.id}:hidden` ? "Đang cập nhật..." : "Cân nhắc"}
+            </button>
+          </div>
+        );
+      },
     },
   ];
   return (
@@ -441,15 +509,39 @@ export default function ListingsPage() {
           statusOptions={statusOptions}
           placeholder="Search by title, owner, address"
         />
+        {loadError === "auth_failed" ? (
+          <div
+            role="alert"
+            className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+          >
+            Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.
+          </div>
+        ) : null}
+        {loadError === "load_failed" ? (
+          <div
+            role="alert"
+            className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+          >
+            <span>Không thể tải dữ liệu. Thử lại.</span>
+            <button
+              type="button"
+              onClick={() => void fetchPosts()}
+              disabled={loading || sessionStatus === "loading"}
+              className="inline-flex h-8 items-center justify-center rounded-lg border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Tải lại
+            </button>
+          </div>
+        ) : null}
       </SectionCard>
 
       <SectionCard
         title="Bảng danh sách"
-        subtitle={`${filtered.length} kết quả`}
+        subtitle={`${filteredRows.length} kết quả`}
         contentClassName="p-0"
       >
         <DataTable<AdminPostRow>
-          rows={filtered}
+          rows={filteredRows}
           columns={cols}
           pageSize={8}
           rowKey={(r) => String(r.id)}
@@ -480,7 +572,7 @@ export default function ListingsPage() {
                   </p>
                 </div>
               </div>
-              {selectedPost.status === "pending" && selectedPost.resubmittedAt ? (
+              {selectedNormalizedStatus === "pending" && selectedPost.resubmittedAt ? (
                 <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
                   <div className="text-xs font-semibold uppercase text-amber-600">Thông báo gửi lại</div>
                   <p className="mt-2 text-sm text-amber-700">
@@ -489,7 +581,7 @@ export default function ListingsPage() {
                   </p>
                 </div>
               ) : null}
-              {selectedPost.status === "rejected" ? (
+              {selectedNormalizedStatus === "rejected" ? (
                 <div className="rounded-2xl border border-rose-100 bg-rose-50 p-4">
                   <div className="text-xs font-semibold uppercase text-rose-500">Lý do từ chối</div>
                   <p className="mt-2 text-sm text-rose-700">
@@ -616,11 +708,8 @@ export default function ListingsPage() {
                 <div className="flex items-center justify-between">
                   <div className="text-xs font-semibold uppercase text-gray-500">Trạng thái</div>
                   <StatusBadge
-                    label={statusLabel(
-                      selectedPost.status ?? "pending",
-                      selectedPost.resubmittedAt,
-                    )}
-                    tone={statusTone(selectedPost.status ?? "pending")}
+                    label={statusLabel(selectedNormalizedStatus, selectedPost.resubmittedAt)}
+                    tone={statusTone(selectedNormalizedStatus)}
                   />
                 </div>
                 <div className="mt-3 grid gap-2">
@@ -628,7 +717,7 @@ export default function ListingsPage() {
                     type="button"
                     onClick={() => handleStatusChange(selectedPost.id, "approved")}
                     disabled={
-                      selectedPost.status === "approved" ||
+                      selectedNormalizedStatus === "approved" ||
                       actionKey === `${selectedPost.id}:approved`
                     }
                     className={`${actionButtonBase} border-emerald-200 text-emerald-700 hover:bg-emerald-50`}
@@ -649,7 +738,7 @@ export default function ListingsPage() {
                     type="button"
                     onClick={() => handleStatusChange(selectedPost.id, "hidden")}
                     disabled={
-                      selectedPost.status === "hidden" ||
+                      selectedNormalizedStatus === "hidden" ||
                       actionKey === `${selectedPost.id}:hidden`
                     }
                     className={`${actionButtonBase} border-gray-200 text-gray-700 hover:bg-gray-50`}
@@ -708,6 +797,18 @@ export default function ListingsPage() {
               <label className="text-sm font-semibold text-gray-700" htmlFor="reject-reason">
                 Lý do từ chối
               </label>
+              <div className="flex flex-wrap gap-2">
+                {rejectReasonPresets.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => appendRejectPreset(preset)}
+                    className="inline-flex h-7 items-center rounded-full border border-gray-200 bg-gray-50 px-3 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
               <textarea
                 id="reject-reason"
                 value={rejectReason}

@@ -10,10 +10,17 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { UserOauthAccountEntity } from 'src/database/entities/user-oauth-account.entity';
+import { MeController } from './me.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserEntity, RoleEntity, UserProfileEntity]),
+    TypeOrmModule.forFeature([
+      UserEntity,
+      RoleEntity,
+      UserProfileEntity,
+      UserOauthAccountEntity,
+    ]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -28,6 +35,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     }),
   ],
   providers: [AuthService, LocalStrategy, JwtStrategy],
-  controllers: [AuthController],
+  controllers: [AuthController, MeController],
 })
 export class AuthModule {}

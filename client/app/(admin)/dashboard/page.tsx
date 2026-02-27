@@ -50,7 +50,7 @@ const kpiIcons: Record<string, ReactNode> = {
 const getRoleTone = (role: string) => {
   if (role === "ADMIN") return "blue";
   if (role === "LANDLORD") return "yellow";
-  if (role === "STUDENT") return "green";
+  if (role === "STUDENT") return "red";
   return "gray";
 };
 

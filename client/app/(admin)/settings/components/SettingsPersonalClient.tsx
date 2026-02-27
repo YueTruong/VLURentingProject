@@ -238,11 +238,17 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <label className="rounded-2xl border border-[#9ca3af] px-4 py-3">
               <span className="text-[12px] text-[#6b7280]">Tên trên giấy tờ tùy thân</span>
-              <input defaultValue={firstName} className="mt-1 w-full bg-transparent text-[18px] outline-none" />
+              <input
+                defaultValue={firstName}
+                className="mt-1 w-full rounded-xl border border-gray-300 ring-0 bg-transparent px-4 py-3 text-[18px] outline-none shadow-none focus:border-gray-300 focus:outline-none focus:ring-0 focus:shadow-none focus-visible:border-gray-300 focus-visible:outline-none focus-visible:ring-0 focus-visible:shadow-none"
+              />
             </label>
             <label className="rounded-2xl border border-[#9ca3af] px-4 py-3">
               <span className="text-[12px] text-[#6b7280]">Họ trên giấy tờ tùy thân</span>
-              <input defaultValue={lastName} className="mt-1 w-full bg-transparent text-[18px] outline-none" />
+              <input
+                defaultValue={lastName}
+                className="mt-1 w-full rounded-xl border-0 ring-0 bg-transparent px-4 py-3 text-[18px] outline-none shadow-none focus:border-0 focus:outline-none focus:ring-0 focus:shadow-none focus-visible:border-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:shadow-none"
+              />
             </label>
           </div>
           <button
