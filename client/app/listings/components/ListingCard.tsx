@@ -49,6 +49,15 @@ export default function ListingCard({ item }: ListingCardProps) {
     }
   };
 
+  const availabilityLabel = item.availability === "rented" ? "Đã cho thuê" : "Còn phòng";
+  const availabilityClass = item.availability === "rented" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700";
+  const districtLabel = item.district?.trim() || "Chưa cập nhật";
+  const amenityBadges = [
+    item.wifi ? "Wi-Fi" : null,
+    item.parking ? "Bãi xe" : null,
+    item.furnished ? "Nội thất" : null,
+  ].filter(Boolean) as string[];
+
   return (
     <article className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
       <div className="flex flex-col md:flex-row">
@@ -64,13 +73,7 @@ export default function ListingCard({ item }: ListingCardProps) {
           <div className="absolute left-3 top-3 flex flex-wrap gap-2">
             <span className="rounded-full bg-white/90 px-2 py-1 text-xs font-semibold text-gray-700">{item.type}</span>
             <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700">{item.campus}</span>
-            <span
-              className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                item.availability === "rented" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
-              }`}
-            >
-              {item.availability === "rented" ? "Đã cho thuê" : "Còn phòng"}
-            </span>
+            <span className={`rounded-full px-2 py-1 text-xs font-semibold ${availabilityClass}`}>{availabilityLabel}</span>
           </div>
 
           {userRole !== "landlord" ? (
@@ -91,6 +94,9 @@ export default function ListingCard({ item }: ListingCardProps) {
               <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{item.updatedLabel}</p>
               <h3 className="line-clamp-2 text-lg font-semibold text-gray-900 dark:text-white">{item.title}</h3>
               <p className="truncate text-sm text-gray-600 dark:text-gray-300">{item.location}</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                {districtLabel} • {item.campus} • {availabilityLabel}
+              </p>
             </div>
             <div className="hidden shrink-0 text-right sm:block">
               <p className="text-xs text-gray-500 dark:text-gray-400">Đánh giá</p>
@@ -114,19 +120,18 @@ export default function ListingCard({ item }: ListingCardProps) {
               <span>{formatArea(item.area)}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Image
-                src="/icons/Wifi-Icon.svg"
-                alt="Wifi"
-                width={18}
-                height={18}
-                className={`icon-adapt-dark ${item.wifi ? "" : "opacity-40"}`}
-              />
-              <span>{item.wifi ? "Wi-Fi" : "Không Wi-Fi"}</span>
+              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Khu vực</span>
+              <span>{districtLabel}</span>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-2 text-xs font-semibold text-gray-700 dark:text-gray-200">
             {item.videoUrl ? <span className="rounded-full bg-violet-100 px-3 py-1 text-violet-700">Có video</span> : null}
+            {amenityBadges.map((badge) => (
+              <span key={`${item.id}-amenity-${badge}`} className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                {badge}
+              </span>
+            ))}
             {item.tags.slice(0, 6).map((tag, index) => (
               <span key={`${item.id}-${tag}-${index}`} className="rounded-full bg-gray-100 px-3 py-1 dark:bg-gray-800">
                 {tag}
