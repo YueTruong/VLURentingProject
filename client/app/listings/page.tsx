@@ -387,6 +387,111 @@ const matchesCriteria = (item: Listing, criteria?: Criteria | null) => {
   return true;
 };
 
+const mergeCriteria = (base: Criteria, incoming?: Criteria | null): Criteria => {
+  if (!incoming) return base;
+
+  const next: Criteria = { ...base };
+  const assign = <K extends keyof Criteria>(key: K, value: Criteria[K]) => {
+    if (value !== undefined && value !== null) {
+      next[key] = value;
+    }
+  };
+
+  assign("priceMin", incoming.priceMin);
+  assign("priceMax", incoming.priceMax);
+  assign("areaMin", incoming.areaMin);
+  assign("areaMax", incoming.areaMax);
+  assign("bedsMin", incoming.bedsMin);
+  assign("wifi", incoming.wifi);
+  assign("parking", incoming.parking);
+  assign("furnished", incoming.furnished);
+  assign("campus", incoming.campus);
+  assign("district", incoming.district);
+  assign("type", incoming.type);
+  assign("availability", incoming.availability);
+  assign("query", incoming.query);
+  assign("tags", incoming.tags);
+
+  return next;
+};
+
+const normalizeAiCriteria = (
+  raw: Criteria | null | undefined,
+  districtOptions: string[],
+  typeOptions: string[],
+): Criteria | null => {
+  if (!raw) return null;
+
+  const next: Criteria = {};
+  const pickNumber = (value: unknown) => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string") {
+      const parsed = Number(value.replace(",", "."));
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    return undefined;
+  };
+
+  const numericKeys: Array<keyof Criteria> = ["priceMin", "priceMax", "areaMin", "areaMax", "bedsMin"];
+  for (const key of numericKeys) {
+    const parsed = pickNumber(raw[key] as unknown);
+    if (parsed !== undefined) next[key] = parsed as never;
+  }
+
+  if (raw.wifi === true) next.wifi = true;
+  if (raw.parking === true) next.parking = true;
+  if (raw.furnished === true) next.furnished = true;
+
+  const normalizedCampus = normalizeText(String(raw.campus ?? ""));
+  const campusMatch = normalizedCampus.match(/(?:cs)?\s*([123])/);
+  if (campusMatch) next.campus = `CS${campusMatch[1]}`;
+
+  const normalizedAvailability = normalizeText(String(raw.availability ?? ""));
+  if (/rented|da cho thue|het phong|kin phong/.test(normalizedAvailability)) {
+    next.availability = "rented";
+  } else if (/available|con phong|con trong/.test(normalizedAvailability)) {
+    next.availability = "available";
+  }
+
+  const matchOption = (value: string, options: string[]) => {
+    const normalizedValue = normalizeText(value);
+    return (
+      options.find((option) => normalizeText(option) === normalizedValue) ??
+      options.find((option) => normalizeText(option).includes(normalizedValue)) ??
+      options.find((option) => normalizedValue.includes(normalizeText(option)))
+    );
+  };
+
+  if (typeof raw.district === "string" && raw.district.trim()) {
+    const matchedDistrict = matchOption(raw.district.trim(), districtOptions.filter((option) => option !== "Tất cả"));
+    if (matchedDistrict) next.district = matchedDistrict;
+  }
+
+  if (typeof raw.type === "string" && raw.type.trim()) {
+    const matchedType =
+      matchOption(raw.type.trim(), typeOptions.filter((option) => option !== "Tất cả")) ??
+      typeMatchers.find((matcher) => normalizeText(raw.type ?? "").includes(matcher.keyword))?.type;
+    if (matchedType) next.type = matchedType;
+  }
+
+  if (typeof raw.query === "string" && raw.query.trim()) {
+    next.query = raw.query.trim();
+  }
+
+  if (Array.isArray(raw.tags) && raw.tags.length > 0) {
+    next.tags = Array.from(
+      new Set(
+        raw.tags
+          .filter((item) => typeof item === "string")
+          .map((item) => formatAmenityLabel(item))
+          .filter(Boolean),
+      ),
+    );
+  }
+
+  return Object.keys(next).length > 0 ? next : null;
+};
+
 const buildSummary = (criteria: Criteria) => {
   const parts: string[] = [];
   if (criteria.query) parts.push(`từ khóa ${criteria.query}`);
@@ -668,6 +773,7 @@ export default function ListingsPage() {
 
     let parsed = parseCriteria(trimmed, districtFilterOptions);
     let assistantText = "";
+    let assistantProvider: string | null = null;
 
     if (!resetRequested) {
       try {
@@ -676,14 +782,18 @@ export default function ListingsPage() {
           trimmed,
           districtFilterOptions.filter((option) => option !== allOption),
         );
-        if (aiResult?.criteria && Object.keys(aiResult.criteria).length > 0) {
-          parsed = { ...parsed, ...aiResult.criteria };
-        }
+        assistantProvider = aiResult?.provider ?? null;
+        const normalizedAiCriteria = normalizeAiCriteria(
+          aiResult?.criteria ?? null,
+          districtFilterOptions,
+          typeFilterOptions,
+        );
+        parsed = mergeCriteria(parsed, normalizedAiCriteria);
         if (aiResult?.reply?.trim()) {
           assistantText = aiResult.reply.trim();
         }
       } catch {
-        // fallback local parser when AI provider unavailable
+        assistantProvider = "fallback";
       } finally {
         setAssistantThinking(false);
       }
@@ -723,6 +833,9 @@ export default function ListingsPage() {
 
       if (!assistantText.includes("bộ lọc")) {
         assistantText += " Mình đã dùng bộ lọc nâng cao theo tiêu chí này.";
+      }
+      if (assistantProvider === "fallback") {
+        assistantText += " (Đang mô phỏng bằng parser local để giữ độ chính xác.)";
       }
     }
 
