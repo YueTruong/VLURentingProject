@@ -255,6 +255,12 @@ export default function ProfilePage() {
 
   const roleKey = session?.user?.role?.toString().toLowerCase() || "student";
   const isStudent = roleKey === "student";
+  const roleBadgeClassName =
+    roleKey === "landlord"
+      ? "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+      : roleKey === "admin"
+        ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+        : "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400";
 
   const displayName = useMemo(() => {
     const rawFullName = (session?.user as { full_name?: string })?.full_name;
@@ -549,7 +555,7 @@ export default function ProfilePage() {
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-white capitalize">{displayName}</h1>
-                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${roleBadgeClassName}`}>
                     {roleKey === "landlord" ? "Chủ trọ" : roleKey === "admin" ? "Admin" : "Sinh viên"}
                   </span>
                 </div>
@@ -558,11 +564,11 @@ export default function ProfilePage() {
                   Đang hoạt động
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {verifiedItems.map((item) => (
-                    <span key={item} className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-semibold text-blue-600 dark:border-blue-900/50 dark:bg-blue-900/30 dark:text-blue-400">
-                      {item} đã xác minh
+                  {verifiedItems.length > 0 ? (
+                    <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-semibold text-blue-600 dark:border-blue-900/50 dark:bg-blue-900/30 dark:text-blue-400">
+                      Đã xác minh
                     </span>
-                  ))}
+                  ) : null}
                 </div>
               </div>
             </div>

@@ -160,6 +160,13 @@ function UserProfileModal({
   onViewProfile: () => void;
   role: string;
 }) {
+  const normalizedRole = role.trim().toLowerCase();
+  const roleBadgeClassName = normalizedRole.includes("admin")
+    ? "bg-blue-100 text-blue-700"
+    : normalizedRole.includes("sinh")
+      ? "bg-red-100 text-red-700"
+      : "bg-yellow-100 text-yellow-700";
+
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="relative z-101 w-full max-w-sm rounded-3xl border border-(--theme-border) bg-(--theme-surface) p-6 text-(--theme-text) shadow-2xl">
@@ -185,9 +192,7 @@ function UserProfileModal({
             <h2 className="text-xl font-bold text-(--theme-text)">{user.full_name || "Người dùng ẩn danh"}</h2>
             
             {/* HIỂN THỊ VAI TRÒ (CHỦ TRỌ / SINH VIÊN) */}
-            <span className={`inline-block mt-1 px-3 py-1 rounded-full text-xs font-semibold ${
-              role === 'Chủ trọ' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
-            }`}>
+            <span className={`inline-block mt-1 px-3 py-1 rounded-full text-xs font-semibold ${roleBadgeClassName}`}>
               {role}
             </span>
 
