@@ -18,6 +18,8 @@ type Message = {
   time: string;
 };
 
+type SortOption = "latest" | "oldest" | "price-asc" | "price-desc" | "area-desc" | "rating-desc";
+
 type Criteria = {
   priceMin?: number;
   priceMax?: number;
@@ -33,6 +35,8 @@ type Criteria = {
   availability?: "available" | "rented";
   query?: string;
   tags?: string[];
+  sortBy?: SortOption;
+  videoOnly?: boolean;
 };
 
 const tagMatchers = [
@@ -274,6 +278,18 @@ const parseCriteria = (
     criteria.availability = "available";
   }
 
+  if (/gia thap|re nhat|tu thap den cao/.test(normalized)) {
+    criteria.sortBy = "price-asc";
+  } else if (/gia cao|cao nhat|tu cao den thap/.test(normalized)) {
+    criteria.sortBy = "price-desc";
+  } else if (/moi nhat|moi cap nhat/.test(normalized)) {
+    criteria.sortBy = "latest";
+  }
+
+  if (/co video|video tour|video phong/.test(normalized)) {
+    criteria.videoOnly = true;
+  }
+
   const tags = tagMatchers
     .filter((matcher) => normalized.includes(matcher.keyword))
     .map((matcher) => matcher.tag);
@@ -384,6 +400,8 @@ const matchesCriteria = (item: Listing, criteria?: Criteria | null) => {
     if (!hasAllTags) return false;
   }
 
+  if (criteria.videoOnly && !item.videoUrl) return false;
+
   return true;
 };
 
@@ -411,6 +429,8 @@ const mergeCriteria = (base: Criteria, incoming?: Criteria | null): Criteria => 
   assign("availability", incoming.availability);
   assign("query", incoming.query);
   assign("tags", incoming.tags);
+  assign("sortBy", incoming.sortBy);
+  assign("videoOnly", incoming.videoOnly);
 
   return next;
 };
@@ -478,6 +498,15 @@ const normalizeAiCriteria = (
     next.query = raw.query.trim();
   }
 
+  const sortByRaw = normalizeText(String(raw.sortBy ?? ""));
+  if (["latest", "oldest", "price-asc", "price-desc", "area-desc", "rating-desc"].includes(sortByRaw)) {
+    next.sortBy = sortByRaw as SortOption;
+  }
+
+  if (raw.videoOnly === true) {
+    next.videoOnly = true;
+  }
+
   if (Array.isArray(raw.tags) && raw.tags.length > 0) {
     next.tags = Array.from(
       new Set(
@@ -526,6 +555,7 @@ const buildSummary = (criteria: Criteria) => {
   if (criteria.tags && criteria.tags.length > 0) {
     parts.push(`tiện ích: ${criteria.tags.join(", ")}`);
   }
+  if (criteria.videoOnly) parts.push("có video phòng");
 
   return parts;
 };
@@ -542,7 +572,7 @@ const buildAssistantReply = (
   criteria: Criteria,
   matchedCount: number,
   totalCount: number,
-  usedCloud: boolean,
+  provider?: string,
 ) => {
   const summary = buildSummary(criteria);
 
@@ -550,7 +580,7 @@ const buildAssistantReply = (
     return "Mình chưa thấy tiêu chí rõ ràng. Bạn có thể nói cụ thể hơn về giá, khu vực, loại phòng, diện tích hoặc tiện ích.";
   }
 
-  const modeLabel = usedCloud ? "AI cloud + mô phỏng local" : "AI mô phỏng local";
+  const modeLabel = provider === "dialogflow" ? "Dialogflow + local" : provider && provider !== "fallback" ? "OpenAI + local" : "AI mô phỏng local";
   if (matchedCount === 0) {
     return `(${modeLabel}) Mình đã lọc theo ${summary.join(", ")} nhưng chưa thấy kết quả phù hợp trong ${totalCount} tin hiện có. Bạn thử nới giá/khu vực nhé.`;
   }
@@ -584,11 +614,14 @@ export default function ListingsPage() {
   const [availability, setAvailability] = useState(allOption);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [minArea, setMinArea] = useState("");
+  const [maxArea, setMaxArea] = useState("");
   const [minBeds, setMinBeds] = useState("Bất kỳ");
   const [wifiOnly, setWifiOnly] = useState(false);
   const [parkingOnly, setParkingOnly] = useState(false);
   const [furnishedOnly, setFurnishedOnly] = useState(false);
-  const [sortBy, setSortBy] = useState("latest");
+  const [videoOnly, setVideoOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>("latest");
   const [selectedMapId, setSelectedMapId] = useState<number | null>(null);
 
   const [assistantInput, setAssistantInput] = useState("");
@@ -667,16 +700,22 @@ export default function ListingsPage() {
     setAvailability(criteria.availability ?? allOption);
     setMinPrice(criteria.priceMin !== undefined ? String(criteria.priceMin) : "");
     setMaxPrice(criteria.priceMax !== undefined ? String(criteria.priceMax) : "");
+    setMinArea(criteria.areaMin !== undefined ? String(criteria.areaMin) : "");
+    setMaxArea(criteria.areaMax !== undefined ? String(criteria.areaMax) : "");
     setMinBeds(criteria.bedsMin !== undefined ? String(criteria.bedsMin) : "Bất kỳ");
     setWifiOnly(Boolean(criteria.wifi));
     setParkingOnly(Boolean(criteria.parking));
     setFurnishedOnly(Boolean(criteria.furnished));
+    setVideoOnly(Boolean(criteria.videoOnly));
+    if (criteria.sortBy) setSortBy(criteria.sortBy);
   };
 
   const manualCriteria = useMemo(() => {
     const criteria: Criteria = {};
     const parsedMinPrice = parseNumber(minPrice);
     const parsedMaxPrice = parseNumber(maxPrice);
+    const parsedMinArea = parseNumber(minArea);
+    const parsedMaxArea = parseNumber(maxArea);
 
     if (query.trim()) criteria.query = query.trim();
 
@@ -687,6 +726,8 @@ export default function ListingsPage() {
 
     if (parsedMinPrice !== undefined) criteria.priceMin = parsedMinPrice;
     if (parsedMaxPrice !== undefined) criteria.priceMax = parsedMaxPrice;
+    if (parsedMinArea !== undefined) criteria.areaMin = parsedMinArea;
+    if (parsedMaxArea !== undefined) criteria.areaMax = parsedMaxArea;
 
     if (minBeds !== "Bất kỳ") {
       const parsedBeds = Number(minBeds);
@@ -696,16 +737,15 @@ export default function ListingsPage() {
     if (wifiOnly) criteria.wifi = true;
     if (parkingOnly) criteria.parking = true;
     if (furnishedOnly) criteria.furnished = true;
+    if (videoOnly) criteria.videoOnly = true;
 
     return criteria;
-  }, [allOption, availability, campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, query, type, wifiOnly]);
+  }, [allOption, availability, campus, district, furnishedOnly, maxArea, maxPrice, minArea, minBeds, minPrice, parkingOnly, query, type, videoOnly, wifiOnly]);
 
   const assistantExtras = useMemo(() => {
     if (!assistantCriteria) return null;
     const extras: Criteria = {};
 
-    if (assistantCriteria.areaMin !== undefined) extras.areaMin = assistantCriteria.areaMin;
-    if (assistantCriteria.areaMax !== undefined) extras.areaMax = assistantCriteria.areaMax;
     if (assistantCriteria.tags && assistantCriteria.tags.length > 0) {
       extras.tags = assistantCriteria.tags;
     }
@@ -768,12 +808,15 @@ export default function ListingsPage() {
     if (availability !== allOption) items.push(`Tình trạng: ${availability === "rented" ? "Đã cho thuê" : "Còn phòng"}`);
     if (minPrice.trim()) items.push(`Giá từ: ${minPrice} triệu`);
     if (maxPrice.trim()) items.push(`Giá đến: ${maxPrice} triệu`);
+    if (minArea.trim()) items.push(`Diện tích từ: ${minArea} m2`);
+    if (maxArea.trim()) items.push(`Diện tích đến: ${maxArea} m2`);
     if (minBeds !== "Bất kỳ") items.push(`Giường: ${minBeds}+`);
     if (wifiOnly) items.push("Có Wi-Fi");
     if (parkingOnly) items.push("Có bãi xe");
     if (furnishedOnly) items.push("Đầy đủ nội thất");
+    if (videoOnly) items.push("Có video phòng");
     return items;
-  }, [allOption, availability, campus, district, furnishedOnly, maxPrice, minBeds, minPrice, parkingOnly, query, type, wifiOnly]);
+  }, [allOption, availability, campus, district, furnishedOnly, maxArea, maxPrice, minArea, minBeds, minPrice, parkingOnly, query, type, videoOnly, wifiOnly]);
 
   const assistantExtraBadges = useMemo(() => {
     if (!assistantExtras) return [];
@@ -795,7 +838,7 @@ export default function ListingsPage() {
 
     let parsed = parseCriteria(trimmed, districtFilterOptions);
     let assistantText = "";
-    let usedCloud = false;
+    let cloudProvider = "fallback";
 
     if (!resetRequested && CLOUD_AI_ENABLED) {
       try {
@@ -810,9 +853,9 @@ export default function ListingsPage() {
           typeFilterOptions,
         );
         parsed = mergeCriteria(parsed, normalizedAiCriteria);
-        usedCloud = aiResult?.provider !== "fallback";
+        cloudProvider = aiResult?.provider ?? "fallback";
       } catch {
-        usedCloud = false;
+        cloudProvider = "fallback";
       } finally {
         setAssistantThinking(false);
       }
@@ -836,7 +879,7 @@ export default function ListingsPage() {
     }
 
     const matched = summary.length > 0 ? sourceListings.filter((item) => matchesCriteria(item, parsed)) : [];
-    assistantText = buildAssistantReply(parsed, matched.length, sourceListings.length, usedCloud);
+    assistantText = buildAssistantReply(parsed, matched.length, sourceListings.length, cloudProvider);
 
     const assistantMessage: Message = {
       id: nextMessageId("a"),
@@ -862,10 +905,13 @@ export default function ListingsPage() {
     setAvailability(allOption);
     setMinPrice("");
     setMaxPrice("");
+    setMinArea("");
+    setMaxArea("");
     setMinBeds("Bất kỳ");
     setWifiOnly(false);
     setParkingOnly(false);
     setFurnishedOnly(false);
+    setVideoOnly(false);
     setSortBy("latest");
     setAssistantCriteria(null);
   };
@@ -905,8 +951,8 @@ export default function ListingsPage() {
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Trợ lý AI</h2>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {CLOUD_AI_ENABLED
-                        ? "Cloud AI đang bật (kèm mô phỏng local fallback)."
-                        : "Mô phỏng AI local đang bật (không tốn phí API). Có thể bật cloud/Dialogflow sau qua API gateway."}
+                        ? "Cloud AI đang bật (ưu tiên Dialogflow, fallback OpenAI/local parser)."
+                        : "Mô phỏng AI local đang bật (không tốn phí API). Có thể bật Dialogflow/OpenAI qua API gateway."}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1102,6 +1148,26 @@ export default function ListingsPage() {
               </div>
 
               <div className="space-y-2">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Diện tích (m2)</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    value={minArea}
+                    onChange={(event) => setMinArea(event.target.value)}
+                    placeholder="Từ"
+                    className="w-full rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none transition-colors focus:border-[#D51F35] focus:ring-2 focus:ring-[#D51F35]/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    inputMode="decimal"
+                  />
+                  <input
+                    value={maxArea}
+                    onChange={(event) => setMaxArea(event.target.value)}
+                    placeholder="Đến"
+                    className="w-full rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 outline-none transition-colors focus:border-[#D51F35] focus:ring-2 focus:ring-[#D51F35]/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    inputMode="decimal"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
                 <label htmlFor="beds" className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Số giường
                 </label>
@@ -1149,6 +1215,15 @@ export default function ListingsPage() {
                     />
                     Đầy đủ nội thất
                   </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={videoOnly}
+                      onChange={(event) => setVideoOnly(event.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-[#D51F35] dark:border-gray-600 dark:bg-gray-700"
+                    />
+                    Có video phòng
+                  </label>
                 </div>
               </div>
             </div>
@@ -1188,7 +1263,7 @@ export default function ListingsPage() {
                   <span className="text-sm text-gray-500 dark:text-gray-400">Sắp xếp</span>
                   <select
                     value={sortBy}
-                    onChange={(event) => setSortBy(event.target.value)}
+                    onChange={(event) => setSortBy(event.target.value as SortOption)}
                     className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                   >
                     <option value="oldest">Cũ nhất</option>

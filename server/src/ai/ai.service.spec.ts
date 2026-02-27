@@ -23,16 +23,47 @@ describe('AiService', () => {
     service = module.get<AiService>(AiService);
   });
 
-  it('should return fallback when OPENAI_API_KEY missing', async () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('should return fallback when no cloud provider is configured', async () => {
     const result = await service.parseHousingQuery('tim phong gan CS1');
 
     expect(result.provider).toBe('fallback');
     expect(result.criteria).toBeNull();
-    expect(result.reply).toContain('fallback');
+    expect(result.reply).toContain('AI local parser');
   });
 
-  it('should sanitize criteria from AI response', async () => {
-    const fetchSpy = jest.spyOn(global, 'fetch' as any).mockResolvedValue({
+  it('should prefer dialogflow when webhook is configured', async () => {
+    jest.spyOn(global, 'fetch' as never).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        criteria: { priceMax: 6, campus: 'CS1' },
+        reply: 'dialogflow-ok',
+      }),
+    } as never);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AiService,
+        {
+          provide: ConfigService,
+          useValue: createConfig({ DIALOGFLOW_WEBHOOK_URL: 'https://dialogflow-gateway.local' }),
+        },
+      ],
+    }).compile();
+
+    const localService = module.get<AiService>(AiService);
+    const result = await localService.parseHousingQuery('tim phong duoi 6 trieu');
+
+    expect(result.provider).toBe('dialogflow');
+    expect(result.criteria).toMatchObject({ priceMax: 6, campus: 'CS1' });
+    expect(result.reply).toBe('dialogflow-ok');
+  });
+
+  it('should sanitize criteria from openai response', async () => {
+    jest.spyOn(global, 'fetch' as never).mockResolvedValue({
       ok: true,
       json: async () => ({
         choices: [
@@ -60,15 +91,14 @@ describe('AiService', () => {
           },
         ],
       }),
-      text: async () => '',
-    } as any);
+    } as never);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AiService,
         {
           provide: ConfigService,
-          useValue: createConfig({ OPENAI_API_KEY: 'x', OPENAI_MODEL: 'gpt-test' }),
+          useValue: createConfig({ OPENAI_API_KEY: 'x', OPENAI_MODEL: 'gpt-test', AI_PROVIDER: 'openai' }),
         },
       ],
     }).compile();
@@ -92,7 +122,5 @@ describe('AiService', () => {
       parking: true,
       tags: ['Wifi'],
     });
-
-    fetchSpy.mockRestore();
   });
 });
