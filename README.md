@@ -18,6 +18,16 @@ Monorepo for a student rental platform with:
 - npm 10+
 - PostgreSQL (for backend)
 
+
+## Environment setup examples
+
+Copy these templates before running locally:
+
+```bash
+cp server/.env.example server/.env
+cp client/env.local.example client/.env.local
+```
+
 ## Install dependencies
 
 Install frontend and backend dependencies separately:
@@ -86,3 +96,20 @@ npm run build
 
 - Configure backend environment variables before running in development.
 - Make sure the frontend points to the correct backend API URL.
+
+
+## AI fine-tuning scaffold
+
+Starter assets are available for OpenAI fine-tuning prep:
+
+- `ai/fine-tune/train.example.jsonl`
+- `ai/fine-tune/validation.example.jsonl`
+- `scripts/validate-finetune-jsonl.mjs`
+- `docs/openai-readiness-checklist.md`
+
+Run validation:
+
+```bash
+node scripts/validate-finetune-jsonl.mjs ai/fine-tune/train.example.jsonl
+node scripts/validate-finetune-jsonl.mjs ai/fine-tune/validation.example.jsonl
+```
