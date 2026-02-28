@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 import { Listing, formatArea, formatPrice } from "../data/listings";
-import { toggleFavorite, useFavorites } from "@/app/services/favorites";
+import { getFavoriteScope, toggleFavorite, useFavoritesByScope } from "@/app/services/favorites";
 
 type ListingCardProps = {
   item: Listing;
@@ -15,7 +15,8 @@ type ListingCardProps = {
 export default function ListingCard({ item }: ListingCardProps) {
   const { data: session } = useSession();
   const userRole = session?.user?.role?.toLowerCase();
-  const favorites = useFavorites();
+  const favoriteScope = getFavoriteScope(session?.user?.id);
+  const favorites = useFavoritesByScope(favoriteScope);
   const isSaved = favorites.some((fav) => fav.id === item.id);
 
   const roomDataToSave = useMemo(
@@ -41,7 +42,7 @@ export default function ListingCard({ item }: ListingCardProps) {
       return;
     }
 
-    toggleFavorite(roomDataToSave);
+    toggleFavorite(roomDataToSave, favoriteScope);
     if (isSaved) {
       toast("Đã bỏ lưu tin", { icon: "💔" });
     } else {
