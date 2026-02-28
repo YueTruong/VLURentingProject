@@ -1,37 +1,53 @@
 "use client";
 
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import UserTopBar from "@/app/homepage/components/UserTopBar";
+import {
+  getIdentityVerificationOverview,
+  readVerificationStatusFromStorage,
+  VERIFICATION_STATUS_EVENT,
+} from "@/app/services/security";
 import PostWizard from "./PostWizard";
 
 const IDENTITY_VERIFICATION_URL = "/settings/identity";
-const VERIFICATION_STORAGE_KEY = "vlu.landlord.verified";
-
-function readVerificationFlag() {
-  if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(VERIFICATION_STORAGE_KEY) === "true";
-}
 
 export default function PostPage() {
+  const { data: session, status: sessionStatus } = useSession();
   const router = useRouter();
   const [isVerified, setIsVerified] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const syncVerification = () => {
-      setIsVerified(readVerificationFlag());
+    if (sessionStatus === "loading") return;
+
+    const syncVerification = async () => {
+      const accessToken = session?.user?.accessToken;
+      if (!accessToken) {
+        setIsVerified(readVerificationStatusFromStorage() === "verified");
+        return;
+      }
+
+      try {
+        const data = await getIdentityVerificationOverview(accessToken);
+        setIsVerified(data.status === "verified");
+      } catch {
+        setIsVerified(readVerificationStatusFromStorage() === "verified");
+      }
     };
 
-    syncVerification();
+    void syncVerification();
     window.addEventListener("storage", syncVerification);
     window.addEventListener("focus", syncVerification);
+    window.addEventListener(VERIFICATION_STATUS_EVENT, syncVerification as EventListener);
 
     return () => {
       window.removeEventListener("storage", syncVerification);
       window.removeEventListener("focus", syncVerification);
+      window.removeEventListener(VERIFICATION_STATUS_EVENT, syncVerification as EventListener);
     };
-  }, []);
+  }, [session?.user?.accessToken, sessionStatus]);
 
   return (
     <div className="min-h-screen bg-gray-50">
