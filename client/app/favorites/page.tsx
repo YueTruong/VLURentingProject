@@ -2,13 +2,16 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import RoomCard from "@/app/homepage/components/RoomCard";
 import UserPageShell from "@/app/homepage/components/UserPageShell";
-import { clearFavorites, useFavorites } from "@/app/services/favorites";
+import { clearFavorites, getFavoriteScope, useFavoritesByScope } from "@/app/services/favorites";
 import toast from "react-hot-toast";
 
 export default function FavoritesPage() {
-  const favorites = useFavorites();
+  const { data: session } = useSession();
+  const favoriteScope = getFavoriteScope(session?.user?.id);
+  const favorites = useFavoritesByScope(favoriteScope);
   
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
 
@@ -63,7 +66,7 @@ export default function FavoritesPage() {
 
   const handleClearAll = () => {
     if (window.confirm("Bạn có chắc chắn muốn xóa toàn bộ tin đã lưu không? Hành động này không thể hoàn tác.")) {
-      clearFavorites();
+      clearFavorites(favoriteScope);
       setSelectedArea(null); 
       toast.success("Đã xóa toàn bộ tin đã lưu");
     }

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { toggleFavorite, useFavorites } from "@/app/services/favorites";
+import { getFavoriteScope, toggleFavorite, useFavoritesByScope } from "@/app/services/favorites";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 
@@ -24,8 +24,9 @@ interface RoomProps {
 }
 
 export default function RoomCard({ data, className }: RoomProps) {
-  const favorites = useFavorites();
   const { data: session } = useSession(); 
+  const favoriteScope = getFavoriteScope(session?.user?.id);
+  const favorites = useFavoritesByScope(favoriteScope);
 
   const userRole = session?.user?.role?.toLowerCase();
   const canUseFavoriteAction = userRole !== "landlord" && userRole !== "admin";
@@ -45,7 +46,7 @@ export default function RoomCard({ data, className }: RoomProps) {
       return;
     }
 
-    toggleFavorite(data);
+    toggleFavorite(data, favoriteScope);
     
     if (isSaved) {
       toast("Đã bỏ lưu tin", { icon: "💔" });

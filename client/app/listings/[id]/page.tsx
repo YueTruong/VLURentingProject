@@ -9,7 +9,7 @@ import UserPageShell from "@/app/homepage/components/UserPageShell"; // ✅ Dùn
 import { getPostById, type Post } from "@/app/services/posts";
 import { createReview, getPostReviews, updateReview, type PublicReview } from "@/app/services/reviews";
 import toast from "react-hot-toast"; 
-import { toggleFavorite, useFavorites } from "@/app/services/favorites"; 
+import { getFavoriteScope, toggleFavorite, useFavoritesByScope } from "@/app/services/favorites"; 
 
 // --- Types ---
 type Listing = {
@@ -322,7 +322,8 @@ export default function ListingDetailPage() {
   }, [reviews, currentUserId]);
 
   // Setup Logic Lưu Tin
-  const favorites = useFavorites();
+  const favoriteScope = getFavoriteScope(session?.user?.id);
+  const favorites = useFavoritesByScope(favoriteScope);
   const isSaved = listing ? favorites.some((item) => item.id === Number(listing.id)) : false;
 
   const handleToggleFavorite = () => {
@@ -346,7 +347,7 @@ export default function ListingDetailPage() {
       price: listing.price,
     };
 
-    toggleFavorite(roomDataToSave);
+    toggleFavorite(roomDataToSave, favoriteScope);
     
     if (isSaved) {
       toast("Đã bỏ lưu tin", { icon: '💔' });

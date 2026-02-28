@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import UserPageShell from "@/app/homepage/components/UserPageShell"; 
 import { getMyPosts, type Post } from "@/app/services/posts"; 
-import { useFavorites, toggleFavorite } from "@/app/services/favorites"; 
+import { getFavoriteScope, useFavoritesByScope, toggleFavorite } from "@/app/services/favorites"; 
 import toast from "react-hot-toast";
 import { getMyProfile, updateMyProfile } from "@/app/services/auth";
 
@@ -234,7 +234,8 @@ export default function ProfilePage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [chatPreviewProfile, setChatPreviewProfile] = useState<ChatProfilePreview | null>(null);
   const [chatPreviewResolved, setChatPreviewResolved] = useState(false);
-  const favorites = useFavorites(); 
+  const favoriteScope = getFavoriteScope(session?.user?.id);
+  const favorites = useFavoritesByScope(favoriteScope); 
 
   const chatProfileId = useMemo(() => {
     const raw = searchParams.get("chatUserId");
@@ -403,7 +404,7 @@ export default function ProfilePage() {
       area: listing.area,
       price: listing.price,
     };
-    toggleFavorite(roomData);
+    toggleFavorite(roomData, favoriteScope);
     if (favorites.some((f) => f.id === listing.id)) {
       toast("Đã bỏ lưu tin", { icon: "💔" });
     } else {
