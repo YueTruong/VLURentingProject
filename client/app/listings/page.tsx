@@ -589,11 +589,26 @@ const countStructuredCriteria = (criteria: Criteria) => {
   return score;
 };
 
-const optimizeCloudMergedCriteria = (merged: Criteria, cloudCriteria: Criteria | null) => {
+const hasExplicitKeywordIntent = (input: string) => {
+  const normalized = normalizeText(input);
+  if (/["“”'‘’][^"“”'‘’]+["“”'‘’]/.test(input)) return true;
+  return /\b(tim|tim kiem|search|ten|keyword|tu khoa)\b/.test(normalized);
+};
+
+const hasFollowupIntent = (input: string) => {
+  const normalized = normalizeText(input);
+  return /\b(them|bo sung|con|va|kem|uu tien|them nua|ngoai ra|them tieu chi)\b/.test(normalized);
+};
+
+const optimizeCloudMergedCriteria = (
+  merged: Criteria,
+  cloudCriteria: Criteria | null,
+  input: string,
+) => {
   if (!cloudCriteria) return merged;
 
   const structuredScore = countStructuredCriteria(cloudCriteria);
-  if (structuredScore >= 2 && merged.query) {
+  if (structuredScore >= 1 && merged.query && !hasExplicitKeywordIntent(input)) {
     return { ...merged, query: undefined };
   }
 
@@ -663,7 +678,7 @@ export default function ListingsPage() {
     {
       id: "intro",
       role: "assistant",
-      text: "Xin chào! Mình là trợ lý AI mô phỏng của VLU Renting (rule-based). Bạn cứ nhập tiêu chí tự nhiên như người thật: giá, khu vực, diện tích, tiện ích... để mình lọc chính xác nhé.",
+      text: `Xin chào! Mình là trợ lý AI của VLU Renting. Bạn có thể hỏi theo hội thoại tự nhiên (ví dụ: "gần CS3, 5-7 triệu, có wifi", rồi nhắn tiếp "thêm bãi xe").`,
       time: "",
     },
   ]);
@@ -873,6 +888,11 @@ export default function ListingsPage() {
     let cloudProvider = "fallback";
     let cloudReply: string | undefined;
 
+    const shouldUseConversationContext = Boolean(assistantCriteria) && hasFollowupIntent(trimmed);
+    if (shouldUseConversationContext && assistantCriteria) {
+      parsed = mergeCriteria(assistantCriteria, parsed);
+    }
+
     if (!resetRequested && CLOUD_AI_ENABLED) {
       try {
         setAssistantThinking(true);
@@ -885,7 +905,11 @@ export default function ListingsPage() {
           districtFilterOptions,
           typeFilterOptions,
         );
-        parsed = optimizeCloudMergedCriteria(mergeCriteria(parsed, normalizedAiCriteria), normalizedAiCriteria);
+        parsed = optimizeCloudMergedCriteria(
+          mergeCriteria(parsed, normalizedAiCriteria),
+          normalizedAiCriteria,
+          trimmed,
+        );
         cloudProvider = aiResult?.provider ?? "fallback";
         cloudReply = typeof aiResult?.reply === "string" ? aiResult.reply.trim() : undefined;
       } catch {
