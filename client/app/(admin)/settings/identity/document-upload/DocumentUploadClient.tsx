@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { submitIdentityVerification } from "@/app/services/security";
 
 const IDENTITY_IMAGE_KEY = "vlu.identity.document.images";
 const VERIFICATION_STORAGE_KEY = "vlu.landlord.verified";
@@ -163,6 +165,7 @@ function UploadCard({
 }
 
 export default function DocumentUploadClient() {
+  const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const frontInputRef = useRef<HTMLInputElement>(null);
@@ -171,6 +174,7 @@ export default function DocumentUploadClient() {
   const [frontFile, setFrontFile] = useState<File | null>(null);
   const [backFile, setBackFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const rawType = searchParams.get("type");
   const documentType: IdentityDocumentType =
@@ -197,6 +201,7 @@ export default function DocumentUploadClient() {
   const canContinue = config.requiresBackImage
     ? Boolean(frontFile && backFile)
     : Boolean(frontFile);
+  const accessToken = session?.user?.accessToken;
 
   function validateAndSetFile(
     files: FileList | null,
@@ -214,8 +219,12 @@ export default function DocumentUploadClient() {
     setErrorMessage("");
   }
 
-  function handleContinue() {
-    if (!canContinue) return;
+  async function handleContinue() {
+    if (!canContinue || isSubmitting) return;
+    if (!accessToken) {
+      setErrorMessage("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
+      return;
+    }
 
     if (typeof window !== "undefined") {
       window.localStorage.setItem(
@@ -227,12 +236,39 @@ export default function DocumentUploadClient() {
         }),
       );
 
-      // Mock verification: uploading the required images completes identity verification.
-      window.localStorage.setItem(VERIFICATION_STORAGE_KEY, "true");
-      window.localStorage.removeItem(VERIFICATION_PENDING_KEY);
     }
 
-    router.push("/settings/identity");
+    setIsSubmitting(true);
+    setErrorMessage("");
+
+    try {
+      await submitIdentityVerification(
+        {
+          documentType,
+          frontImageName: frontFile?.name ?? "",
+          backImageName: config.requiresBackImage ? backFile?.name ?? "" : undefined,
+        },
+        accessToken,
+      );
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(VERIFICATION_STORAGE_KEY, "true");
+        window.localStorage.removeItem(VERIFICATION_PENDING_KEY);
+      }
+
+      router.push("/settings/identity");
+    } catch (error) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        (error as { response?: { data?: { message?: string } } }).response?.data?.message
+          ? String((error as { response?: { data?: { message?: string } } }).response?.data?.message)
+          : "Không thể gửi xác minh. Vui lòng thử lại.";
+      setErrorMessage(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -292,16 +328,16 @@ export default function DocumentUploadClient() {
         <button
           type="button"
           onClick={handleContinue}
-          disabled={!canContinue}
+          disabled={!canContinue || isSubmitting}
           className={cn(
             "inline-flex items-center gap-2 rounded-xl px-6 py-2.5 text-base font-semibold transition-colors",
-            canContinue
+            canContinue && !isSubmitting
               ? "bg-[#111827] text-white hover:bg-black"
               : "cursor-not-allowed bg-[#e5e7eb] text-[#9ca3af]",
           )}
         >
-          {!canContinue ? <LockIcon /> : null}
-          Tiếp tục
+          {!canContinue || isSubmitting ? <LockIcon /> : null}
+          {isSubmitting ? "Đang xác minh..." : "Tiếp tục"}
         </button>
       </div>
     </div>

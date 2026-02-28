@@ -2,9 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import {
+  getIdentityVerificationOverview,
+  type IdentityVerificationStatus,
+} from "@/app/services/security";
 import LanguageCurrencySettingsPanel from "./LanguageCurrencySettingsPanel";
 import LoginSecurityPanel from "./LoginSecurityPanel";
 import NotificationsSettingsPanel from "./NotificationsSettingsPanel";
@@ -52,7 +57,7 @@ const MISSING_VALUE = "Chưa được cung cấp";
 const IDENTITY_NAVIGATION_DELAY_MS = 1000;
 
 function MenuIcon({ children }: { children: ReactNode }) {
-  return <span className="inline-flex h-5 w-5 items-center justify-center text-[#222222]">{children}</span>;
+  return <span className="inline-flex h-5 w-5 items-center justify-center text-gray-500">{children}</span>;
 }
 
 function HelpCardItem({ title, description }: HelpItem) {
@@ -104,16 +109,50 @@ function RowDisplay({
 }
 
 export default function SettingsPersonalClient({ legalName, email, initialPanel = "personal" }: Props) {
+  const { data: session, status: sessionStatus } = useSession();
   const router = useRouter();
   const [activePanel, setActivePanel] = useState<SettingsPanelKey>(initialPanel);
   const [editingKey, setEditingKey] = useState<InfoKey | null>(null);
   const [preferredName, setPreferredName] = useState("");
   const [editingEmail, setEditingEmail] = useState("");
   const [isIdentityNavigating, setIsIdentityNavigating] = useState(false);
+  const [identityStatus, setIdentityStatus] = useState<IdentityVerificationStatus>("unverified");
+  const [identityStatusLoading, setIdentityStatusLoading] = useState(true);
 
   useEffect(() => {
     setActivePanel(initialPanel);
   }, [initialPanel]);
+
+  useEffect(() => {
+    if (sessionStatus === "loading") return;
+
+    const accessToken = session?.user?.accessToken;
+    if (!accessToken) {
+      setIdentityStatus("unverified");
+      setIdentityStatusLoading(false);
+      return;
+    }
+
+    let active = true;
+    setIdentityStatusLoading(true);
+    getIdentityVerificationOverview(accessToken)
+      .then((data) => {
+        if (!active) return;
+        setIdentityStatus(data.status);
+      })
+      .catch(() => {
+        if (!active) return;
+        setIdentityStatus("unverified");
+      })
+      .finally(() => {
+        if (!active) return;
+        setIdentityStatusLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.accessToken, sessionStatus]);
 
   const maskedEmail = useMemo(() => {
     if (!email || email === MISSING_VALUE || !email.includes("@")) return email;
@@ -132,6 +171,15 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
 
     return [parts.slice(0, -1).join(" "), parts[parts.length - 1]];
   }, [legalName]);
+
+  const identityRowValue = useMemo(() => {
+    if (identityStatusLoading) return "Đang tải trạng thái xác minh";
+    if (identityStatus === "verified") return "Đã xác minh";
+    if (identityStatus === "pending") return "Đang chờ duyệt";
+    return "Chưa bắt đầu";
+  }, [identityStatus, identityStatusLoading]);
+
+  const identityActionLabel = identityStatus === "verified" ? "Xem" : "Bắt đầu";
 
   const menuItems: MenuItem[] = [
     {
@@ -194,7 +242,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
         "Thêm số điện thoại để khách đã xác nhận và Airbnb có thể liên hệ với bạn. Bạn có thể thêm các số điện thoại khác và chọn mục đích sử dụng tương ứng.",
       action: "Thêm",
     },
-    { key: "identity", title: "Xác minh danh tính", value: "Chưa bắt đầu", action: "Bắt đầu" },
+    { key: "identity", title: "Xác minh danh tính", value: identityRowValue, action: identityActionLabel },
     { key: "residence", title: "Địa chỉ cư trú", value: MISSING_VALUE, action: "Thêm" },
     { key: "mailing", title: "Địa chỉ gửi thư", value: MISSING_VALUE, action: "Thêm" },
     { key: "emergency", title: "Liên hệ trong trường hợp khẩn cấp", value: MISSING_VALUE, action: "Thêm" },
@@ -217,6 +265,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
   ];
 
   const isEditing = editingKey !== null;
+  const isLoginSecurityPanel = activePanel === "login_security";
 
   const renderEditingRow = (row: InfoRow) => {
     if (row.key === "legal_name") {
@@ -236,19 +285,23 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
             </button>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <label className="rounded-2xl border border-[#9ca3af] px-4 py-3">
-              <span className="text-[12px] text-[#6b7280]">Tên trên giấy tờ tùy thân</span>
-              <input
-                defaultValue={firstName}
-                className="mt-1 w-full rounded-xl border border-gray-300 ring-0 bg-transparent px-4 py-3 text-[18px] outline-none shadow-none focus:border-gray-300 focus:outline-none focus:ring-0 focus:shadow-none focus-visible:border-gray-300 focus-visible:outline-none focus-visible:ring-0 focus-visible:shadow-none"
-              />
+            <label className="rounded-2xl border border-gray-300 bg-white p-4">
+              <span className="text-[12px] text-gray-500">Tên trên giấy tờ tùy thân</span>
+              <div className="mt-1 rounded-xl border border-gray-300 bg-white px-4 py-3 focus-within:ring-2 focus-within:ring-black/20">
+                <input
+                  defaultValue={firstName}
+                  className="w-full bg-transparent text-gray-900 outline-none"
+                />
+              </div>
             </label>
-            <label className="rounded-2xl border border-[#9ca3af] px-4 py-3">
-              <span className="text-[12px] text-[#6b7280]">Họ trên giấy tờ tùy thân</span>
-              <input
-                defaultValue={lastName}
-                className="mt-1 w-full rounded-xl border-0 ring-0 bg-transparent px-4 py-3 text-[18px] outline-none shadow-none focus:border-0 focus:outline-none focus:ring-0 focus:shadow-none focus-visible:border-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:shadow-none"
-              />
+            <label className="rounded-2xl border border-gray-300 bg-white p-4">
+              <span className="text-[12px] text-gray-500">Họ trên giấy tờ tùy thân</span>
+              <div className="mt-1 rounded-xl border border-gray-300 bg-white px-4 py-3 focus-within:ring-2 focus-within:ring-black/20">
+                <input
+                  defaultValue={lastName}
+                  className="w-full bg-transparent text-gray-900 outline-none"
+                />
+              </div>
             </label>
           </div>
           <button
@@ -631,11 +684,11 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
         </div>
       </header>
 
-      <main className="grid min-h-[calc(100vh-88px)] grid-cols-1 lg:grid-cols-[480px_1fr]">
-        <aside className="border-r border-[#e5e7eb] px-8 py-7 lg:px-16">
-          <h1 className="text-[34px] font-semibold leading-[1.08]">Cài đặt tài khoản</h1>
+      <main className="grid min-h-[calc(100vh-88px)] grid-cols-1 lg:grid-cols-[296px_minmax(0,1fr)]">
+        <aside className="border-r border-[#e5e7eb] px-6 py-8 lg:px-8">
+          <h1 className="text-xl font-semibold leading-tight text-[#111827]">Cài đặt tài khoản</h1>
 
-          <div className="mt-6 space-y-1.5">
+          <div className="mt-6 space-y-1">
             {menuItems.map((item) => (
               <button
                 key={item.label}
@@ -660,8 +713,10 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
                   }
                   if (item.href) router.push(item.href);
                 }}
-                className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left text-[16px] leading-6 transition ${
-                  (item.panelKey ? item.panelKey === activePanel : item.active) ? "bg-[#efefef] font-semibold" : "hover:bg-[#f7f7f7]"
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[15px] leading-6 text-[#4b5563] transition ${
+                  (item.panelKey ? item.panelKey === activePanel : item.active)
+                    ? "bg-gray-100 font-medium text-[#111827]"
+                    : "hover:bg-[#f7f7f7]"
                 }`}
               >
                 {item.icon}
@@ -671,8 +726,10 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
           </div>
         </aside>
 
-        <section className="px-8 py-7 lg:px-16">
-          <div className="mx-auto w-full max-w-[680px]">
+        <section
+          className={`px-6 py-8 lg:px-14 ${isLoginSecurityPanel ? "lg:flex lg:flex-col lg:justify-center" : ""}`}
+        >
+          <div className={`mx-auto w-full ${isLoginSecurityPanel ? "max-w-[720px]" : "max-w-[680px]"}`}>
             {activePanel === "personal" ? (
               <>
             <h2 className="text-[40px] font-semibold leading-[1.1]">Thông tin cá nhân</h2>
