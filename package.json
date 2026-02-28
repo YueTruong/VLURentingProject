@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "validate:finetune:train": "node scripts/validate-finetune-jsonl.mjs ai/fine-tune/train.example.jsonl",
+    "validate:finetune:validation": "node scripts/validate-finetune-jsonl.mjs ai/fine-tune/validation.example.jsonl"
+  },
   "dependencies": {
     "jwt-decode": "^4.0.0"
   }

@@ -20,6 +20,9 @@ type EditDraft = {
   address: string;
   description: string;
   maxOccupancy: string;
+  campus: "CS1" | "CS2" | "CS3";
+  availability: "available" | "rented";
+  videoUrl: string;
   existingImages: string[];
   newImages: File[];
   imagesTouched: boolean;
@@ -88,10 +91,8 @@ export default function MyPostsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   
   const { data: session, status } = useSession();
-
-  console.log("Status:", status);
-  console.log("Session:", session);
-  console.log("Token:", session?.user?.accessToken);
+  const roleKey = session?.user?.role?.toString().toLowerCase() || "student";
+  const isLandlord = roleKey === "landlord";
 
   useEffect(() => {
     // 1. Nếu session chưa sẵn sàng, không làm gì cả
@@ -103,6 +104,13 @@ export default function MyPostsPage() {
     // 3. Nếu load xong mà không có token => Người dùng chưa đăng nhập
     if (!accessToken) {
       setLoadError("load_failed");
+      setLoading(false);
+      return;
+    }
+
+    if (!isLandlord) {
+      setPosts([]);
+      setLoadError(null);
       setLoading(false);
       return;
     }
@@ -127,12 +135,18 @@ export default function MyPostsPage() {
     return () => {
       active = false;
     };
-  }, [session, status]);
+  }, [session, status, isLandlord]);
 
   const editingPost = useMemo(
     () => posts.find((post) => post.id === editingId) ?? null,
     [posts, editingId],
   );
+
+
+  const mapPreviewQuery = useMemo(() => {
+    if (!editDraft?.address) return "";
+    return editDraft.address.trim();
+  }, [editDraft?.address]);
 
   const openEdit = (post: Post) => {
     const existingImages = (post.images ?? [])
@@ -149,6 +163,9 @@ export default function MyPostsPage() {
         post.max_occupancy !== undefined && post.max_occupancy !== null
           ? String(post.max_occupancy)
           : "",
+      campus: post.campus ?? "CS1",
+      availability: post.availability ?? "available",
+      videoUrl: post.videoUrl ?? "",
       existingImages,
       newImages: [],
       imagesTouched: false,
@@ -175,7 +192,6 @@ export default function MyPostsPage() {
     }
 
     const payload: UpdatePostPayload = {};
-    const wasRejected = editingPost?.status === "rejected";
 
     const title = editDraft.title.trim();
     const address = editDraft.address.trim();
@@ -192,6 +208,10 @@ export default function MyPostsPage() {
 
     const maxOcc = parseNumberInput(editDraft.maxOccupancy);
     if (maxOcc !== undefined) payload.max_occupancy = Math.max(1, Math.floor(maxOcc));
+
+    payload.campus = editDraft.campus;
+    payload.availability = editDraft.availability;
+    payload.videoUrl = editDraft.videoUrl.trim() || undefined;
 
     if (Object.keys(payload).length === 0 && !editDraft.imagesTouched) {
       setEditError("Vui lòng nhập ít nhất một thông tin để cập nhật.");
@@ -210,10 +230,14 @@ export default function MyPostsPage() {
       
       const updated = (result as { data?: Post })?.data ?? (result as Post);
       setPosts((prev) =>
-        prev.map((post) => (post.id === editingId ? { ...post, ...updated } : post)),
+        prev.map((post) =>
+          post.id === editingId
+            ? { ...post, ...updated, status: "pending", rejectionReason: null }
+            : post,
+        ),
       );
       closeEdit();
-      setNotice(wasRejected ? "Đã gửi lại cho admin duyệt." : "Cập nhật bài đăng thành công.");
+      setNotice("Đã cập nhật và gửi lại cho admin duyệt.");
     } catch (error) {
       console.error(error);
       setEditError("Cập nhật thất bại. Vui lòng thử lại.");
@@ -281,7 +305,7 @@ export default function MyPostsPage() {
 
     setDeletingId(id);
     try {
-      await deletePost(id); 
+      await deletePost(id, accessToken); 
       setPosts((prev) => prev.filter((post) => post.id !== id));
     } catch (error) {
       console.error(error);
@@ -305,16 +329,23 @@ export default function MyPostsPage() {
   return (
     <UserPageShell
       title="Tin đăng của tôi"
-      description="Theo dõi trạng thái duyệt, chỉnh sửa hoặc xóa bài đăng nhanh chóng."
+      description={isLandlord ? "Theo dõi trạng thái duyệt, chỉnh sửa hoặc xóa bài đăng nhanh chóng." : "Mục này dành cho tài khoản chủ trọ để quản lý tin đăng."}
       actions={
-        <Link
-          href="/post"
-          className="rounded-full bg-white/10 px-5 py-2 text-sm font-semibold text-white hover:bg-white/20"
-        >
-          Đăng tin mới
-        </Link>
+        isLandlord ? (
+          <Link
+            href="/post"
+            className="rounded-full bg-white/10 px-5 py-2 text-sm font-semibold text-white hover:bg-white/20"
+          >
+            Đăng tin mới
+          </Link>
+        ) : null
       }
     >
+      {!isLandlord ? (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-10 text-center text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+          Tài khoản của bạn không phải chủ trọ. Hãy truy cập <Link href="/listings" className="font-semibold text-[#d51f35] hover:underline">danh sách phòng</Link> để tìm phòng phù hợp.
+        </div>
+      ) : (
       <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-4">
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -388,6 +419,8 @@ export default function MyPostsPage() {
                         <span>Giá: {formatPriceVnd(post.price)}</span>
                         <span>Diện tích: {post.area ?? "--"} m²</span>
                         <span>Ngày tạo: {formatDate(post.createdAt)}</span>
+                        <span>Cơ sở: {post.campus ?? "--"}</span>
+                        <span>Trạng thái phòng: {post.availability === "rented" ? "Đã cho thuê" : "Còn phòng"}</span>
                       </div>
                     </div>
                     <div className="flex flex-col items-end gap-2">
@@ -430,16 +463,20 @@ export default function MyPostsPage() {
           )}
         </div>
       </div>
+      )}
 
-      {editingId && editDraft ? (
+      {isLandlord && editingId && editDraft ? (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-xl">
-            <div className="text-lg font-semibold text-gray-900">Cập nhật bài đăng</div>
-            <div className="mt-1 text-sm text-gray-500">
-              {editingPost?.title || "Bài đăng"} • Các thay đổi sẽ được gửi lại để duyệt nếu cần.
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl">
+            <div className="border-b border-gray-100 px-5 pb-3 pt-5">
+              <div className="text-lg font-semibold text-gray-900">Cập nhật bài đăng</div>
+              <div className="mt-1 text-sm text-gray-500">
+                {editingPost?.title || "Bài đăng"} • Các thay đổi sẽ được gửi lại để duyệt nếu cần.
+              </div>
             </div>
 
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              <div className="grid gap-4 md:grid-cols-2">
               <div className="md:col-span-2">
                 <label className="text-sm font-semibold text-gray-700" htmlFor="edit-title">
                   Tiêu đề
@@ -497,6 +534,62 @@ export default function MyPostsPage() {
                   inputMode="numeric"
                 />
               </div>
+              <div>
+                <label className="text-sm font-semibold text-gray-700" htmlFor="edit-campus">
+                  Cơ sở VLU
+                </label>
+                <select
+                  id="edit-campus"
+                  value={editDraft.campus}
+                  onChange={(event) =>
+                    setEditDraft((prev) =>
+                      prev ? { ...prev, campus: event.target.value as "CS1" | "CS2" | "CS3" } : prev,
+                    )
+                  }
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-300"
+                >
+                  <option value="CS1">CS1</option>
+                  <option value="CS2">CS2</option>
+                  <option value="CS3">CS3</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-gray-700" htmlFor="edit-availability">
+                  Tình trạng phòng
+                </label>
+                <select
+                  id="edit-availability"
+                  value={editDraft.availability}
+                  onChange={(event) =>
+                    setEditDraft((prev) =>
+                      prev
+                        ? { ...prev, availability: event.target.value as "available" | "rented" }
+                        : prev,
+                    )
+                  }
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-300"
+                >
+                  <option value="available">Còn phòng</option>
+                  <option value="rented">Đã cho thuê</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="text-sm font-semibold text-gray-700" htmlFor="edit-video-url">
+                  Video URL (không bắt buộc)
+                </label>
+                <input
+                  id="edit-video-url"
+                  value={editDraft.videoUrl}
+                  onChange={(event) =>
+                    setEditDraft((prev) => (prev ? { ...prev, videoUrl: event.target.value } : prev))
+                  }
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-300"
+                  placeholder="https://youtube.com/watch?v=..."
+                />
+              </div>
+
               <div className="md:col-span-2">
                 <label className="text-sm font-semibold text-gray-700" htmlFor="edit-address">
                   Địa chỉ
@@ -510,6 +603,35 @@ export default function MyPostsPage() {
                   className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-300"
                 />
               </div>
+              <div className="md:col-span-2">
+                <label className="text-sm font-semibold text-gray-700">Bản đồ kiểm tra địa chỉ</label>
+                <div className="mt-2 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
+                  {mapPreviewQuery ? (
+                    <iframe
+                      title="Xem trước vị trí"
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(mapPreviewQuery)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                      className="h-64 w-full"
+                      loading="lazy"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <div className="flex h-64 items-center justify-center px-4 text-center text-sm text-gray-500">
+                      Vui lòng nhập địa chỉ để hiển thị bản đồ kiểm tra vị trí.
+                    </div>
+                  )}
+                </div>
+                {mapPreviewQuery ? (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapPreviewQuery)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-flex text-xs font-semibold text-blue-600 hover:underline"
+                  >
+                    Mở Google Maps trong tab mới
+                  </a>
+                ) : null}
+              </div>
+
               <div className="md:col-span-2">
                 <label className="text-sm font-semibold text-gray-700" htmlFor="edit-description">
                   Mô tả
@@ -592,24 +714,27 @@ export default function MyPostsPage() {
               </div>
             </div>
 
-            {editError ? <div className="mt-3 text-sm text-rose-600">{editError}</div> : null}
+              {editError ? <div className="mt-3 text-sm text-rose-600">{editError}</div> : null}
+            </div>
 
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={closeEdit}
-                className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={savingId === editingId}
-                className="inline-flex h-9 items-center justify-center rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {savingId === editingId ? "Đang lưu..." : "Lưu thay đổi"}
-              </button>
+            <div className="border-t border-gray-100 px-5 py-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeEdit}
+                  className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={savingId === editingId}
+                  className="inline-flex h-9 items-center justify-center rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {savingId === editingId ? "Đang lưu..." : "Lưu thay đổi"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

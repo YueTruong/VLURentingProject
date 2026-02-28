@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConversationEntity } from '../database/entities/conversation.entity';
@@ -98,6 +98,27 @@ export class ChatService {
     return savedMsg;
   }
 
+
+  async getMessagesForUser(conversationId: number, userId: number) {
+    const conversation = await this.conversationRepo.findOne({
+      where: { id: conversationId },
+      relations: ['student', 'landlord'],
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Không tìm thấy cuộc trò chuyện');
+    }
+
+    const isParticipant =
+      conversation.student.id === userId || conversation.landlord.id === userId;
+
+    if (!isParticipant) {
+      throw new ForbiddenException('Bạn không có quyền truy cập cuộc trò chuyện này');
+    }
+
+    return this.getMessages(conversationId);
+  }
+
   // Lấy lịch sử tin nhắn
   async getMessages(conversationId: number) {
     return await this.messageRepo.find({
@@ -118,8 +139,8 @@ export class ChatService {
         'landlord.profile',
         'messages',
       ],
-      // 💡 Đổi thành updated_at để cuộc trò chuyện nào có tin nhắn mới nhất sẽ nằm trên cùng
-      order: { created_at: 'DESC' },
+      // Sắp xếp theo lần cập nhật gần nhất để hội thoại có tin nhắn mới nổi lên đầu
+      order: { updated_at: 'DESC' },
     });
   }
 }

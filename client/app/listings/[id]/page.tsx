@@ -7,9 +7,9 @@ import Link from "next/link";
 import { useSession } from "next-auth/react"; 
 import UserPageShell from "@/app/homepage/components/UserPageShell"; // ✅ Dùng chung Shell với Listings & Favorites
 import { getPostById, type Post } from "@/app/services/posts";
-import { createReview, getPostReviews, type PublicReview } from "@/app/services/reviews";
+import { createReview, getPostReviews, updateReview, type PublicReview } from "@/app/services/reviews";
 import toast from "react-hot-toast"; 
-import { toggleFavorite, useFavorites } from "@/app/services/favorites"; 
+import { getFavoriteScope, toggleFavorite, useFavoritesByScope } from "@/app/services/favorites"; 
 
 // --- Types ---
 type Listing = {
@@ -21,8 +21,10 @@ type Listing = {
   rawArea: number;
   address: string;
   campus: string;
-  rating: string;
-  reviews: number;
+  categoryName: string;
+  status: string;
+  availability: string;
+  maxOccupancy: number;
   beds: number;
   baths: number;
   parking: string;
@@ -30,6 +32,9 @@ type Listing = {
   utilities: { label: string; value: string }[];
   amenities: string[];
   description: string;
+  videoUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
   landlord: {
     id: number;
     name: string;
@@ -86,25 +91,11 @@ const formatPriceText = (value: number | string | undefined | null) => {
   return `${trimmed} triệu / tháng`;
 };
 
-const formatPriceShort = (value: number | string | undefined | null) => {
-  const price = toPriceMillion(value);
-  if (!price) return "0";
-  const trimmed = Number.isInteger(price) ? price.toFixed(0) : price.toFixed(1);
-  return `${trimmed}tr`;
-};
-
 const formatAreaText = (value: number | string | undefined | null) => {
   const area = toNumberValue(value);
   if (!area) return "0 m²";
   const trimmed = Number.isInteger(area) ? area.toFixed(0) : area.toFixed(1);
   return `${trimmed} m²`;
-};
-
-const formatAreaShort = (value: number | string | undefined | null) => {
-  const area = toNumberValue(value);
-  if (!area) return "0m2";
-  const trimmed = Number.isInteger(area) ? area.toFixed(0) : area.toFixed(1);
-  return `${trimmed}m2`;
 };
 
 const getAmenityNames = (post: Post) =>
@@ -120,6 +111,19 @@ const formatReviewDate = (value?: string) => {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+  });
+};
+
+const formatDateTime = (value?: string) => {
+  if (!value) return "--";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "--";
+  return parsed.toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 };
 
@@ -147,6 +151,16 @@ const getSubmitErrorMessage = (error: unknown) => {
   if (Array.isArray(message)) return message.join(", ");
   if (typeof message === "string" && message.trim()) return message;
   return "Không thể cập nhật đánh giá. Vui lòng thử lại.";
+};
+
+const mapPostStatusLabel = (status?: string) => {
+  const normalized = (status ?? "pending").toLowerCase();
+  if (normalized === "approved") return "Đã duyệt";
+  if (normalized === "pending") return "Chờ duyệt";
+  if (normalized === "rejected") return "Từ chối";
+  if (normalized === "hidden") return "Ẩn";
+  if (normalized === "rented") return "Đã cho thuê";
+  return status ?? "Chờ duyệt";
 };
 
 // --- Mapper ---
@@ -183,16 +197,30 @@ const mapPostToListing = (post: Post): Listing => {
     area: formatAreaText(post.area),
     rawArea: toNumberValue(post.area),
     address: post.address || "",
-    campus: post.category?.name ?? "Chưa rõ",
-    rating: "0",
-    reviews: 0,
+    campus: post.campus ?? "Chưa rõ",
+    categoryName: post.category?.name?.trim() || "Chưa phân loại",
+    status: post.status ?? "pending",
+    availability: post.availability === "rented" ? "Đã cho thuê" : "Còn phòng",
+    maxOccupancy: Math.max(1, Math.round(toNumberValue(post.max_occupancy ?? 1))),
     beds: Math.max(1, Math.round(toNumberValue(post.max_occupancy ?? 1))),
     baths: 1,
-    parking: hasParkingAmenity ? "Gửi xe" : "Chưa rõ",
+    parking: hasParkingAmenity ? "Có chỗ gửi xe" : "Chưa rõ",
     wifi: amenityText.includes("wifi"),
-    utilities: [],
+    utilities: [
+      { label: "Mức giá", value: formatPriceText(post.price) },
+      { label: "Diện tích", value: formatAreaText(post.area) },
+      { label: "Sức chứa", value: `${Math.max(1, Math.round(toNumberValue(post.max_occupancy ?? 1)))} người` },
+      { label: "Danh mục", value: post.category?.name?.trim() || "Chưa phân loại" },
+      { label: "Trạng thái duyệt", value: mapPostStatusLabel(post.status) },
+      { label: "Tình trạng phòng", value: post.availability === "rented" ? "Đã cho thuê" : "Còn phòng" },
+      { label: "Đăng lúc", value: formatDateTime(post.createdAt) },
+      { label: "Cập nhật", value: formatDateTime(post.updatedAt) },
+    ],
     amenities: amenityNames,
     description: post.description || "",
+    videoUrl: post.videoUrl ?? undefined,
+    createdAt: post.createdAt,
+    updatedAt: post.updatedAt,
     landlord: {
       id: landlordId, 
       name: landlordName,
@@ -277,7 +305,6 @@ export default function ListingDetailPage() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editError, setEditError] = useState("");
   const [editSuccess, setEditSuccess] = useState("");
-  const [isEditingReview, setIsEditingReview] = useState(false);
 
   const imageCount = listing?.images.length ?? 0;
   const postId = useMemo(() => {
@@ -285,8 +312,14 @@ export default function ListingDetailPage() {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }, [id]);
 
+  const myReview = useMemo(() => {
+    if (!currentUserId) return null;
+    return reviews.find((review) => review.userId === currentUserId) ?? null;
+  }, [reviews, currentUserId]);
+
   // Setup Logic Lưu Tin
-  const favorites = useFavorites();
+  const favoriteScope = getFavoriteScope(session?.user?.id);
+  const favorites = useFavoritesByScope(favoriteScope);
   const isSaved = listing ? favorites.some((item) => item.id === Number(listing.id)) : false;
 
   const handleToggleFavorite = () => {
@@ -310,7 +343,7 @@ export default function ListingDetailPage() {
       price: listing.price,
     };
 
-    toggleFavorite(roomDataToSave);
+    toggleFavorite(roomDataToSave, favoriteScope);
     
     if (isSaved) {
       toast("Đã bỏ lưu tin", { icon: '💔' });
@@ -431,7 +464,6 @@ export default function ListingDetailPage() {
       setReviewSummary({ averageRating: 0, totalReviews: 0 });
       setReviewsLoading(false);
       setReviewsError(false);
-      setIsEditingReview(false);
       return;
     }
 
@@ -470,24 +502,18 @@ export default function ListingDetailPage() {
       setEditComment("");
       setEditError("");
       setEditSuccess("");
-      setIsEditingReview(false);
       return;
     }
     setEditRating(Number.isFinite(myReview.rating) ? myReview.rating : 5);
     setEditComment(myReview.comment ?? "");
   }, [myReview]);
 
-  const handleToggleSave = () => {
-    if (!favoritePayload) return;
-    toggleFavorite(favoritePayload);
-  };
-
-  const handleUpdateReview = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmitReview = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!postId || !myReview) return;
+    if (!postId) return;
     if (!currentUserId) {
-      setEditError("Vui lòng đăng nhập để chỉnh sửa đánh giá.");
+      setEditError("Vui lòng đăng nhập để gửi đánh giá.");
       return;
     }
     if (!editComment.trim()) {
@@ -503,10 +529,18 @@ export default function ListingDetailPage() {
     setEditSuccess("");
     setEditSubmitting(true);
     try {
-      await updateReview(myReview.id, {
-        rating: editRating,
-        comment: editComment.trim(),
-      });
+      if (myReview) {
+        await updateReview(myReview.id, {
+          rating: editRating,
+          comment: editComment.trim(),
+        });
+      } else {
+        await createReview({
+          postId,
+          rating: editRating,
+          comment: editComment.trim(),
+        });
+      }
 
       const refreshed = await getPostReviews(postId, 20);
       setReviewSummary({
@@ -519,7 +553,11 @@ export default function ListingDetailPage() {
       });
       setReviews((refreshed.reviews ?? []).map(mapPublicReview));
 
-      setEditSuccess("Cập nhật đánh giá thành công.");
+      setEditSuccess(myReview ? "Cập nhật đánh giá thành công." : "Gửi đánh giá thành công.");
+      if (!myReview) {
+        setEditRating(5);
+        setEditComment("");
+      }
     } catch (error) {
       setEditError(getSubmitErrorMessage(error));
     } finally {
@@ -552,6 +590,12 @@ export default function ListingDetailPage() {
 
   const images = listing.images ?? [];
   const activeImageSrc = images[activeImageIndex] ?? images[0];
+  const isLandlordRole = userRole === "landlord";
+  const isAdminRole = userRole === "admin";
+  const isOwner = currentUserId !== null && currentUserId === listing.landlord.id;
+  const canViewModerationInfo = isOwner || isAdminRole;
+  const canUseTenantActions = !isLandlordRole && !isOwner;
+  const canContactLandlord = !isOwner;
 
   return (
     // ✅ Bọc toàn bộ trong UserPageShell giống hệt trang Listings / Favorites
@@ -585,7 +629,7 @@ export default function ListingDetailPage() {
               <p className="text-sm text-gray-600 dark:text-gray-400">{listing.address}</p>
             </div>
             <div className="text-right space-y-1">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Đã cập nhật hôm nay</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Cập nhật: {formatDateTime(listing.updatedAt)}</p>
               <p className="text-3xl font-extrabold text-[#d51f35] dark:text-red-400">{listing.price}</p>
             </div>
           </div>
@@ -619,9 +663,9 @@ export default function ListingDetailPage() {
         {/* Stats row */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard label="Diện tích" value={listing.area} />
-          <StatCard label="Giường ngủ" value={`${listing.beds} giường`} icon={<Image src="/icons/Bed-Icon.svg" alt="Giường" width={20} height={20} className="dark:invert dark:opacity-80" />} />
-          <StatCard label="Phòng tắm" value={`${listing.baths} phòng`} icon={<Image src="/icons/Bath-Icon.svg" alt="Phòng tắm" width={18} height={18} className="dark:invert dark:opacity-80" />} />
-          <StatCard label="Gửi xe" value={listing.parking} />
+          <StatCard label="Sức chứa" value={`${listing.maxOccupancy} người`} icon={<Image src="/icons/Bed-Icon.svg" alt="Sức chứa" width={20} height={20} className="dark:invert dark:opacity-80" />} />
+          <StatCard label="Tình trạng" value={listing.availability} />
+          <StatCard label="Danh mục" value={listing.categoryName} />
         </div>
 
         {/* Cột Layout */}
@@ -634,7 +678,7 @@ export default function ListingDetailPage() {
 
             <section className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-4 transition-colors dark:border-gray-800 dark:bg-gray-900">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tiện ích & Chi phí</h2>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {listing.utilities.map((item) => (
                   <div key={item.label} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 transition-colors dark:border-gray-700 dark:bg-gray-800">
                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{item.label}</p>
@@ -643,9 +687,11 @@ export default function ListingDetailPage() {
                 ))}
               </div>
               <div className="flex flex-wrap gap-2">
-                {listing.amenities.map((a) => (
-                  <AmenityTag key={a} text={a} />
-                ))}
+                {listing.amenities.length > 0 ? (
+                  listing.amenities.map((a) => <AmenityTag key={a} text={a} />)
+                ) : (
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Chưa khai báo tiện ích.</span>
+                )}
               </div>
             </section>
 
@@ -663,14 +709,31 @@ export default function ListingDetailPage() {
             </section>
 
             <section className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-3 transition-colors dark:border-gray-800 dark:bg-gray-900">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Chính sách & Lưu ý</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Thông tin bài đăng</h2>
               <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
-                <li>• Đặt cọc 1 tháng, thanh toán đầu kỳ.</li>
-                <li>• Giờ giấc tự do, không giới nghiêm.</li>
-                <li>• Cho phép thú cưng nhỏ, giữ vệ sinh chung.</li>
-                <li>• Ưu tiên sinh viên VLU, kiểm tra giấy tờ khi vào ở.</li>
+                {canViewModerationInfo ? (
+                  <li>• Trạng thái kiểm duyệt: <span className="font-semibold">{mapPostStatusLabel(listing.status)}</span></li>
+                ) : null}
+                <li>• Tình trạng phòng: <span className="font-semibold">{listing.availability}</span></li>
+                <li>• Cơ sở gần nhất: <span className="font-semibold">{listing.campus}</span></li>
+                <li>• Danh mục: <span className="font-semibold">{listing.categoryName}</span></li>
+                <li>• Đăng lúc: <span className="font-semibold">{formatDateTime(listing.createdAt)}</span></li>
               </ul>
             </section>
+
+            {listing.videoUrl ? (
+              <section className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-3 transition-colors dark:border-gray-800 dark:bg-gray-900">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Video bài đăng</h2>
+                <a
+                  href={listing.videoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm font-semibold text-blue-600 hover:underline"
+                >
+                  Mở video trong tab mới
+                </a>
+              </section>
+            ) : null}
 
             <section className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-4 transition-colors dark:border-gray-800 dark:bg-gray-900">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -713,20 +776,24 @@ export default function ListingDetailPage() {
               )}
 
               <div className="border-t border-gray-200 pt-4 dark:border-gray-700">
-                {!session ? (
+                {!canUseTenantActions ? (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                    {isOwner ? "Bạn là chủ của tin đăng này nên không thể tự đánh giá." : "Tính năng đánh giá hiện áp dụng cho sinh viên/người thuê."}
+                  </div>
+                ) : !session ? (
                   <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
                     Bạn cần <Link href="/login" className="font-semibold text-[#d51f35] hover:underline dark:text-red-400">đăng nhập</Link> để viết đánh giá.
                   </div>
                 ) : (
                   <form className="space-y-3" onSubmit={handleSubmitReview}>
                     <div>
-                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Chọn số sao</p>
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{myReview ? "Chỉnh sửa đánh giá của bạn" : "Chọn số sao"}</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {[1, 2, 3, 4, 5].map((value) => (
                           <button
-                            key={value} type="button" onClick={() => setReviewRating(value)}
+                            key={value} type="button" onClick={() => setEditRating(value)}
                             className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-all ${
-                              reviewRating === value ? "border-yellow-400 bg-yellow-50 text-yellow-700 shadow-sm dark:border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                              editRating === value ? "border-yellow-400 bg-yellow-50 text-yellow-700 shadow-sm dark:border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                             }`}
                           >
                             {value} ★
@@ -736,17 +803,17 @@ export default function ListingDetailPage() {
                     </div>
 
                     <textarea
-                      value={reviewComment} onChange={(event) => setReviewComment(event.target.value)}
+                      value={editComment} onChange={(event) => setEditComment(event.target.value)}
                       placeholder="Chia sẻ trải nghiệm của bạn về tin đăng này..."
                       className="min-h-[110px] w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-800 outline-none transition-colors focus:border-[#d51f35] focus:ring-1 focus:ring-[#d51f35] dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
                     />
 
-                    {reviewSubmitError ? <p className="text-sm font-semibold text-red-500 dark:text-red-400">{reviewSubmitError}</p> : null}
-                    {reviewSubmitSuccess ? <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{reviewSubmitSuccess}</p> : null}
+                    {editError ? <p className="text-sm font-semibold text-red-500 dark:text-red-400">{editError}</p> : null}
+                    {editSuccess ? <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{editSuccess}</p> : null}
 
                     <div className="flex justify-end">
-                      <button type="submit" disabled={reviewSubmitting} className="rounded-full bg-[#d51f35] px-6 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#b01628] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
-                        {reviewSubmitting ? "Đang gửi..." : "Gửi đánh giá"}
+                      <button type="submit" disabled={editSubmitting} className="rounded-full bg-[#d51f35] px-6 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#b01628] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
+                        {editSubmitting ? "Đang gửi..." : myReview ? "Cập nhật đánh giá" : "Gửi đánh giá"}
                       </button>
                     </div>
                   </form>
@@ -767,29 +834,48 @@ export default function ListingDetailPage() {
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <a href={`tel:${listing.landlord.phone.replace(/\s/g, "")}`} className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 active:scale-95 text-center shadow-sm">
-                  Gọi {listing.landlord.phone}
-                </a>
-                <button
-                  onClick={handleStartChat} disabled={isChatting}
-                  className="rounded-full border border-transparent bg-[#d51f35] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b01628] active:scale-95 text-center shadow-sm disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
-                >
-                  {isChatting ? "Đang kết nối..." : "Nhắn tin cho chủ trọ"}
-                </button>
+                {canContactLandlord ? (
+                  <>
+                    {listing.landlord.phone ? (
+                      <a href={`tel:${listing.landlord.phone.replace(/\s/g, "")}`} className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 active:scale-95 text-center shadow-sm">
+                        Gọi {listing.landlord.phone}
+                      </a>
+                    ) : (
+                      <div className="rounded-full bg-gray-100 px-4 py-2 text-center text-sm font-semibold text-gray-500">
+                        Chủ trọ chưa cập nhật số điện thoại
+                      </div>
+                    )}
+                    <button
+                      onClick={handleStartChat} disabled={isChatting}
+                      className="rounded-full border border-transparent bg-[#d51f35] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b01628] active:scale-95 text-center shadow-sm disabled:bg-gray-100 disabled:text-gray-400 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
+                    >
+                      {isChatting ? "Đang kết nối..." : "Nhắn tin cho chủ trọ"}
+                    </button>
+                  </>
+                ) : (
+                  <div className="rounded-xl bg-gray-100 px-4 py-2 text-center text-sm font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                    Đây là tin đăng của bạn.
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-3 sticky top-24 transition-colors dark:border-gray-800 dark:bg-gray-900">
               <h3 className="text-base font-semibold text-gray-900 dark:text-white">Hành động nhanh</h3>
               <div className="flex flex-col gap-2">
-                <button onClick={() => toast("Tính năng đặt lịch đang được phát triển!", { icon: '📅' })} className="rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black active:scale-95 transition-all shadow-sm dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100">
-                  Đặt lịch xem phòng
-                </button>
-                
-                {userRole !== 'landlord' && (
-                  <button onClick={handleToggleFavorite} className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all active:scale-95 ${isSaved ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40" : "border-gray-300 bg-white text-gray-800 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"}`}>
-                    {isSaved ? "Đã lưu tin ♥" : "Lưu tin ♡"}
-                  </button>
+                {canUseTenantActions ? (
+                  <>
+                    <button onClick={() => toast("Tính năng đặt lịch đang được phát triển!", { icon: '📅' })} className="rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black active:scale-95 transition-all shadow-sm dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100">
+                      Đặt lịch xem phòng
+                    </button>
+                    <button onClick={handleToggleFavorite} className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all active:scale-95 ${isSaved ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40" : "border-gray-300 bg-white text-gray-800 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"}`}>
+                      {isSaved ? "Đã lưu tin ♥" : "Lưu tin ♡"}
+                    </button>
+                  </>
+                ) : (
+                  <div className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                    Tài khoản chủ trọ chỉ có thể xem và quản lý tin đăng của mình.
+                  </div>
                 )}
 
                 <button onClick={handleShare} className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 active:scale-95 transition-all dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">

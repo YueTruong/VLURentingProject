@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { toggleFavorite, useFavorites } from "@/app/services/favorites";
+import { getFavoriteScope, toggleFavorite, useFavoritesByScope } from "@/app/services/favorites";
 import { useSession } from "next-auth/react";
 import toast from "react-hot-toast";
 
@@ -24,32 +24,32 @@ interface RoomProps {
 }
 
 export default function RoomCard({ data, className }: RoomProps) {
-  const favorites = useFavorites();
   const { data: session } = useSession(); 
+  const favoriteScope = getFavoriteScope(session?.user?.id);
+  const favorites = useFavoritesByScope(favoriteScope);
 
   const userRole = session?.user?.role?.toLowerCase();
+  const canUseFavoriteAction = userRole !== "landlord" && userRole !== "admin";
 
   const isSaved = favorites.some((item) => item.id === data.id);
-  
-  // ✅ SỬA LỖI ICON: Chỉ dùng dark:invert để lật ngược màu một cách an toàn và chuẩn xác nhất cho file SVG
-  const iconClassName = "dark:invert transition-all"; 
+  const iconClassName = "dark:invert transition-all";
 
   const handleToggleFavorite = () => {
     if (!session) {
       toast.error("Vui lòng đăng nhập để lưu tin!", {
         style: {
-          borderRadius: '10px',
-          background: '#333',
-          color: '#fff',
+          borderRadius: "10px",
+          background: "#333",
+          color: "#fff",
         },
       });
       return;
     }
 
-    toggleFavorite(data);
+    toggleFavorite(data, favoriteScope);
     
     if (isSaved) {
-      toast("Đã bỏ lưu tin", { icon: '💔' });
+      toast("Đã bỏ lưu tin", { icon: "💔" });
     } else {
       toast.success("Đã lưu tin thành công!");
     }
@@ -57,11 +57,6 @@ export default function RoomCard({ data, className }: RoomProps) {
 
   return (
     <div
-      // ✅ SỬA LỖI UI: 
-      // 1. Thêm `border border-transparent` để giữ chỗ độ dày cho viền.
-      // 2. Thêm `dark:border-gray-600` để viền sáng và nổi bật hẳn lên.
-      // 3. Nền `dark:bg-gray-800` cao hơn nền tổng `gray-900`.
-      // 4. Thêm Shadow đổ bóng cho Dark Mode `dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)]`
       className={`group relative flex h-full w-full max-w-[360px] flex-none flex-col overflow-hidden rounded-[20px] bg-white border border-transparent shadow-[0_8px_24px_rgba(0,0,0,0.08)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_36px_rgba(0,0,0,0.14)] dark:border-gray-600 dark:bg-gray-800 dark:shadow-[0_4px_20px_rgba(0,0,0,0.4)] dark:hover:border-gray-400 dark:hover:shadow-[0_8px_30px_rgba(0,0,0,0.6)] ${className ?? ""}`}
     >
       <div className="relative aspect-video w-full overflow-hidden">
@@ -74,8 +69,7 @@ export default function RoomCard({ data, className }: RoomProps) {
         />
         <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/30 via-black/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         
-        {/* Nút Trái Tim */}
-        {userRole !== 'landlord' && (
+        {canUseFavoriteAction && (
           <button
             type="button"
             className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-md backdrop-blur-sm transition-all hover:bg-red-50 hover:text-red-500 active:scale-90 dark:border dark:border-gray-600 dark:bg-gray-800/90 dark:text-gray-100 dark:hover:bg-gray-700 dark:hover:text-red-400"

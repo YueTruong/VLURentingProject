@@ -150,6 +150,8 @@ export class PostsService {
       lat,
       lng,
       radius,
+      campus,
+      availability,
     } = searchPostDto;
 
     const queryBuilder = this.postRepository.createQueryBuilder('post');
@@ -191,6 +193,17 @@ export class PostsService {
     }
     if (area_max) {
       queryBuilder.andWhere('post.area <= :area_max', { area_max });
+    }
+
+
+    if (campus) {
+      queryBuilder.andWhere('post.campus = :campus', { campus });
+    }
+
+    if (availability) {
+      queryBuilder.andWhere('post.availability = :availability', {
+        availability,
+      });
     }
 
     if (category_id) {
@@ -290,10 +303,10 @@ export class PostsService {
 
     const { categoryId, amenityIds, imageUrls, ...postData } = updatePostDto;
 
-    const wasRejected = post.status === 'rejected';
+    const requiresReapproval = post.status !== 'pending';
     Object.assign(post, postData);
 
-    if (wasRejected) {
+    if (requiresReapproval) {
       post.status = 'pending';
       post.rejectionReason = null;
       post.resubmittedAt = new Date();

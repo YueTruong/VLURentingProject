@@ -57,10 +57,19 @@ const mapPostToRoom = (post: Post): RoomCardData => {
   };
 };
 
-const isApprovedPost = (status?: string | null) => {
-  if (!status) return true;
-  return status.toLowerCase() === "approved";
+const parsePriceFromRoomCard = (priceText: string) => {
+  const normalized = priceText.replace(/[^\d.,-]/g, "").replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
 };
+
+const normalizeText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+
+const isApprovedPost = (status?: string | null) => status?.toLowerCase() === "approved";
 
 const sections = [
   {
@@ -122,19 +131,22 @@ export default function RoomListBody() {
 
   const getItemsForSection = (sectionId: string, allItems: RoomCardData[]) => {
     let filtered = allItems;
-    
+
     switch (sectionId) {
       case "student":
-        filtered = allItems.filter(item => parseFloat(item.price) <= 4.5);
+        filtered = allItems.filter((item) => parsePriceFromRoomCard(item.price) <= 4.5);
         break;
       case "luxury":
-        filtered = allItems.filter(item => parseFloat(item.price) >= 6.0);
+        filtered = allItems.filter((item) => parsePriceFromRoomCard(item.price) >= 6.0);
         break;
       case "recent":
         filtered = [...allItems].reverse();
         break;
       case "near-campus":
-        filtered = allItems.filter(item => item.location.toLowerCase().includes("gò vấp") || item.location.toLowerCase().includes("bình thạnh"));
+        filtered = allItems.filter((item) => {
+          const normalizedLocation = normalizeText(item.location);
+          return normalizedLocation.includes("go vap") || normalizedLocation.includes("binh thanh");
+        });
         break;
       case "featured":
       default:
@@ -146,8 +158,6 @@ export default function RoomListBody() {
   };
 
   return (
-    // ✅ THAY ĐỔI LỚN NHẤT: Bỏ min-h-screen và bg cứng, ép thẻ section thành nền trong suốt bg-transparent 
-    // để nó phụ thuộc hoàn toàn vào file page.tsx ở trang chủ.
     <section className="w-full bg-transparent py-10">
       <div className="w-full space-y-8 overflow-hidden px-4 md:px-6">
         
