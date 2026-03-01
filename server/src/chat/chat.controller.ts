@@ -41,11 +41,17 @@ export class ChatController {
 
   // API lấy tin nhắn cũ
   @Get(':conversationId/messages')
-  async getMessages(@Param('conversationId') conversationId: number, @Req() req) {
+  async getMessages(
+    @Param('conversationId') conversationId: number,
+    @Req() req,
+  ) {
     const currentUserId = Number(
       req.user.id || req.user.sub || req.user.userId,
     );
-    return this.chatService.getMessagesForUser(Number(conversationId), currentUserId);
+    return this.chatService.getMessagesForUser(
+      Number(conversationId),
+      currentUserId,
+    );
   }
 
   // API lấy danh sách chat của user (cho sidebar)
