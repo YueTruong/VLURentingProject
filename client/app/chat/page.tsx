@@ -1,8 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Suspense } from "react";
-import { useEffect, useState, useRef, FormEvent, useMemo, useCallback, ChangeEvent } from "react";
+import { Suspense, useEffect, useState, useRef, FormEvent, useMemo, useCallback, ChangeEvent } from "react";
 import io, { Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
 import UserTopBar from "@/app/homepage/components/UserTopBar";
@@ -23,14 +22,11 @@ import {
 // --- CẤU HÌNH ---
 const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 const IMAGE_PREFIX = "[[image]]";
-let socket: Socket;
 const CHAT_PROFILE_PREVIEW_KEY = "vlu.chat.profile.preview";
 
 // --- UTILS FORMAT THỜI GIAN CHUẨN ---
-// Hàm này giải quyết triệt để lỗi mất chữ Z (Múi giờ UTC) từ Database trả về
 const parseSafeDate = (dateString?: string) => {
   if (!dateString) return null;
-  // Xử lý chuỗi để ép trình duyệt hiểu đúng múi giờ UTC
   let safeString = dateString.replace(' ', 'T');
   if (!safeString.endsWith('Z') && !safeString.match(/[+-]\d\d:?\d\d$/)) {
     safeString += 'Z';
@@ -56,27 +52,14 @@ const formatRelativeTime = (dateString?: string) => {
   if (!date) return "";
   
   const now = new Date();
-  
-  // Xóa bỏ Giờ/Phút/Giây, chỉ giữ lại đúng Ngày/Tháng/Năm để so sánh
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  
-  // Tính chính xác khoảng cách bao nhiêu ngày
   const dayDiff = Math.floor((today.getTime() - targetDay.getTime()) / (1000 * 60 * 60 * 24));
 
-  if (dayDiff === 0) {
-    // Nếu gửi trong cùng ngày hôm nay -> Chỉ hiện giờ (VD: 00:23)
-    return formatTime(dateString);
-  } else if (dayDiff === 1) {
-    // Ngày hôm qua
-    return "Hôm qua";
-  } else if (dayDiff > 1 && dayDiff <= 7) {
-    // Trong vòng 1 tuần
-    return `${dayDiff} ngày trước`;
-  } else {
-    // Quá lâu thì hiện Ngày/Tháng
-    return date.toLocaleDateString("vi-VN", { day: '2-digit', month: '2-digit' });
-  }
+  if (dayDiff === 0) return formatTime(dateString);
+  else if (dayDiff === 1) return "Hôm qua";
+  else if (dayDiff > 1 && dayDiff <= 7) return `${dayDiff} ngày trước`;
+  else return date.toLocaleDateString("vi-VN", { day: '2-digit', month: '2-digit' });
 };
 
 const splitMessageContent = (content: string) => {
@@ -98,10 +81,10 @@ const buildMessageContent = (text: string, imageUrl: string | null) => {
 
 const getMessagePreview = (content: string) => {
   const { imageUrl, text } = splitMessageContent(content);
-  if (imageUrl && text) return `Hinh anh: ${text}`;
-  if (imageUrl) return "Hinh anh";
+  if (imageUrl && text) return `Hình ảnh: ${text}`;
+  if (imageUrl) return "Hình ảnh";
   const normalized = (text || "").trim();
-  return normalized || "Chua co tin nhan";
+  return normalized || "Chưa có tin nhắn";
 };
 
 // --- TYPES ---
@@ -123,7 +106,7 @@ interface RawConversation {
   student: User;
   landlord: User;
   messages: Message[];
-  created_at: string; // Thêm trường này
+  created_at: string; 
   updated_at?: string;
 }
 
@@ -148,74 +131,59 @@ type Message = {
 
 // --- COMPONENTS ---
 
-function UserProfileModal({ 
-  user, 
-  onClose, 
-  isOnline,
-  onViewProfile,
-  role // Thêm trường role
-}: { 
-  user: User; 
-  onClose: () => void; 
-  isOnline: boolean;
-  onViewProfile: () => void;
-  role: string;
-}) {
+function UserProfileModal({ user, onClose, isOnline, onViewProfile, role }: { user: User; onClose: () => void; isOnline: boolean; onViewProfile: () => void; role: string; }) {
   const normalizedRole = role.trim().toLowerCase();
   const roleBadgeClassName = normalizedRole.includes("admin")
-    ? "bg-blue-100 text-blue-700"
+    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
     : normalizedRole.includes("sinh")
-      ? "bg-red-100 text-red-700"
-      : "bg-yellow-100 text-yellow-700";
+      ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+      : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
 
   return (
-    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="relative z-101 w-full max-w-sm rounded-3xl border border-(--theme-border) bg-(--theme-surface) p-6 text-(--theme-text) shadow-2xl">
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="relative w-full max-w-sm rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl transition-colors dark:border-gray-800 dark:bg-gray-900">
         <div className="flex justify-end">
-          <button onClick={onClose} className="rounded-full p-1 text-(--theme-text-subtle) transition hover:bg-(--theme-surface-muted)">
+          <button onClick={onClose} className="rounded-full p-1 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 transition">
             <Cross2Icon className="h-6 w-6" />
           </button>
         </div>
         
         <div className="flex flex-col items-center gap-3">
-          <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-(--theme-surface) bg-(--theme-surface-muted) shadow-lg">
+          <div className="relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-gray-100 shadow-lg dark:border-gray-800 dark:bg-gray-800">
             {user.avatar_url ? (
               <Image src={user.avatar_url} alt="Avatar" fill className="object-cover" unoptimized />
             ) : (
-              <span className="text-4xl font-bold text-(--theme-text-subtle)">{user.full_name?.charAt(0).toUpperCase() || "U"}</span>
+              <span className="text-4xl font-bold text-gray-400 dark:text-gray-500">{user.full_name?.charAt(0).toUpperCase() || "U"}</span>
             )}
             {isOnline && (
-              <span className="absolute bottom-1 right-1 h-5 w-5 rounded-full border-4 border-(--theme-surface) bg-green-500"></span>
+              <span className="absolute bottom-1 right-1 h-5 w-5 rounded-full border-4 border-white bg-green-500 dark:border-gray-800"></span>
             )}
           </div>
           
           <div className="text-center">
-            <h2 className="text-xl font-bold text-(--theme-text)">{user.full_name || "Người dùng ẩn danh"}</h2>
-            
-            {/* HIỂN THỊ VAI TRÒ (CHỦ TRỌ / SINH VIÊN) */}
-            <span className={`inline-block mt-1 px-3 py-1 rounded-full text-xs font-semibold ${roleBadgeClassName}`}>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{user.full_name || "Người dùng ẩn danh"}</h2>
+            <span className={`inline-block mt-1 px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-wider ${roleBadgeClassName}`}>
               {role}
             </span>
-
-            <p className={`text-sm font-medium mt-2 ${isOnline ? "text-green-600" : "text-(--theme-text-muted)"}`}>
+            <p className={`text-sm font-medium mt-2 ${isOnline ? "text-green-600" : "text-gray-500 dark:text-gray-400"}`}>
               {isOnline ? "Đang hoạt động" : "Ngoại tuyến"}
             </p>
           </div>
           
           <div className="w-full space-y-3 mt-4">
-            <div className="flex items-center gap-3 rounded-xl border border-(--theme-border) bg-(--theme-surface-muted) p-3">
-              <EnvelopeClosedIcon className="h-5 w-5 text-(--theme-text-subtle)" />
+            <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-800/50">
+              <EnvelopeClosedIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium uppercase text-(--theme-text-subtle)">Email</p>
-                <p className="text-sm truncate text-(--theme-text-muted)">{user.email || "Đang cập nhật..."}</p>
+                <p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Email</p>
+                <p className="text-sm truncate text-gray-700 dark:text-gray-300">{user.email || "Đang cập nhật..."}</p>
               </div>
             </div>
             {user.phone_number && (
-                <div className="flex items-center gap-3 rounded-xl border border-(--theme-border) bg-(--theme-surface-muted) p-3">
-                <PersonIcon className="h-5 w-5 text-(--theme-text-subtle)" />
+                <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-800/50">
+                <PersonIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
                 <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium uppercase text-(--theme-text-subtle)">Số điện thoại</p>
-                    <p className="text-sm font-semibold truncate text-(--theme-text)">{user.phone_number}</p>
+                    <p className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Số điện thoại</p>
+                    <p className="text-sm font-semibold truncate text-gray-900 dark:text-white">{user.phone_number}</p>
                 </div>
                 </div>
             )}
@@ -224,17 +192,9 @@ function UserProfileModal({
           <button
             type="button"
             onClick={onViewProfile}
-            className="mt-6 w-full rounded-full border border-(--theme-border) bg-(--theme-surface) py-2.5 text-sm font-semibold text-(--theme-text) shadow-sm transition hover:bg-(--theme-surface-muted) active:scale-95"
+            className="mt-4 w-full rounded-xl border border-gray-200 bg-white py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 active:scale-95 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
           >
             Xem trang cá nhân
-          </button>
-
-          <button 
-            type="button"
-            onClick={onClose}
-            className="mt-3 w-full rounded-full bg-(--brand-accent) py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-(--brand-accent-strong) active:scale-95"
-          >
-            Đóng
           </button>
         </div>
       </div>
@@ -244,16 +204,16 @@ function UserProfileModal({
 
 function ConversationItem({ convo, active, onSelect, isOnline }: { convo: Conversation; active: boolean; onSelect: () => void; isOnline: boolean }) {
   const containerClass = active 
-    ? "border border-[color:var(--theme-border-strong)] bg-[color:var(--brand-primary-soft)] shadow-sm ring-1 ring-[color:var(--brand-primary-soft)]" 
-    : "border border-transparent hover:border-[color:var(--theme-border)] hover:bg-[color:var(--theme-surface-muted)]";
+    ? "border-l-4 border-[#d51f35] bg-red-50/50 shadow-sm dark:border-red-500 dark:bg-red-900/10" 
+    : "border-l-4 border-transparent hover:bg-gray-50 dark:hover:bg-gray-800/50";
 
   return (
     <button
       onClick={onSelect}
-      className={`group flex w-full items-center gap-3 rounded-xl p-3 mb-1 transition-all duration-200 ${containerClass}`}
+      className={`group flex w-full items-center gap-3 p-3 transition-colors duration-200 ${containerClass}`}
     >
       <div className="relative h-12 w-12 shrink-0">
-        <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-(--theme-border) bg-(--theme-surface-muted) text-lg font-bold text-(--theme-text-subtle)">
+        <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-100 text-lg font-bold text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
             {convo.display_avatar ? (
                 <Image src={convo.display_avatar} alt="Avatar" fill className="object-cover" unoptimized />
             ) : (
@@ -261,20 +221,20 @@ function ConversationItem({ convo, active, onSelect, isOnline }: { convo: Conver
             )}
         </div>
         {isOnline && (
-            <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-(--theme-surface) bg-green-500"></span>
+            <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-green-500 dark:border-gray-900"></span>
         )}
       </div>
       
       <div className="flex-1 min-w-0 text-left">
         <div className="flex items-center justify-between mb-0.5">
-          <p className={`text-sm truncate ${active ? "font-bold text-(--theme-text)" : "font-semibold text-(--theme-text-muted)"}`}>
+          <p className={`text-sm truncate ${active ? "font-bold text-gray-900 dark:text-white" : "font-semibold text-gray-700 dark:text-gray-300"}`}>
             {convo.display_name}
           </p>
-          <span className={`text-[10px] whitespace-nowrap ${active ? "font-medium text-(--brand-primary-text)" : "text-(--theme-text-subtle)"}`}>
+          <span className={`text-[10px] whitespace-nowrap ${active ? "font-semibold text-[#d51f35] dark:text-red-400" : "text-gray-500 dark:text-gray-500"}`}>
             {formatRelativeTime(convo.last_time)}
           </span>
         </div>
-        <p className={`text-xs truncate ${active ? "font-medium text-(--theme-text-muted)" : "text-(--theme-text-subtle)"}`}>
+        <p className={`text-xs truncate ${active ? "font-medium text-gray-800 dark:text-gray-300" : "text-gray-500 dark:text-gray-500"}`}>
           {getMessagePreview(convo.last_message)}
         </p>
       </div>
@@ -289,7 +249,7 @@ function MessageBubble({ msg, isMe }: { msg: Message; isMe: boolean }) {
   return (
     <div className={`flex items-end gap-2 mb-4 group ${isMe ? "justify-end" : "justify-start"}`}>
       {!isMe && (
-         <div className="mb-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-(--theme-surface-muted) text-[10px] font-bold text-(--theme-text-muted) shadow-sm">
+         <div className="mb-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[10px] font-bold text-gray-500 shadow-sm dark:bg-gray-800 dark:text-gray-400">
              Bot
          </div>
       )}
@@ -298,18 +258,18 @@ function MessageBubble({ msg, isMe }: { msg: Message; isMe: boolean }) {
         <div
             className={`px-4 py-2.5 text-[15px] shadow-sm leading-relaxed whitespace-pre-wrap wrap-break-word ${
             isMe 
-                ? "bg-(--brand-accent) text-white rounded-2xl rounded-tr-sm" 
-                : "rounded-2xl rounded-tl-sm border border-(--theme-border) bg-(--theme-surface) text-(--theme-text)"
+                ? "bg-[#d51f35] text-white rounded-2xl rounded-br-sm" 
+                : "rounded-2xl rounded-bl-sm border border-gray-200 bg-white text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-white"
             }`}
         >
             {imageUrl ? (
               <a href={imageUrl} target="_blank" rel="noreferrer" className="mb-2 block overflow-hidden rounded-xl border border-white/20">
-                <Image src={imageUrl} alt="Anh dinh kem" width={320} height={320} unoptimized className="h-auto w-full object-cover" />
+                <Image src={imageUrl} alt="Ảnh đính kèm" width={320} height={320} unoptimized className="h-auto w-full object-cover" />
               </a>
             ) : null}
             {text ? <span>{text}</span> : null}
         </div>
-        <span className={`text-[10px] mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none ${isMe ? "text-right text-(--theme-text-subtle)" : "text-(--theme-text-subtle)"}`}>
+        <span className={`text-[10px] mt-1 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none ${isMe ? "text-right text-gray-400 dark:text-gray-500" : "text-gray-400 dark:text-gray-500"}`}>
             {timeStr}
         </span>
       </div>
@@ -338,18 +298,18 @@ function ChatPageContent() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  
+  // ✅ FIX: SỬ DỤNG useRef ĐỂ LƯU TRỮ SOCKET INSTANCE THAY VÌ BIẾN TOÀN CỤC
+  const socketRef = useRef<Socket | null>(null);
+  
   const searchParams = useSearchParams();
   const router = useRouter();
   const partnerIdFromUrl = searchParams.get('partnerId');
 
   const mapConversation = useCallback((c: RawConversation): Conversation => {
-    // 1. Xác định ai là người chat cùng mình
     const rawPartner = c.student.id === currentUserId ? c.landlord : c.student;
-    
-    // 2. Lấy thông tin từ bảng profile một cách "danh chính ngôn thuận" không cần any
     const partnerProfile = rawPartner.profile || {};
     
-    // 3. Gộp dữ liệu lại cho gọn
     const otherUser = {
       ...rawPartner,
       full_name: rawPartner.full_name || partnerProfile.full_name || rawPartner.email,
@@ -370,7 +330,6 @@ function ChatPageContent() {
         id: c.id, 
         student: c.student, 
         landlord: c.landlord,
-        // 👇 Bây giờ display_name và display_avatar sẽ lấy chuẩn 100%
         display_name: otherUser.full_name || "Người dùng",
         display_avatar: otherUser.avatar_url || "", 
         last_message: lastMsg, 
@@ -379,10 +338,11 @@ function ChatPageContent() {
     };
   }, [currentUserId]);
 
-  // 1. Initial Load & Socket Setup
+  // 1. Initial Load & Khởi tạo Socket
   useEffect(() => {
     if (!currentUserId || !accessToken) return;
 
+    // Load danh sách chat ban đầu
     fetch(`${SOCKET_URL}/chat/my-conversations`, {
         headers: { Authorization: `Bearer ${accessToken}` }
     })
@@ -415,16 +375,17 @@ function ChatPageContent() {
         if (targetId) router.replace('/chat');
     }).catch(console.error);
 
-    // --- SETUP SOCKET ---
-    socket = io(SOCKET_URL);
+    // ✅ KHỞI TẠO SOCKET QUA useRef (Ngăn chặn lỗi Multiple Connections)
+    if (!socketRef.current) {
+        socketRef.current = io(SOCKET_URL);
+    }
+    
+    const socket = socketRef.current;
     
     socket.emit("user_connected", currentUserId);
 
     socket.on("user_online", (userId: number) => {
-      setOnlineUsers(prev => {
-        if (!prev.includes(userId)) return [...prev, userId];
-        return prev;
-      });
+      setOnlineUsers(prev => prev.includes(userId) ? prev : [...prev, userId]);
     });
 
     socket.on("user_offline", (userId: number) => {
@@ -440,48 +401,46 @@ function ChatPageContent() {
     });
 
     socket.on("new_message", (newMsg: Message) => {
-        // Gán thời gian chuẩn (UTC) nếu socket không có để tránh lỗi sai múi giờ
         if (!newMsg.created_at) newMsg.created_at = new Date().toISOString();
         
         setConversations(prev => {
             const index = prev.findIndex(c => c.id === newMsg.conversation.id);
-            if (index === -1) return prev; // Chặn lỗi không tìm thấy
-            
+            if (index === -1) return prev;
             const newArr = [...prev];
             const updatedConvo = { ...newArr[index], last_message: newMsg.content, last_time: newMsg.created_at };
             newArr.splice(index, 1);
-            newArr.unshift(updatedConvo);
+            newArr.unshift(updatedConvo); // Đẩy lên đầu danh sách
             return newArr;
         });
+
+        // ✅ FIX: Bắt sự kiện new_message vào box chat hiện tại ngay trong cục Socket Init
+        setMessages((prevMsgs) => {
+            // Chỉ thêm tin nhắn nếu nó thuộc về cuộc hội thoại đang được mở
+            if (prevMsgs.length > 0 && prevMsgs[0].conversation.id === newMsg.conversation.id) {
+                 return [...prevMsgs, newMsg];
+            }
+            return prevMsgs;
+        });
+        
+        setTimeout(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, 100);
     });
 
-    return () => { socket.disconnect(); };
+    return () => { 
+      socket.disconnect(); 
+      socketRef.current = null;
+    };
   }, [currentUserId, accessToken, partnerIdFromUrl, mapConversation, router]);
 
-  // UI update cho tin nhắn mới của Chat đang mở
-  useEffect(() => {
-    if (!socket) return;
-    const handleNewMsg = (newMsg: Message) => {
-        if (selectedId === newMsg.conversation.id) {
-            setMessages(prev => [...prev, newMsg]);
-            setTimeout(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, 100);
-        }
-    };
-    socket.on("new_message", handleNewMsg);
-    return () => { socket.off("new_message", handleNewMsg); }
-  }, [selectedId]);
-
-
-  // Fetch Messages & Check Online Status khi đổi cuộc hội thoại
+  // Fetch Messages khi đổi người chat
   useEffect(() => {
       if (!selectedId || !accessToken) return;
       
       const currentConv = conversations.find(c => c.id === selectedId);
       
-      if (socket) {
-        socket.emit("join_conversation", selectedId);
+      if (socketRef.current) {
+        socketRef.current.emit("join_conversation", selectedId);
         if (currentConv) {
-          socket.emit("check_online_status", currentConv.partner.id);
+          socketRef.current.emit("check_online_status", currentConv.partner.id);
         }
       }
 
@@ -489,7 +448,9 @@ function ChatPageContent() {
           headers: { Authorization: `Bearer ${accessToken}` }
       })
       .then(res => res.json())
-      .then(setMessages)
+      .then(data => {
+          if (Array.isArray(data)) setMessages(data);
+      })
       .catch(console.error);
   }, [selectedId, accessToken, conversations]);
 
@@ -509,7 +470,7 @@ function ChatPageContent() {
 
     setUploadError("");
     if (!file.type.startsWith("image/")) {
-      setUploadError("Chi ho tro tep hinh anh.");
+      setUploadError("Chỉ hỗ trợ tệp hình ảnh.");
       event.target.value = "";
       return;
     }
@@ -518,10 +479,10 @@ function ChatPageContent() {
     try {
       const uploaded = await uploadImages([file]);
       const firstUrl = uploaded[0];
-      if (!firstUrl) setUploadError("Tai anh that bai. Vui long thu lai.");
+      if (!firstUrl) setUploadError("Tải ảnh thất bại. Vui lòng thử lại.");
       else setPendingImageUrl(firstUrl);
     } catch {
-      setUploadError("Tai anh that bai. Vui long thu lai.");
+      setUploadError("Tải ảnh thất bại. Vui lòng thử lại.");
     } finally {
       setIsUploadingImage(false);
       event.target.value = "";
@@ -532,12 +493,20 @@ function ChatPageContent() {
       e.preventDefault();
       if ((!inputVal.trim() && !pendingImageUrl) || !selectedId || !currentUserId || isUploadingImage) return;
 
+      if (!socketRef.current) {
+          console.error("Socket not connected");
+          return;
+      }
+
       const payload = {
           conversationId: selectedId,
           senderId: currentUserId,
           content: buildMessageContent(inputVal, pendingImageUrl)
       };
-      socket.emit("send_message", payload);
+      
+      // ✅ Gọi lệnh Emit thông qua socketRef
+      socketRef.current.emit("send_message", payload);
+      
       setInputVal("");
       setPendingImageUrl(null);
       setUploadError("");
@@ -555,7 +524,6 @@ function ChatPageContent() {
 
   const handleViewPartnerProfile = useCallback(() => {
     if (!currentConv) return;
-
     const partnerRole = currentConv.partner.id === currentConv.landlord.id ? "Chủ trọ" : "Sinh viên";
 
     if (typeof window !== "undefined") {
@@ -573,42 +541,41 @@ function ChatPageContent() {
         }),
       );
     }
-
     setShowProfile(false);
     router.push(`/profile?chatUserId=${currentConv.partner.id}`);
   }, [currentConv, isCurrentPartnerOnline, router]);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-(--theme-bg) text-(--theme-text)">
+    <div className="flex h-screen flex-col overflow-hidden bg-gray-50 transition-colors dark:bg-[#0a0a0a]">
       <div className="flex-none z-50">
         <UserTopBar />
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* === SIDEBAR === */}
-        <aside className="z-40 flex w-80 flex-col border-r border-(--theme-border) bg-(--theme-surface)">
-          <div className="flex-none px-5 pt-6 pb-2">
+      <div className="flex flex-1 overflow-hidden mt-px">
+        {/* === SIDEBAR DANH SÁCH CHAT === */}
+        <aside className="z-40 flex w-80 flex-col border-r border-gray-200 bg-white transition-colors dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex-none px-5 pt-6 pb-4 border-b border-gray-100 dark:border-gray-800">
             <div className="flex items-center justify-between mb-5">
-                <h1 className="text-2xl font-bold tracking-tight text-(--theme-text)">Đoạn chat</h1>
-                <button className="rounded-full border border-(--theme-border) bg-(--theme-surface-muted) p-2 text-(--theme-text-muted) transition hover:bg-(--brand-primary-soft) hover:text-(--brand-primary-text)">
+                <h1 className="text-xl font-bold text-gray-900 dark:text-white">Đoạn chat</h1>
+                <button className="rounded-full bg-gray-100 p-2.5 text-gray-600 transition hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
                     <Pencil2Icon className="h-5 w-5" />
                 </button>
             </div>
             
             <div className="relative group">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-(--theme-text-subtle) transition group-focus-within:text-(--brand-primary-text)" />
+                <MagnifyingGlassIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition group-focus-within:text-[#d51f35] dark:text-gray-500" />
                 <input 
                     type="text" 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Tìm kiếm cuộc trò chuyện..." 
-                    className="w-full rounded-2xl border border-transparent bg-(--theme-surface-muted) py-3 pl-10 pr-4 text-sm text-(--theme-text) outline-none transition duration-200 placeholder:text-(--theme-text-subtle) focus:border-(--theme-border-strong) focus:bg-(--theme-surface) focus:ring-2 focus:ring-(--brand-primary-soft)" 
+                    placeholder="Tìm kiếm..." 
+                    className="w-full rounded-2xl bg-gray-100 py-3 pl-11 pr-4 text-sm text-gray-900 outline-none transition focus:bg-white focus:ring-1 focus:ring-[#d51f35] dark:bg-gray-800 dark:text-white dark:focus:bg-gray-900 dark:placeholder-gray-500" 
                 />
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-3 py-2 scrollbar-thin scrollbar-thumb-gray-200">
-            <div className="space-y-1">
+          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700">
+            <div>
                 {filteredConversations.map((c) => (
                 <ConversationItem 
                     key={c.id} 
@@ -621,7 +588,7 @@ function ChatPageContent() {
             </div>
             {filteredConversations.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-40 text-center px-4 opacity-60">
-                    <p className="text-sm font-medium text-(--theme-text-muted)">
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                         {searchTerm ? "Không tìm thấy kết quả" : "Chưa có tin nhắn nào"}
                     </p>
                 </div>
@@ -629,25 +596,26 @@ function ChatPageContent() {
           </div>
         </aside>
 
-        {/* === MAIN CHAT === */}
-        <section className="relative flex min-w-0 flex-1 flex-col bg-(--theme-bg)">
+        {/* === MAIN CHAT AREA === */}
+        <section className="relative flex min-w-0 flex-1 flex-col bg-[#f8f9fa] dark:bg-[#0a0a0a]">
           {currentConv ? (
              <>
-                <header className="z-30 flex flex-none items-center justify-between border-b border-(--theme-border) bg-(--theme-surface)/90 px-6 py-3 backdrop-blur">
-                    <div className="flex items-center gap-3.5">
-                        <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-(--theme-border) bg-(--theme-surface-muted) text-lg font-bold text-(--theme-text-subtle) shadow-sm">
+                {/* HEADER TRONG KHUNG CHAT */}
+                <header className="z-30 flex flex-none items-center justify-between border-b border-gray-200 bg-white/90 px-6 py-3.5 backdrop-blur-md transition-colors dark:border-gray-800 dark:bg-gray-900/90">
+                    <div className="flex items-center gap-3">
+                        <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-100 font-bold text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
                             {currentConv.display_avatar ? (
                                 <Image src={currentConv.display_avatar} alt="Avt" fill className="object-cover" unoptimized />
                             ) : (
                                 currentConv.display_name?.charAt(0).toUpperCase()
                             )}
                             {isCurrentPartnerOnline && (
-                                <span className="absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 border-(--theme-surface) bg-green-500"></span>
+                                <span className="absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-green-500 dark:border-gray-900"></span>
                             )}
                         </div>
                         <div>
-                            <h2 className="text-[17px] font-bold leading-tight text-(--theme-text)">{currentConv.display_name}</h2>
-                            <p className={`text-xs font-medium mt-0.5 transition-colors ${isCurrentPartnerOnline ? "text-green-600" : "text-(--theme-text-subtle)"}`}>
+                            <h2 className="text-base font-bold text-gray-900 dark:text-white">{currentConv.display_name}</h2>
+                            <p className={`text-xs font-semibold mt-0.5 ${isCurrentPartnerOnline ? "text-green-600 dark:text-green-500" : "text-gray-500 dark:text-gray-400"}`}>
                                 {isCurrentPartnerOnline ? "Đang hoạt động" : "Ngoại tuyến"}
                             </p>
                         </div>
@@ -655,16 +623,17 @@ function ChatPageContent() {
                     <div>
                         <button 
                             onClick={() => setShowProfile(true)}
-                            className="rounded-full p-2.5 text-(--theme-text-subtle) transition duration-200 hover:bg-(--theme-surface-muted) hover:text-(--brand-primary-text)"
+                            className="rounded-full p-2.5 text-gray-500 transition hover:bg-gray-100 hover:text-[#d51f35] dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-red-400"
                         >
                             <InfoCircledIcon className="h-6 w-6" />
                         </button>
                     </div>
                 </header>
 
-                <div className="flex-1 overflow-y-auto bg-(--theme-bg) px-6 py-6">
+                {/* KHU VỰC HIỂN THỊ TIN NHẮN */}
+                <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700">
                     <div className="flex justify-center mb-8">
-                        <div className="rounded-full border border-(--theme-border) bg-(--theme-surface) px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-(--theme-text-subtle) shadow-sm backdrop-blur">
+                        <div className="rounded-full bg-gray-200 px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                             Bắt đầu cuộc trò chuyện
                         </div>
                     </div>
@@ -674,44 +643,40 @@ function ChatPageContent() {
                     <div ref={messagesEndRef} />
                 </div>
 
-                <div className="flex-none border-t border-(--theme-border) bg-(--theme-surface) px-6 py-5">
+                {/* Ô NHẬP TIN NHẮN */}
+                <div className="flex-none border-t border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
                     <form onSubmit={handleSend} className="max-w-5xl mx-auto space-y-3">
-                        <input
-                            ref={imageInputRef} type="file" accept="image/*"
-                            onChange={handleImageChange} className="hidden"
-                        />
+                        <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                        
                         {pendingImageUrl ? (
-                          <div className="inline-flex items-center gap-3 rounded-2xl border border-(--theme-border) bg-(--theme-surface-muted) px-3 py-2">
-                            <Image
-                              src={pendingImageUrl} alt="Anh sap gui" width={56} height={56} unoptimized
-                              className="h-14 w-14 rounded-xl object-cover"
-                            />
-                            <button
-                              type="button" onClick={() => setPendingImageUrl(null)}
-                              className="rounded-full p-1 text-(--theme-text-subtle) transition hover:bg-(--theme-surface)"
-                            >
-                              <Cross2Icon className="h-4 w-4" />
+                          <div className="inline-flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
+                            <Image src={pendingImageUrl} alt="Ảnh sắp gửi" width={56} height={56} unoptimized className="h-14 w-14 rounded-xl object-cover" />
+                            <button type="button" onClick={() => setPendingImageUrl(null)} className="rounded-full p-1.5 text-gray-500 hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700">
+                              <Cross2Icon className="h-5 w-5" />
                             </button>
                           </div>
                         ) : null}
-                        {uploadError ? <p className="text-xs font-medium text-red-500">{uploadError}</p> : null}
+                        
+                        {uploadError ? <p className="text-xs font-semibold text-red-500 pl-2">{uploadError}</p> : null}
+                        
                         <div className="flex items-end gap-3">
                           <button
                             type="button" onClick={() => imageInputRef.current?.click()}
                             disabled={isUploadingImage}
-                            className="mb-2 rounded-full p-2 text-(--theme-text-subtle) transition hover:bg-(--theme-surface-muted) disabled:cursor-not-allowed disabled:opacity-50"
+                            className="mb-1 rounded-full bg-gray-100 p-3 text-gray-600 transition hover:bg-gray-200 disabled:opacity-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                           >
                             <ImageIcon className="h-6 w-6" />
                           </button>
-                          <div className="relative flex-1 rounded-3xl border border-(--theme-border) bg-(--theme-surface-muted) shadow-sm transition-all duration-200 focus-within:border-(--theme-border-strong) focus-within:bg-(--theme-surface) focus-within:ring-2 focus-within:ring-(--brand-accent-soft)">
+                          
+                          <div className="relative flex-1 rounded-full border border-gray-300 bg-gray-50 transition-all focus-within:border-[#d51f35] focus-within:bg-white dark:border-gray-700 dark:bg-gray-800 dark:focus-within:border-red-500 dark:focus-within:bg-gray-900">
                               <input
                                   type="text" value={inputVal} onChange={(e) => setInputVal(e.target.value)}
                                   placeholder={isUploadingImage ? "Đang tải hình ảnh..." : "Nhập tin nhắn..."}
-                                  className="w-full rounded-3xl bg-transparent px-5 py-3.5 pr-12 text-[15px] text-(--theme-text) placeholder:text-(--theme-text-subtle) outline-none"
+                                  className="w-full rounded-full bg-transparent px-5 py-3.5 pr-14 text-[15px] text-gray-900 outline-none dark:text-white dark:placeholder-gray-500"
                               />
                               <button
                                   type="submit" disabled={(!inputVal.trim() && !pendingImageUrl) || isUploadingImage}
-                                  className="absolute bottom-1.5 right-2 flex items-center justify-center rounded-full bg-(--brand-accent) p-2 text-white shadow-md transition-all hover:scale-105 hover:bg-(--brand-accent-strong) active:scale-95 disabled:bg-(--theme-surface-muted) disabled:text-(--theme-text-subtle) disabled:shadow-none"
+                                  className="absolute bottom-[5px] right-[5px] flex items-center justify-center rounded-full bg-[#d51f35] p-2.5 text-white shadow-sm transition-all hover:bg-[#b01628] active:scale-95 disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none dark:disabled:bg-gray-800 dark:disabled:text-gray-600"
                               >
                                   <PaperPlaneIcon className="h-5 w-5 -ml-0.5 mt-0.5 transform -rotate-45" />
                               </button>
@@ -731,13 +696,13 @@ function ChatPageContent() {
                 )}
              </>
           ) : (
-             <div className="flex h-full flex-col items-center justify-center bg-(--theme-bg) text-(--theme-text-subtle)">
-                 <div className="mb-6 flex h-28 w-28 items-center justify-center rounded-full border border-(--theme-border) bg-(--brand-primary-soft) animate-pulse">
-                    <span className="text-5xl">💬</span>
+             <div className="flex h-full flex-col items-center justify-center bg-gray-50 dark:bg-[#0a0a0a]">
+                 <div className="mb-6 flex h-28 w-28 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                    <span className="text-5xl opacity-80">💬</span>
                  </div>
-                 <p className="text-2xl font-bold text-(--theme-text)">Chào mừng đến với VLU Renting Chat</p>
-                 <p className="mt-2 max-w-md text-center text-base leading-relaxed text-(--theme-text-muted)">
-                    Khám phá, kết nối và trao đổi thông tin thuê trọ dễ dàng. Chọn một cuộc hội thoại để bắt đầu.
+                 <p className="text-xl font-bold text-gray-900 dark:text-white">Chào mừng đến với VLU Chat</p>
+                 <p className="mt-2 max-w-sm text-center text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                    Khám phá, kết nối và trao đổi thông tin thuê trọ dễ dàng. Chọn một cuộc hội thoại bên trái để bắt đầu.
                  </p>
              </div>
           )}
@@ -749,7 +714,7 @@ function ChatPageContent() {
 
 export default function ChatPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-(--theme-text-subtle)">Đang tải trò chuyện...</div>}>
+    <Suspense fallback={<div className="flex h-screen items-center justify-center text-gray-500 dark:text-gray-400 dark:bg-[#0a0a0a]"><span className="animate-spin text-3xl mr-3">⏳</span> Đang kết nối trò chuyện...</div>}>
       <ChatPageContent />
     </Suspense>
   );
