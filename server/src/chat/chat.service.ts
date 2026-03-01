@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConversationEntity } from '../database/entities/conversation.entity';
@@ -98,7 +102,6 @@ export class ChatService {
     return savedMsg;
   }
 
-
   async getMessagesForUser(conversationId: number, userId: number) {
     const conversation = await this.conversationRepo.findOne({
       where: { id: conversationId },
@@ -113,7 +116,9 @@ export class ChatService {
       conversation.student.id === userId || conversation.landlord.id === userId;
 
     if (!isParticipant) {
-      throw new ForbiddenException('Bạn không có quyền truy cập cuộc trò chuyện này');
+      throw new ForbiddenException(
+        'Bạn không có quyền truy cập cuộc trò chuyện này',
+      );
     }
 
     return this.getMessages(conversationId);
