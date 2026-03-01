@@ -19,12 +19,10 @@ import {
   EnvelopeClosedIcon
 } from "@radix-ui/react-icons";
 
-// --- CẤU HÌNH ---
 const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 const IMAGE_PREFIX = "[[image]]";
 const CHAT_PROFILE_PREVIEW_KEY = "vlu.chat.profile.preview";
 
-// --- UTILS FORMAT THỜI GIAN CHUẨN ---
 const parseSafeDate = (dateString?: string) => {
   if (!dateString) return null;
   let safeString = dateString.replace(' ', 'T');
@@ -87,7 +85,6 @@ const getMessagePreview = (content: string) => {
   return normalized || "Chưa có tin nhắn";
 };
 
-// --- TYPES ---
 type User = {
   id: number;
   email: string;
@@ -128,8 +125,6 @@ type Message = {
   content: string;
   created_at: string;
 };
-
-// --- COMPONENTS ---
 
 function UserProfileModal({ user, onClose, isOnline, onViewProfile, role }: { user: User; onClose: () => void; isOnline: boolean; onViewProfile: () => void; role: string; }) {
   const normalizedRole = role.trim().toLowerCase();
@@ -298,10 +293,15 @@ function ChatPageContent() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  
-  // ✅ FIX: SỬ DỤNG useRef ĐỂ LƯU TRỮ SOCKET INSTANCE THAY VÌ BIẾN TOÀN CỤC
   const socketRef = useRef<Socket | null>(null);
   
+  // ✅ FIX LỖI CRASH REACT STATE: Dùng Ref để tracking `selectedId` hiện tại, 
+  // giúp socket.on() luôn biết người dùng đang mở đoạn chat nào mà không bị đóng băng (stale closure).
+  const selectedIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
   const searchParams = useSearchParams();
   const router = useRouter();
   const partnerIdFromUrl = searchParams.get('partnerId');
@@ -342,7 +342,6 @@ function ChatPageContent() {
   useEffect(() => {
     if (!currentUserId || !accessToken) return;
 
-    // Load danh sách chat ban đầu
     fetch(`${SOCKET_URL}/chat/my-conversations`, {
         headers: { Authorization: `Bearer ${accessToken}` }
     })
@@ -375,7 +374,6 @@ function ChatPageContent() {
         if (targetId) router.replace('/chat');
     }).catch(console.error);
 
-    // ✅ KHỞI TẠO SOCKET QUA useRef (Ngăn chặn lỗi Multiple Connections)
     if (!socketRef.current) {
         socketRef.current = io(SOCKET_URL);
     }
@@ -403,26 +401,22 @@ function ChatPageContent() {
     socket.on("new_message", (newMsg: Message) => {
         if (!newMsg.created_at) newMsg.created_at = new Date().toISOString();
         
+        // 1. Đẩy hội thoại chứa tin nhắn này lên top sidebar
         setConversations(prev => {
             const index = prev.findIndex(c => c.id === newMsg.conversation.id);
             if (index === -1) return prev;
             const newArr = [...prev];
             const updatedConvo = { ...newArr[index], last_message: newMsg.content, last_time: newMsg.created_at };
             newArr.splice(index, 1);
-            newArr.unshift(updatedConvo); // Đẩy lên đầu danh sách
+            newArr.unshift(updatedConvo); 
             return newArr;
         });
 
-        // ✅ FIX: Bắt sự kiện new_message vào box chat hiện tại ngay trong cục Socket Init
-        setMessages((prevMsgs) => {
-            // Chỉ thêm tin nhắn nếu nó thuộc về cuộc hội thoại đang được mở
-            if (prevMsgs.length > 0 && prevMsgs[0].conversation.id === newMsg.conversation.id) {
-                 return [...prevMsgs, newMsg];
-            }
-            return prevMsgs;
-        });
-        
-        setTimeout(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, 100);
+        // ✅ FIX QUAN TRỌNG: Chỉ render tin nhắn nếu nó thuộc đoạn chat ĐANG MỞ (Dựa vào selectedIdRef)
+        if (selectedIdRef.current === newMsg.conversation.id) {
+            setMessages(prev => [...prev, newMsg]);
+            setTimeout(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, 100);
+        }
     });
 
     return () => { 
@@ -504,7 +498,6 @@ function ChatPageContent() {
           content: buildMessageContent(inputVal, pendingImageUrl)
       };
       
-      // ✅ Gọi lệnh Emit thông qua socketRef
       socketRef.current.emit("send_message", payload);
       
       setInputVal("");
@@ -600,7 +593,6 @@ function ChatPageContent() {
         <section className="relative flex min-w-0 flex-1 flex-col bg-[#f8f9fa] dark:bg-[#0a0a0a]">
           {currentConv ? (
              <>
-                {/* HEADER TRONG KHUNG CHAT */}
                 <header className="z-30 flex flex-none items-center justify-between border-b border-gray-200 bg-white/90 px-6 py-3.5 backdrop-blur-md transition-colors dark:border-gray-800 dark:bg-gray-900/90">
                     <div className="flex items-center gap-3">
                         <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-100 font-bold text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
@@ -630,7 +622,6 @@ function ChatPageContent() {
                     </div>
                 </header>
 
-                {/* KHU VỰC HIỂN THỊ TIN NHẮN */}
                 <div className="flex-1 overflow-y-auto px-6 py-6 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700">
                     <div className="flex justify-center mb-8">
                         <div className="rounded-full bg-gray-200 px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:bg-gray-800 dark:text-gray-400">
@@ -643,7 +634,6 @@ function ChatPageContent() {
                     <div ref={messagesEndRef} />
                 </div>
 
-                {/* Ô NHẬP TIN NHẮN */}
                 <div className="flex-none border-t border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
                     <form onSubmit={handleSend} className="max-w-5xl mx-auto space-y-3">
                         <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />

@@ -1,10 +1,14 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConversationEntity } from '../database/entities/conversation.entity';
 import { MessageEntity } from '../database/entities/message.entity';
 import { UserEntity } from '../database/entities/user.entity';
-import { NotificationsService } from 'src/notifications/notifications.service'; // Chỉnh lại đường dẫn nếu cần
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Injectable()
 export class ChatService {
@@ -47,20 +51,24 @@ export class ChatService {
     content: string,
     isReceiverWatching: boolean = false,
   ) {
+    // 1. Tạo tin nhắn
     const newMessage = this.messageRepo.create({
       conversation: { id: conversationId },
       sender: { id: senderId },
       content: content,
     });
-    const savedMsg = await this.messageRepo.save(newMessage);
 
-    // 👇 Cập nhật lại thời gian updated_at của Conversation để nó nhảy lên top sidebar
-    await this.conversationRepo.update(conversationId, {
-      updated_at: new Date(),
+    // 2. Lưu vào DB
+    const savedResult = await this.messageRepo.save(newMessage);
+
+    // 3. ✅ QUAN TRỌNG: Gọi lại DB để lấy ĐẦY ĐỦ THÔNG TIN (kèm sender) trước khi trả về
+    const fullSavedMsg = await this.messageRepo.findOne({
+      where: { id: savedResult.id },
+      relations: ['sender', 'conversation'],
     });
 
-    if (isReceiverWatching) {
-      return savedMsg;
+    if (isReceiverWatching && fullSavedMsg) {
+      return fullSavedMsg;
     }
 
     const conversation = await this.conversationRepo.findOne({
@@ -74,30 +82,36 @@ export class ChatService {
     });
 
     if (conversation && sender) {
-      const sId = Number(senderId);
-      const receiverId =
-        sId === conversation.student.id
-          ? conversation.landlord.id
-          : conversation.student.id;
+      try {
+        const sId = Number(senderId);
+        const receiverId =
+          sId === conversation.student.id
+            ? conversation.landlord.id
+            : conversation.student.id;
 
-      const senderName =
-        sender.profile?.full_name || sender.email || 'Người dùng';
+        const senderName =
+          sender.profile?.full_name || sender.email || 'Người dùng';
 
-      const notifTitle = `Tin nhắn mới từ ${senderName}`;
-      const notifMessage = 'Đang chờ bạn phản hồi...';
+        const notifTitle = `Tin nhắn mới từ ${senderName}`;
+        const notifMessage = 'Đang chờ bạn phản hồi...';
 
-      await this.notificationsService.createNotification(
-        receiverId,
-        notifTitle,
-        notifMessage,
-        'message',
-        sId,
-      );
+        await this.notificationsService.createNotification(
+          receiverId,
+          notifTitle,
+          notifMessage,
+          'message',
+          sId,
+        );
+      } catch (err) {
+        console.error(
+          '⚠️ [Cảnh báo] Lỗi khi tạo Notification nhưng tin nhắn vẫn được gửi đi:',
+          err,
+        );
+      }
     }
 
-    return savedMsg;
+    return fullSavedMsg;
   }
-
 
   async getMessagesForUser(conversationId: number, userId: number) {
     const conversation = await this.conversationRepo.findOne({
@@ -113,7 +127,9 @@ export class ChatService {
       conversation.student.id === userId || conversation.landlord.id === userId;
 
     if (!isParticipant) {
-      throw new ForbiddenException('Bạn không có quyền truy cập cuộc trò chuyện này');
+      throw new ForbiddenException(
+        'Bạn không có quyền truy cập cuộc trò chuyện này',
+      );
     }
 
     return this.getMessages(conversationId);
@@ -130,7 +146,7 @@ export class ChatService {
 
   // Lấy danh sách các cuộc hội thoại của 1 user
   async getUserConversations(userId: number) {
-    return await this.conversationRepo.find({
+    const conversations = await this.conversationRepo.find({
       where: [{ student: { id: userId } }, { landlord: { id: userId } }],
       relations: [
         'student',
@@ -139,8 +155,21 @@ export class ChatService {
         'landlord.profile',
         'messages',
       ],
-      // Sắp xếp theo lần cập nhật gần nhất để hội thoại có tin nhắn mới nổi lên đầu
-      order: { updated_at: 'DESC' },
+    });
+
+    // ✅ FIX: Tự động sắp xếp cuộc hội thoại bằng code TypeScript (Dựa vào thời gian của tin nhắn cuối cùng)
+    return conversations.sort((a, b) => {
+      const lastTimeA =
+        a.messages && a.messages.length > 0
+          ? new Date(a.messages[a.messages.length - 1].created_at).getTime()
+          : new Date(a.created_at || 0).getTime();
+
+      const lastTimeB =
+        b.messages && b.messages.length > 0
+          ? new Date(b.messages[b.messages.length - 1].created_at).getTime()
+          : new Date(b.created_at || 0).getTime();
+
+      return lastTimeB - lastTimeA;
     });
   }
 }
