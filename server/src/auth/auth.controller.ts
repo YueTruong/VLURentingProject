@@ -81,9 +81,7 @@ export class AuthController {
   @Delete('link/:provider')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Ngắt liên kết provider OAuth khỏi tài khoản hiện tại',
-  })
+  @ApiOperation({ summary: 'Unlink OAuth provider from current account' })
   async unlinkProvider(
     @Req() req: AuthenticatedRequest,
     @Param('provider') provider: string,

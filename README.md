@@ -96,6 +96,7 @@ npm run build
 
 - Configure backend environment variables before running in development.
 - Make sure the frontend points to the correct backend API URL.
+- Setup appendix (Vietnamese): `docs/setup-installation-guide.md`.
 
 
 ## AI fine-tuning scaffold

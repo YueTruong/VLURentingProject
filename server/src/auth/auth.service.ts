@@ -257,10 +257,6 @@ export class AuthService {
     providerRaw: string,
     dto: LinkProviderDto,
   ) {
-    if (!userId) {
-      throw new UnauthorizedException('Phiên đăng nhập không hợp lệ');
-    }
-
     const validUserId = this.requireUserId(userId);
     const provider = this.normalizeProvider(providerRaw);
     const providerAccountId = dto.providerAccountId?.trim();
@@ -767,7 +763,7 @@ export class AuthService {
     });
     if (existsByProviderAccount && existsByProviderAccount.user_id !== userId) {
       throw new ConflictException(
-        'Tài khoản OAuth này đã liên kết với người dùng khác',
+        'This OAuth account is already linked to another user',
       );
     }
 
@@ -808,7 +804,7 @@ export class AuthService {
     });
     if (!role) {
       throw new InternalServerErrorException(
-        'Thiếu role mặc định cho tài khoản OAuth',
+        'Missing default role for OAuth user',
       );
     }
 
