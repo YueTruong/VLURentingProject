@@ -12,6 +12,7 @@ import { LocalStrategy } from './strategies/local.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UserOauthAccountEntity } from 'src/database/entities/user-oauth-account.entity';
 import { MeController } from './me.controller';
+import { UserSettingsEntity } from 'src/database/entities/user-settings.entity';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { MeController } from './me.controller';
       RoleEntity,
       UserProfileEntity,
       UserOauthAccountEntity,
+      UserSettingsEntity,
     ]),
     PassportModule,
     JwtModule.registerAsync({

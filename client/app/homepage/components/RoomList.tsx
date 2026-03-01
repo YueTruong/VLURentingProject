@@ -33,6 +33,8 @@ const formatAreaShort = (value: number | string | undefined | null) => {
   return `${rounded}m2`;
 };
 
+const MIN_ITEMS_PER_SECTION = 4;
+
 const getAmenityText = (post: Post) =>
   (post.amenities ?? [])
     .map((amenity) => amenity?.name ?? "")
@@ -70,6 +72,19 @@ const normalizeText = (value: string) =>
     .toLowerCase();
 
 const isApprovedPost = (status?: string | null) => status?.toLowerCase() === "approved";
+const padSectionItems = (filtered: RoomCardData[], allItems: RoomCardData[]) => {
+  if (filtered.length >= MIN_ITEMS_PER_SECTION) {
+    return filtered;
+  }
+
+  const selectedIds = new Set(filtered.map((item) => item.id));
+  const supplementalItems = allItems.filter((item) => !selectedIds.has(item.id));
+
+  return [...filtered, ...supplementalItems].slice(
+    0,
+    Math.min(MIN_ITEMS_PER_SECTION, allItems.length),
+  );
+};
 
 const sections = [
   {
@@ -154,7 +169,7 @@ export default function RoomListBody() {
         break;
     }
 
-    return filtered.length > 0 ? filtered : allItems;
+    return padSectionItems(filtered.length > 0 ? filtered : allItems, allItems);
   };
 
   return (

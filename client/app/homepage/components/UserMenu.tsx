@@ -4,6 +4,11 @@ import { signOut, useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  getIdentityVerificationOverview,
+  readVerificationStatusFromStorage,
+  VERIFICATION_STATUS_EVENT,
+} from "@/app/services/security";
 import { useTheme } from "@/app/theme/ThemeProvider";
 
 type SessionUser = {
@@ -14,13 +19,8 @@ type SessionUser = {
   full_name?: string | null;
 };
 
-const VERIFICATION_KEY = "vlu.landlord.verified";
-
 function readVerificationFlag() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  return window.localStorage.getItem(VERIFICATION_KEY) === "true";
+  return readVerificationStatusFromStorage() === "verified";
 }
 
 function ChevronRight() {
@@ -135,13 +135,43 @@ export default function UserMenu({ variant = "default" }: UserMenuProps) {
   }, []);
 
   useEffect(() => {
-    const syncVerifiedState = (event: StorageEvent) => {
-      if (event.key !== VERIFICATION_KEY) return;
+    const syncVerifiedState = () => {
       setIsVerified(readVerificationFlag());
     };
     window.addEventListener("storage", syncVerifiedState);
-    return () => window.removeEventListener("storage", syncVerifiedState);
+    window.addEventListener(VERIFICATION_STATUS_EVENT, syncVerifiedState as EventListener);
+    return () => {
+      window.removeEventListener("storage", syncVerifiedState);
+      window.removeEventListener(VERIFICATION_STATUS_EVENT, syncVerifiedState as EventListener);
+    };
   }, []);
+
+  useEffect(() => {
+    const accessToken = session?.user?.accessToken;
+    const roleKey = (session?.user?.role ?? "student").toLowerCase();
+
+    if (!accessToken || roleKey !== "landlord") {
+      queueMicrotask(() => {
+        setIsVerified(readVerificationFlag());
+      });
+      return;
+    }
+
+    let active = true;
+    getIdentityVerificationOverview(accessToken)
+      .then((data) => {
+        if (!active) return;
+        setIsVerified(data.status === "verified");
+      })
+      .catch(() => {
+        if (!active) return;
+        setIsVerified(readVerificationFlag());
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.accessToken, session?.user?.role]);
 
   if (!session) return null;
 

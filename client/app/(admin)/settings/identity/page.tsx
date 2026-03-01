@@ -58,5 +58,3 @@ export default async function SettingsIdentityPage() {
     </div>
   );
 }
-
-
