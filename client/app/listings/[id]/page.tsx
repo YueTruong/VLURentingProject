@@ -321,6 +321,11 @@ export default function ListingDetailPage() {
     return reviews.find((review) => Number(review.userId) === currentUserId) ?? null;
   }, [reviews, currentUserId]);
 
+  const myReview = useMemo(() => {
+    if (!currentUserId) return null;
+    return reviews.find((review) => review.userId === currentUserId) ?? null;
+  }, [reviews, currentUserId]);
+
   // Setup Logic Lưu Tin
   const favoriteScope = getFavoriteScope(session?.user?.id);
   const favorites = useFavoritesByScope(favoriteScope);

@@ -7,7 +7,12 @@ type LatLng = {
   lng: number;
 };
 
-// Mặc định là Tọa độ của TP.HCM
+type AddressParts = {
+  street?: string;
+  ward?: string;
+  district?: string;
+};
+
 const DEFAULT_CENTER: LatLng = { lat: 10.762622, lng: 106.660172 };
 
 type GeoError = "missing" | "not_found" | "failed";
@@ -16,10 +21,12 @@ export default function MapPicker({
   value,
   onChange,
   defaultAddress = "",
+  onAddressResolved,
 }: {
   value?: LatLng | null;
   onChange: (value: LatLng) => void;
   defaultAddress?: string;
+  onAddressResolved?: (parts: AddressParts) => void;
 }) {
   const safeValue = useMemo(() => value ?? DEFAULT_CENTER, [value]);
   const [addressQuery, setAddressQuery] = useState(defaultAddress);
@@ -62,13 +69,54 @@ export default function MapPicker({
         return;
       }
 
-      const data = (await res.json()) as Array<{ lat?: string; lon?: string }>;
+      const data = (await res.json()) as Array<{
+        lat?: string;
+        lon?: string;
+        address?: {
+          house_number?: string;
+          road?: string;
+          suburb?: string;
+          neighbourhood?: string;
+          quarter?: string;
+          city_district?: string;
+          district?: string;
+          county?: string;
+        };
+      }>;
       const first = data?.[0];
       const lat = first?.lat ? Number(first.lat) : NaN;
       const lng = first?.lon ? Number(first.lon) : NaN;
 
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
         onChange({ lat, lng });
+
+        const address = first?.address;
+        if (onAddressResolved && address) {
+          const houseNumber = address.house_number?.trim();
+          const road = address.road?.trim();
+          const street = [houseNumber, road].filter(Boolean).join(" ") || road || undefined;
+
+          const rawWard =
+            address.suburb?.trim() ||
+            address.neighbourhood?.trim() ||
+            address.quarter?.trim() ||
+            undefined;
+          const ward = rawWard && /^phường/i.test(rawWard) ? rawWard : rawWard ? `Phường ${rawWard}` : undefined;
+
+          const rawDistrict =
+            address.city_district?.trim() ||
+            address.district?.trim() ||
+            address.county?.trim() ||
+            undefined;
+          const district =
+            rawDistrict && /^(quận|huyện|thành phố)/i.test(rawDistrict)
+              ? rawDistrict
+              : rawDistrict
+                ? `Quận ${rawDistrict}`
+                : undefined;
+
+          onAddressResolved({ street, ward, district });
+        }
         return;
       }
 
@@ -91,7 +139,7 @@ export default function MapPicker({
             setAddressQuery(event.target.value);
             setGeoError(null);
           }}
-          placeholder="Nhập địa chỉ để lấy tọa độ"
+          placeholder="VD: 478 Nơ Trang Long, Phường 13, Quận Bình Thạnh"
           className="rounded-lg border border-(--theme-border) bg-(--theme-surface) px-3 py-2 text-sm text-(--theme-text) outline-none focus:border-(--brand-primary)"
         />
         <button
@@ -118,7 +166,7 @@ export default function MapPicker({
         <iframe
           title="Map preview"
           src={`https://maps.google.com/maps?q=${safeValue.lat},${safeValue.lng}&z=15&output=embed`}
-          className="h-52 w-full"
+          className="h-72 w-full"
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
         />

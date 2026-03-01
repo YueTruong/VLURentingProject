@@ -36,8 +36,7 @@ type ListingDraft = {
   areaM2: string;
   maxPeople: string;
   campus: "CS1" | "CS2" | "CS3";
-  availability: "available" | "rented";
-  videoUrl: string;
+  videoFile: File | null;
   roommateMoveInDate: string;
   roommateGender: string;
   roommateOccupation: string;
@@ -78,7 +77,7 @@ type DraftSnapshot = {
     privacy: boolean;
     policy: boolean;
   };
-  draft: Omit<ListingDraft, "images">;
+  draft: Omit<ListingDraft, "images" | "videoFile">;
 };
 
 const steps = [
@@ -161,8 +160,7 @@ function createEmptyDraft(): ListingDraft {
     areaM2: "",
     maxPeople: "1",
     campus: "CS1",
-    availability: "available",
-    videoUrl: "",
+    videoFile: null,
     roommateMoveInDate: "",
     roommateGender: "Không yêu cầu",
     roommateOccupation: "Sinh viên",
@@ -246,6 +244,13 @@ function buildAddress(draft: ListingDraft) {
     .map((value) => value.trim())
     .filter(Boolean)
     .join(", ");
+}
+
+function buildAddressPreview(draft: ListingDraft) {
+  const ordered = [draft.addressText, draft.ward, draft.district]
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return ordered.length > 0 ? ordered.join(" – ") : "Địa chỉ chi tiết";
 }
 
 function collectAmenityNames(amenities: Amenities) {
@@ -588,9 +593,7 @@ function PreviewCard({
                 </span>
               )}
             </div>
-            <div className="mt-1 text-sm text-gray-500">
-              {data.ward || "Phường"} - {data.district || "Quận"} - {data.addressText || "Địa chỉ chi tiết"}
-            </div>
+            <div className="mt-1 text-sm text-gray-500">{buildAddressPreview(data)}</div>
             {isRoommate && data.roommateListingTitle && (
               <div className="mt-1 text-xs text-gray-500">
                 Phòng gốc: {data.roommateListingTitle}
@@ -716,8 +719,9 @@ export default function PostWizard() {
 
   const persistDraft = useCallback(() => {
     try {
-      const { images, ...rest } = draft;
+      const { images, videoFile, ...rest } = draft;
       void images;
+      void videoFile;
       const payload: DraftSnapshot = {
         version: DRAFT_STORAGE_VERSION,
         savedAt: new Date().toISOString(),
@@ -937,6 +941,7 @@ export default function PostWizard() {
       const address = currentAddress;
       const maxOccupancy = toNumber(draft.maxPeople);
       const imageUrls = await uploadImages(draft.images.slice(0, 10));
+      const videoUrls = draft.videoFile ? await uploadImages([draft.videoFile]) : [];
 
       const payload = {
         title: draft.title.trim(),
@@ -948,8 +953,7 @@ export default function PostWizard() {
         longitude: draft.lng,
         max_occupancy: maxOccupancy > 0 ? maxOccupancy : undefined,
         campus: draft.campus,
-        availability: draft.availability,
-        videoUrl: draft.videoUrl.trim() || undefined,
+        videoUrl: videoUrls[0] || undefined,
         categoryName,
         amenityNames: amenityNames.length > 0 ? amenityNames : undefined,
         imageUrls,
@@ -1165,31 +1169,6 @@ export default function PostWizard() {
                   />
                 </div>
 
-                <div>
-                  <FieldLabel>Tình trạng phòng</FieldLabel>
-                  <Select
-                    value={draft.availability}
-                    onChange={(v) =>
-                      setDraft((d) => ({
-                        ...d,
-                        availability: v as "available" | "rented",
-                      }))
-                    }
-                    options={[
-                      { value: "available", label: "Còn phòng" },
-                      { value: "rented", label: "Đã cho thuê" },
-                    ]}
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <FieldLabel>Video URL (không bắt buộc)</FieldLabel>
-                  <Input
-                    value={draft.videoUrl}
-                    onChange={(v) => setDraft((d) => ({ ...d, videoUrl: v }))}
-                    placeholder="VD: https://youtube.com/watch?v=..."
-                  />
-                </div>
               </div>
               {draft.purpose === "RENT" && !isVerified && (
                 <div className="mt-3 text-xs text-red-600">
@@ -1520,7 +1499,7 @@ export default function PostWizard() {
                 <div className="md:col-span-2">
                   <FieldLabel>Map</FieldLabel>
                   <div className="space-y-3">
-                    <div className="h-72 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                    <div className="h-96 overflow-hidden rounded-2xl border border-gray-200 bg-white">
                       <MapPicker
                         defaultAddress={currentAddress}
                         value={
@@ -1529,6 +1508,14 @@ export default function PostWizard() {
                             : null
                         }
                         onChange={(value) => setDraft((d) => ({ ...d, lat: value.lat, lng: value.lng }))}
+                        onAddressResolved={(parts) =>
+                          setDraft((d) => ({
+                            ...d,
+                            addressText: parts.street || d.addressText,
+                            ward: parts.ward || d.ward,
+                            district: parts.district || d.district,
+                          }))
+                        }
                       />
                     </div>
                     <div className="text-xs text-gray-500">Bạn có thể lấy tọa độ theo địa chỉ hoặc nhập tay latitude/longitude.</div>
@@ -1684,6 +1671,38 @@ export default function PostWizard() {
                       </div>
                     </div>
                   )}
+                </div>
+
+                <div>
+                  <FieldLabel>Video phòng (không bắt buộc)</FieldLabel>
+                  <label
+                    htmlFor="video-upload"
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-700 hover:border-gray-400"
+                  >
+                    <span className="truncate">
+                      {draft.videoFile ? draft.videoFile.name : "Chọn 1 file video (mp4, mov, webm...)"}
+                    </span>
+                    <span className="rounded-full bg-gray-900 px-3 py-1 text-xs font-semibold text-white">Chọn video</span>
+                    <input
+                      id="video-upload"
+                      type="file"
+                      accept="video/*"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null;
+                        setDraft((d) => ({ ...d, videoFile: file }));
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                  {draft.videoFile ? (
+                    <button
+                      type="button"
+                      onClick={() => setDraft((d) => ({ ...d, videoFile: null }))}
+                      className="mt-2 text-xs font-semibold text-rose-600 hover:text-rose-700"
+                    >
+                      Xóa video đã chọn
+                    </button>
+                  ) : null}
                 </div>
 
                 <div>
