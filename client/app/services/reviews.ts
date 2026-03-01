@@ -1,4 +1,5 @@
 import api from "./api";
+import axios from "axios";
 
 export type PublicReview = {
   id: number;
@@ -46,6 +47,33 @@ export type UpdateReviewPayload = {
   comment?: string;
 };
 
+
+export type AdminReviewItem = {
+  id: number;
+  rating: number;
+  comment?: string | null;
+  createdAt?: string;
+  user?: {
+    id?: number;
+    username?: string;
+    email?: string;
+    profile?: {
+      full_name?: string;
+      avatar_url?: string;
+    };
+  };
+  post?: {
+    id?: number;
+    title?: string;
+    address?: string;
+    status?: string;
+    category?: {
+      id?: number;
+      name?: string;
+    };
+  };
+};
+
 export type PostReviewsResponse = {
   postId: number;
   averageRating: number;
@@ -86,4 +114,23 @@ export async function getPostReviews(postId: number, limit = 10): Promise<PostRe
       reviews: [],
     }
   );
+}
+
+
+const getBaseUrl = () => process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+
+
+export async function getAdminReviews(token: string, limit = 100, q = "") {
+  const res = await axios.get<AdminReviewItem[]>(`${getBaseUrl()}/reviews/admin`, {
+    params: { limit, q },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+export async function deleteAdminReview(reviewId: number, token: string) {
+  const res = await axios.delete(`${getBaseUrl()}/reviews/admin/${reviewId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.data;
 }

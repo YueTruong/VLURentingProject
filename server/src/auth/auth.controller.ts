@@ -7,10 +7,12 @@ import {
   UseGuards,
   Request,
   Get,
+  Patch,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
@@ -49,6 +51,15 @@ export class AuthController {
     // req.user sẽ chứa thông tin user do LocalStrategy trả về
 
     return this.authService.login(req.user);
+  }
+
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('profile')
+  @ApiOperation({ summary: 'Cập nhật thông tin tài khoản hiện tại' })
+  async updateProfile(@Request() req: any, @Body() updateProfileDto: UpdateProfileDto) {
+    const userId = req.user.userId;
+    return this.authService.updateProfile(userId, updateProfileDto);
   }
 
   // API Endpoint để lấy thông tin user hiện tại

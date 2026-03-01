@@ -2,13 +2,16 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import RoomCard from "@/app/homepage/components/RoomCard";
 import UserPageShell from "@/app/homepage/components/UserPageShell";
-import { clearFavorites, useFavorites } from "@/app/services/favorites";
+import { clearFavorites, getFavoriteScope, useFavoritesByScope } from "@/app/services/favorites";
 import toast from "react-hot-toast";
 
 export default function FavoritesPage() {
-  const favorites = useFavorites();
+  const { data: session } = useSession();
+  const favoriteScope = getFavoriteScope(session?.user?.id);
+  const favorites = useFavoritesByScope(favoriteScope);
   
   const [selectedArea, setSelectedArea] = useState<string | null>(null);
 
@@ -63,7 +66,7 @@ export default function FavoritesPage() {
 
   const handleClearAll = () => {
     if (window.confirm("Bạn có chắc chắn muốn xóa toàn bộ tin đã lưu không? Hành động này không thể hoàn tác.")) {
-      clearFavorites();
+      clearFavorites(favoriteScope);
       setSelectedArea(null); 
       toast.success("Đã xóa toàn bộ tin đã lưu");
     }
@@ -86,33 +89,33 @@ export default function FavoritesPage() {
         
         {/* PANEL THỐNG KÊ */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-500 font-medium">Tổng tin đã lưu</p>
+          <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-4 shadow-sm">
+            <p className="text-sm font-medium text-(--theme-text-subtle)">Tổng tin đã lưu</p>
             <div className="mt-2 text-3xl font-extrabold text-[#D51F35]">{favoriteRooms.length}</div>
-            <p className="text-xs text-gray-500 mt-1">Tin được giữ lại để theo dõi.</p>
+            <p className="mt-1 text-xs text-(--theme-text-subtle)">Tin được giữ lại để theo dõi.</p>
           </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-500 font-medium">Lưu gần đây</p>
-            <div className="mt-2 text-3xl font-extrabold text-gray-900">{recentCount}</div>
-            <p className="text-xs text-gray-500 mt-1">Tin được lưu trong 7 ngày qua.</p>
+          <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-4 shadow-sm">
+            <p className="text-sm font-medium text-(--theme-text-subtle)">Lưu gần đây</p>
+            <div className="mt-2 text-3xl font-extrabold text-(--theme-text)">{recentCount}</div>
+            <p className="mt-1 text-xs text-(--theme-text-subtle)">Tin được lưu trong 7 ngày qua.</p>
           </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-500 font-medium">Khu vực đang quan tâm</p>
+          <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-4 shadow-sm">
+            <p className="text-sm font-medium text-(--theme-text-subtle)">Khu vực đang quan tâm</p>
             <div className="mt-2 text-xl font-extrabold text-gray-900 truncate" title={areaSummary}>
               {areaSummary}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Dựa trên các tin bạn đã lưu.</p>
+            <p className="mt-1 text-xs text-(--theme-text-subtle)">Dựa trên các tin bạn đã lưu.</p>
           </div>
         </div>
 
         {/* TOOLBAR KIỂM SOÁT */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-4">
+        <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-5 shadow-sm space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-base font-semibold text-gray-900">
+              <p className="text-base font-semibold text-(--theme-text)">
                 {activeArea ? `Danh sách tại ${activeArea} (${filteredRooms.length})` : `Danh sách (${favoriteRooms.length})`}
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-(--theme-text-muted)">
                 Bật nhắc giá và cập nhật từ chủ nhà đối với các phòng này.
               </p>
             </div>
@@ -120,13 +123,13 @@ export default function FavoritesPage() {
               <button
                 onClick={handleClearAll}
                 disabled={favoriteRooms.length === 0}
-                className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-full border border-(--theme-border) bg-(--theme-surface) px-4 py-2 text-sm font-semibold text-(--theme-text) hover:bg-(--brand-accent-soft) hover:text-(--brand-accent) hover:border-(--brand-accent) transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Xóa hết
               </button>
               <Link
                 href="/"
-                className="rounded-full bg-[#D51F35] px-5 py-2 text-sm font-semibold text-white shadow-md hover:bg-[#b01628] transition-all active:scale-95"
+                className="rounded-full bg-(--brand-accent) px-5 py-2 text-sm font-semibold text-white shadow-md hover:bg-(--brand-accent-strong) transition-all active:scale-95"
               >
                 Tìm thêm phòng
               </Link>
@@ -134,15 +137,15 @@ export default function FavoritesPage() {
           </div>
 
           {areaTags.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
-              <span className="text-xs text-gray-400 font-medium py-1 mr-1">Lọc theo khu vực:</span>
+            <div className="flex flex-wrap items-center gap-2 border-t border-(--theme-border) pt-2">
+              <span className="mr-1 py-1 text-xs font-medium text-(--theme-text-subtle)">Lọc theo khu vực:</span>
               
               <button
                 onClick={() => setSelectedArea(null)}
                 className={`rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
                   activeArea === null 
-                    ? "bg-[#D51F35] text-white border-[#D51F35] shadow-sm" 
-                    : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                    ? "bg-(--brand-accent) text-white border-[#D51F35] shadow-sm" 
+                    : "bg-(--theme-surface-muted) text-(--theme-text-muted) border-(--theme-border) hover:brightness-95"
                 }`}
               >
                 Tất cả
@@ -154,8 +157,8 @@ export default function FavoritesPage() {
                   onClick={() => setSelectedArea(tag)}
                   className={`rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
                     activeArea === tag 
-                      ? "bg-[#D51F35] text-white border-[#D51F35] shadow-sm" 
-                      : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                      ? "bg-(--brand-accent) text-white border-[#D51F35] shadow-sm" 
+                      : "bg-(--theme-surface-muted) text-(--theme-text-muted) border-(--theme-border) hover:brightness-95"
                   }`}
                 >
                   {tag}
@@ -167,29 +170,29 @@ export default function FavoritesPage() {
 
         {/* DANH SÁCH HIỂN THỊ */}
         {favoriteRooms.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 px-4 text-center shadow-sm">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-(--theme-border) bg-(--theme-surface) px-4 py-16 text-center shadow-sm">
             <span className="text-5xl mb-4 opacity-50">📂</span>
-            <p className="text-lg font-bold text-gray-800">Chưa có tin nào được lưu</p>
-            <p className="mt-2 max-w-md text-sm text-gray-500">
+            <p className="text-lg font-bold text-(--theme-text)">Chưa có tin nào được lưu</p>
+            <p className="mt-2 max-w-md text-sm text-(--theme-text-subtle)">
               Bạn chưa lưu phòng nào. Hãy dạo quanh các bài đăng và nhấn vào biểu tượng <span className="text-red-400 font-bold">♥</span> để lưu lại những căn phòng ưng ý nhé.
             </p>
             <Link 
               href="/" 
-              className="mt-6 rounded-full bg-[#D51F35] px-6 py-2.5 text-sm font-semibold text-white shadow hover:bg-[#b01628] active:scale-95 transition-all"
+              className="mt-6 rounded-full bg-(--brand-accent) px-6 py-2.5 text-sm font-semibold text-white shadow hover:bg-(--brand-accent-strong) active:scale-95 transition-all"
             >
               Khám phá ngay
             </Link>
           </div>
         ) : filteredRooms.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 px-4 text-center shadow-sm">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-(--theme-border) bg-(--theme-surface) px-4 py-16 text-center shadow-sm">
             <span className="text-5xl mb-4 opacity-50">🔍</span>
-            <p className="text-lg font-bold text-gray-800">Không tìm thấy tin nào</p>
-            <p className="mt-2 max-w-md text-sm text-gray-500">
+            <p className="text-lg font-bold text-(--theme-text)">Không tìm thấy tin nào</p>
+            <p className="mt-2 max-w-md text-sm text-(--theme-text-subtle)">
               Không có phòng nào trong danh sách tin đã lưu thuộc khu vực <strong>{activeArea}</strong>.
             </p>
             <button 
               onClick={() => setSelectedArea(null)}
-              className="mt-6 rounded-full border border-gray-300 bg-white px-6 py-2.5 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-50 active:scale-95 transition-all"
+              className="mt-6 rounded-full border border-(--theme-border) bg-(--theme-surface) px-6 py-2.5 text-sm font-semibold text-(--theme-text) shadow-sm hover:bg-(--theme-surface-muted) active:scale-95 transition-all"
             >
               Xem tất cả
             </button>
