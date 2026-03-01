@@ -1,619 +1,274 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { useSession } from "next-auth/react";
-import Link from "next/link";
-import UserPageShell from "@/app/homepage/components/UserPageShell";
+import Link from 'next/link';
+import { useCallback, useMemo, type ChangeEvent, type MouseEvent } from 'react';
+import type { Session } from 'next-auth';
+import { useSession } from 'next-auth/react';
+import UserPageShell from '@/app/homepage/components/UserPageShell';
+import EditPostModal from './EditPostModal';
+import PostCard from './PostCard';
 import {
-  deletePost,
-  getMyPosts,
-  updatePost,
-  uploadImages,
-  type Post,
-  type UpdatePostPayload,
-} from "@/app/services/posts";
+  MY_POSTS_FILTERS,
+  type LoadErrorCode,
+  type MyPostsFilter,
+  useMyPosts,
+} from './useMyPosts';
 
-type EditDraft = {
-  title: string;
-  price: string;
-  area: string;
-  address: string;
-  description: string;
-  maxOccupancy: string;
-  existingImages: string[];
-  newImages: File[];
-  imagesTouched: boolean;
-};
-
-// Định nghĩa kiểu dữ liệu cho User có thêm accessToken để dùng lại
-type UserWithToken = {
+type UserWithToken = Session['user'] & {
   accessToken?: string;
-  name?: string | null;
-  email?: string | null;
-  image?: string | null;
 };
 
-const formatPriceVnd = (value: number | string | undefined) => {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return "--";
-  return `${numeric.toLocaleString("vi-VN")} đ`;
+const LOAD_ERROR_MESSAGES: Record<Exclude<LoadErrorCode, null>, string> = {
+  auth_failed: 'Không thể tải dữ liệu. Vui lòng đăng nhập lại để tiếp tục.',
+  load_failed: 'Không thể tải danh sách bài đăng. Vui lòng thử lại.',
+  delete_failed: 'Không thể xóa bài đăng. Vui lòng thử lại.',
 };
 
-const formatDate = (value?: string) => {
-  if (!value) return "--";
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "--";
-  return date.toLocaleDateString("vi-VN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-};
-
-const statusLabel = (status?: string) => {
-  const normalized = (status ?? "pending").toLowerCase();
-  if (normalized === "approved") return "Đã duyệt";
-  if (normalized === "pending") return "Chờ duyệt";
-  if (normalized === "rejected") return "Từ chối";
-  if (normalized === "hidden") return "Cân nhắc";
-  if (normalized === "rented") return "Đã cho thuê";
-  return status ?? "Chờ duyệt";
-};
-
-const statusClass = (status?: string) => {
-  const normalized = (status ?? "pending").toLowerCase();
-  if (normalized === "approved") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (normalized === "rejected") return "border-rose-200 bg-rose-50 text-rose-700";
-  if (normalized === "hidden") return "border-gray-200 bg-gray-50 text-gray-700";
-  if (normalized === "rented") return "border-indigo-200 bg-indigo-50 text-indigo-700";
-  return "border-amber-200 bg-amber-50 text-amber-700";
-};
-
-const parseNumberInput = (value: string) => {
-  const cleaned = value.replace(/[^\d.]/g, "").trim();
-  if (!cleaned) return undefined;
-  const numeric = Number(cleaned);
-  return Number.isFinite(numeric) ? numeric : undefined;
-};
+const SKELETON_ITEMS = [0, 1, 2];
 
 export default function MyPostsPage() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
-  const [editError, setEditError] = useState<string | null>(null);
-  const [savingId, setSavingId] = useState<number | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  
   const { data: session, status } = useSession();
 
-  console.log("Status:", status);
-  console.log("Session:", session);
-  console.log("Token:", session?.user?.accessToken);
+  const accessToken = useMemo(() => {
+    const user = session?.user as UserWithToken | undefined;
+    return user?.accessToken ?? '';
+  }, [session]);
 
-  useEffect(() => {
-    // 1. Nếu session chưa sẵn sàng, không làm gì cả
-    if (status === "loading") return;
+  const {
+    posts,
+    filteredPosts,
+    loading,
+    loadError,
+    notice,
+    dismissNotice,
+    statusCounts,
+    activeFilter,
+    setActiveFilter,
+    searchQuery,
+    setSearchQuery,
+    editingPost,
+    editDraft,
+    initialEditDraft,
+    editError,
+    savingId,
+    deletingId,
+    openEdit,
+    closeEdit,
+    handleDelete,
+    handleSave,
+    updateDraftField,
+    addImages,
+    removeExistingImage,
+    removeNewImage,
+  } = useMyPosts({
+    accessToken,
+    sessionStatus: status,
+  });
 
-    // 2. Lấy token an toàn
-    const accessToken = session?.user?.accessToken;
-
-    // 3. Nếu load xong mà không có token => Người dùng chưa đăng nhập
-    if (!accessToken) {
-      setLoadError("load_failed");
-      setLoading(false);
-      return;
-    }
-    let active = true;
-    
-    // 4. Gọi API kèm Token
-    getMyPosts(accessToken)
-      .then((data) => {
-        if (!active) return;
-        setPosts(data);
-      })
-      .catch((err) => {
-        if (!active) return;
-        console.error("Lỗi tải tin:", err);
-        setLoadError("load_failed");
-      })
-      .finally(() => {
-        if (!active) return;
-        setLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [session, status]);
-
-  const editingPost = useMemo(
-    () => posts.find((post) => post.id === editingId) ?? null,
-    [posts, editingId],
+  const handleFilterClick = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      const nextFilter = event.currentTarget.value as MyPostsFilter;
+      setActiveFilter(nextFilter);
+    },
+    [setActiveFilter],
   );
 
-  const openEdit = (post: Post) => {
-    const existingImages = (post.images ?? [])
-      .map((image) => image?.image_url ?? "")
-      .filter(Boolean);
-    setEditingId(post.id);
-    setEditDraft({
-      title: post.title ?? "",
-      price: post.price !== undefined && post.price !== null ? String(post.price) : "",
-      area: post.area !== undefined && post.area !== null ? String(post.area) : "",
-      address: post.address ?? "",
-      description: post.description ?? "",
-      maxOccupancy:
-        post.max_occupancy !== undefined && post.max_occupancy !== null
-          ? String(post.max_occupancy)
-          : "",
-      existingImages,
-      newImages: [],
-      imagesTouched: false,
-    });
-    setEditError(null);
-  };
+  const handleSearchChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setSearchQuery(event.target.value);
+    },
+    [setSearchQuery],
+  );
 
-  const closeEdit = () => {
-    setEditingId(null);
-    setEditDraft(null);
-    setEditError(null);
-  };
-
-  const handleSave = async () => {
-    if (!editDraft || !editingId) return;
-
-    // ✅ FIX 1: Ép kiểu tường minh thay vì dùng 'any'
-    const user = session?.user as UserWithToken | undefined;
-    const accessToken = user?.accessToken;
-
-    if (!accessToken) {
-        alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!");
-        return;
-    }
-
-    const payload: UpdatePostPayload = {};
-    const wasRejected = editingPost?.status === "rejected";
-
-    const title = editDraft.title.trim();
-    const address = editDraft.address.trim();
-    const description = editDraft.description.trim();
-    if (title) payload.title = title;
-    if (address) payload.address = address;
-    if (description) payload.description = description;
-
-    const price = parseNumberInput(editDraft.price);
-    if (price !== undefined) payload.price = price;
-
-    const area = parseNumberInput(editDraft.area);
-    if (area !== undefined) payload.area = area;
-
-    const maxOcc = parseNumberInput(editDraft.maxOccupancy);
-    if (maxOcc !== undefined) payload.max_occupancy = Math.max(1, Math.floor(maxOcc));
-
-    if (Object.keys(payload).length === 0 && !editDraft.imagesTouched) {
-      setEditError("Vui lòng nhập ít nhất một thông tin để cập nhật.");
-      return;
-    }
-
-    setEditError(null);
-    setSavingId(editingId);
-    try {
-      if (editDraft.imagesTouched) {
-        const uploaded = editDraft.newImages.length > 0 ? await uploadImages(editDraft.newImages) : [];
-        payload.imageUrls = [...editDraft.existingImages, ...uploaded];
-      }
-      
-      const result = await updatePost(editingId, payload, accessToken);
-      
-      const updated = (result as { data?: Post })?.data ?? (result as Post);
-      setPosts((prev) =>
-        prev.map((post) => (post.id === editingId ? { ...post, ...updated } : post)),
-      );
-      closeEdit();
-      setNotice(wasRejected ? "Đã gửi lại cho admin duyệt." : "Cập nhật bài đăng thành công.");
-    } catch (error) {
-      console.error(error);
-      setEditError("Cập nhật thất bại. Vui lòng thử lại.");
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  const addImages = (files: FileList | null) => {
-    if (!files || !editDraft) return;
-    const limit = 10;
-    const current = editDraft.existingImages.length + editDraft.newImages.length;
-    const available = Math.max(0, limit - current);
-    const nextFiles = Array.from(files)
-      .filter((file) => file.type.startsWith("image/"))
-      .slice(0, available);
-    if (nextFiles.length === 0) return;
-    setEditDraft((prev) =>
-      prev
-        ? {
-            ...prev,
-            newImages: [...prev.newImages, ...nextFiles],
-            imagesTouched: true,
-          }
-        : prev,
-    );
-  };
-
-  const removeExistingImage = (index: number) => {
-    setEditDraft((prev) =>
-      prev
-        ? {
-            ...prev,
-            existingImages: prev.existingImages.filter((_, i) => i !== index),
-            imagesTouched: true,
-          }
-        : prev,
-    );
-  };
-
-  const removeNewImage = (index: number) => {
-    setEditDraft((prev) =>
-      prev
-        ? {
-            ...prev,
-            newImages: prev.newImages.filter((_, i) => i !== index),
-            imagesTouched: true,
-          }
-        : prev,
-    );
-  };
-
-  const handleDelete = async (id: number) => {
-    const confirmed = window.confirm("Bạn chắc chắn muốn xóa bài đăng này?");
-    if (!confirmed) return;
-
-    // ✅ FIX 2: Ép kiểu tường minh cho hàm xóa
-    const user = session?.user as UserWithToken | undefined;
-    const accessToken = user?.accessToken;
-
-    if (!accessToken) {
-        alert("Bạn cần đăng nhập để thực hiện thao tác này!");
-        return;
-    }
-
-    setDeletingId(id);
-    try {
-      await deletePost(id); 
-      setPosts((prev) => prev.filter((post) => post.id !== id));
-    } catch (error) {
-      console.error(error);
-      setLoadError("delete_failed");
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  const statusCounts = useMemo(() => {
-    return posts.reduce(
-      (acc, post) => {
-        const key = (post.status ?? "pending").toLowerCase();
-        acc[key] = (acc[key] ?? 0) + 1;
-        return acc;
-      },
-      {} as Record<string, number>,
-    );
-  }, [posts]);
+  const hasNoPosts = !loading && posts.length === 0;
+  const hasNoFilteredResults =
+    !loading && posts.length > 0 && filteredPosts.length === 0;
 
   return (
     <UserPageShell
       title="Tin đăng của tôi"
-      description="Theo dõi trạng thái duyệt, chỉnh sửa hoặc xóa bài đăng nhanh chóng."
+      description="Theo dõi trạng thái duyệt, tối ưu cập nhật và quản lý toàn bộ bài đăng trong một giao diện gọn, rõ ràng."
       actions={
         <Link
           href="/post"
-          className="rounded-full bg-white/10 px-5 py-2 text-sm font-semibold text-white hover:bg-white/20"
+          className="inline-flex items-center rounded-full bg-white/10 px-5 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
         >
           Đăng tin mới
         </Link>
       }
     >
       <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-4">
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="text-sm text-gray-500">Tổng tin</div>
-            <div className="mt-1 text-2xl font-bold text-gray-900">{posts.length}</div>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="text-sm text-gray-500">Chờ duyệt</div>
-            <div className="mt-1 text-2xl font-bold text-gray-900">
-              {statusCounts.pending ?? 0}
-            </div>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="text-sm text-gray-500">Đã duyệt</div>
-            <div className="mt-1 text-2xl font-bold text-gray-900">
-              {statusCounts.approved ?? 0}
-            </div>
-          </div>
-          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="text-sm text-gray-500">Từ chối</div>
-            <div className="mt-1 text-2xl font-bold text-gray-900">
-              {statusCounts.rejected ?? 0}
-            </div>
-          </div>
-        </div>
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <SummaryCard label="Tổng tin" value={posts.length} />
+          <SummaryCard label="Chờ duyệt" value={statusCounts.pending} />
+          <SummaryCard label="Đã duyệt" value={statusCounts.approved} />
+          <SummaryCard label="Từ chối" value={statusCounts.rejected} />
+        </section>
 
         {notice ? (
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-            {notice}
+          <div className="flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <span>{notice}</span>
+            <button
+              type="button"
+              onClick={dismissNotice}
+              className="inline-flex items-center rounded-full border border-emerald-200 px-3 py-1 text-xs font-semibold transition hover:bg-emerald-100"
+            >
+              Ẩn thông báo
+            </button>
           </div>
         ) : null}
 
-        {statusCounts.rejected ? (
-          <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            Có {statusCounts.rejected} bài đăng bị từ chối. Vui lòng chỉnh sửa để gửi lại duyệt.
+        {statusCounts.rejected > 0 ? (
+          <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700 shadow-sm">
+            Có {statusCounts.rejected} bài đăng đang bị từ chối. Hãy chỉnh sửa
+            để gửi lại duyệt.
           </div>
         ) : null}
 
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Danh sách bài đăng</h2>
-            {loading ? (
-              <span className="text-sm text-gray-500">Đang tải...</span>
-            ) : null}
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">
+                Danh sách bài đăng
+              </h2>
+              <p className="mt-1 text-sm text-gray-500">
+                {loading
+                  ? 'Đang tải dữ liệu bài đăng...'
+                  : `Hiển thị ${filteredPosts.length} trên ${posts.length} bài đăng.`}
+              </p>
+            </div>
+
+            <div className="w-full lg:max-w-sm">
+              <label htmlFor="post-search" className="sr-only">
+                Tìm theo tiêu đề hoặc địa chỉ
+              </label>
+              <input
+                id="post-search"
+                type="search"
+                value={searchQuery}
+                onChange={handleSearchChange}
+                placeholder="Tìm theo tiêu đề hoặc địa chỉ"
+                className="w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:bg-white focus:ring-2 focus:ring-slate-200"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {MY_POSTS_FILTERS.map((filter) => {
+              const isActive = activeFilter === filter.value;
+              const count =
+                filter.value === 'all'
+                  ? posts.length
+                  : statusCounts[filter.value];
+
+              return (
+                <button
+                  key={filter.value}
+                  type="button"
+                  value={filter.value}
+                  onClick={handleFilterClick}
+                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                    isActive
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <span>{filter.label}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs ${
+                      isActive
+                        ? 'bg-white/15 text-white'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {loadError ? (
-            <div className="mt-4 text-sm text-rose-600">
-              {loadError === "load_failed"
-                ? "Không thể tải dữ liệu. Vui lòng đăng nhập lại."
-                : "Không thể xóa bài đăng. Vui lòng thử lại."}
+            <div className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+              {LOAD_ERROR_MESSAGES[loadError]}
             </div>
           ) : null}
 
-          {!loading && posts.length === 0 ? (
-            <div className="mt-6 rounded-2xl border border-dashed border-gray-200 p-6 text-center text-sm text-gray-500">
-              Bạn chưa có tin đăng nào.
-            </div>
-          ) : (
-            <div className="mt-4 space-y-4">
-              {posts.map((post) => (
-                <div
-                  key={post.id}
-                  className="rounded-2xl border border-gray-200 bg-white p-4 transition hover:shadow-md"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <div className="text-lg font-semibold text-gray-900">{post.title}</div>
-                      <div className="mt-1 text-sm text-gray-600">{post.address}</div>
-                      <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-600">
-                        <span>Giá: {formatPriceVnd(post.price)}</span>
-                        <span>Diện tích: {post.area ?? "--"} m²</span>
-                        <span>Ngày tạo: {formatDate(post.createdAt)}</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span
-                        className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusClass(
-                          post.status,
-                        )}`}
-                      >
-                        {statusLabel(post.status)}
-                      </span>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openEdit(post)}
-                          className="rounded-full border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                        >
-                          Chỉnh sửa
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(post.id)}
-                          disabled={deletingId === post.id}
-                          className="rounded-full border border-rose-200 px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {deletingId === post.id ? "Đang xóa..." : "Xóa"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+          <div className="mt-5 space-y-4">
+            {loading
+              ? SKELETON_ITEMS.map((item) => <PostCardSkeleton key={item} />)
+              : null}
 
-                  {post.status === "rejected" ? (
-                    <div className="mt-3 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                      <span className="font-semibold">Lý do từ chối:</span>{" "}
-                      {post.rejectionReason || "Chưa có lý do cụ thể."}
-                    </div>
-                  ) : null}
-                </div>
+            {hasNoPosts ? (
+              <div className="rounded-2xl border border-dashed border-gray-200 px-6 py-12 text-center text-sm text-gray-500">
+                Bạn chưa có bài đăng nào.
+              </div>
+            ) : null}
+
+            {hasNoFilteredResults ? (
+              <div className="rounded-2xl border border-dashed border-gray-200 px-6 py-12 text-center text-sm text-gray-500">
+                Không tìm thấy bài đăng phù hợp với bộ lọc hoặc từ khóa hiện
+                tại.
+              </div>
+            ) : null}
+
+            {!loading &&
+              filteredPosts.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onEdit={openEdit}
+                  onDelete={handleDelete}
+                  isDeleting={deletingId === post.id}
+                />
               ))}
-            </div>
-          )}
-        </div>
+          </div>
+        </section>
       </div>
 
-      {editingId && editDraft ? (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-xl">
-            <div className="text-lg font-semibold text-gray-900">Cập nhật bài đăng</div>
-            <div className="mt-1 text-sm text-gray-500">
-              {editingPost?.title || "Bài đăng"} • Các thay đổi sẽ được gửi lại để duyệt nếu cần.
-            </div>
-
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <label className="text-sm font-semibold text-gray-700" htmlFor="edit-title">
-                  Tiêu đề
-                </label>
-                <input
-                  id="edit-title"
-                  value={editDraft.title}
-                  onChange={(event) =>
-                    setEditDraft((prev) => (prev ? { ...prev, title: event.target.value } : prev))
-                  }
-                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-300"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-semibold text-gray-700" htmlFor="edit-price">
-                  Giá (VND/tháng)
-                </label>
-                <input
-                  id="edit-price"
-                  value={editDraft.price}
-                  onChange={(event) =>
-                    setEditDraft((prev) => (prev ? { ...prev, price: event.target.value } : prev))
-                  }
-                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-300"
-                  inputMode="numeric"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-semibold text-gray-700" htmlFor="edit-area">
-                  Diện tích (m²)
-                </label>
-                <input
-                  id="edit-area"
-                  value={editDraft.area}
-                  onChange={(event) =>
-                    setEditDraft((prev) => (prev ? { ...prev, area: event.target.value } : prev))
-                  }
-                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-300"
-                  inputMode="numeric"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-semibold text-gray-700" htmlFor="edit-max">
-                  Số người tối đa
-                </label>
-                <input
-                  id="edit-max"
-                  value={editDraft.maxOccupancy}
-                  onChange={(event) =>
-                    setEditDraft((prev) =>
-                      prev ? { ...prev, maxOccupancy: event.target.value } : prev,
-                    )
-                  }
-                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-300"
-                  inputMode="numeric"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-sm font-semibold text-gray-700" htmlFor="edit-address">
-                  Địa chỉ
-                </label>
-                <input
-                  id="edit-address"
-                  value={editDraft.address}
-                  onChange={(event) =>
-                    setEditDraft((prev) => (prev ? { ...prev, address: event.target.value } : prev))
-                  }
-                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-300"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-sm font-semibold text-gray-700" htmlFor="edit-description">
-                  Mô tả
-                </label>
-                <textarea
-                  id="edit-description"
-                  value={editDraft.description}
-                  onChange={(event) =>
-                    setEditDraft((prev) =>
-                      prev ? { ...prev, description: event.target.value } : prev,
-                    )
-                  }
-                  rows={4}
-                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-300"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="text-sm font-semibold text-gray-700">Hình ảnh</label>
-                <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {editDraft.existingImages.map((src, idx) => (
-                    <div
-                      key={`${src}-${idx}`}
-                      className="relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-50"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={src} alt={`Ảnh ${idx + 1}`} className="h-28 w-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => removeExistingImage(idx)}
-                        className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-xs font-semibold text-gray-700 shadow"
-                      >
-                        Xóa
-                      </button>
-                    </div>
-                  ))}
-                  {editDraft.newImages.map((file, idx) => (
-                    <div
-                      key={`${file.name}-${idx}`}
-                      className="relative overflow-hidden rounded-2xl border border-dashed border-gray-300 bg-gray-50"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={URL.createObjectURL(file)}
-                        alt={`Ảnh mới ${idx + 1}`}
-                        className="h-28 w-full object-cover"
-                      />
-                      <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-gray-700 shadow">
-                        Ảnh mới
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeNewImage(idx)}
-                        className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-xs font-semibold text-gray-700 shadow"
-                      >
-                        Xóa
-                      </button>
-                    </div>
-                  ))}
-                  {editDraft.existingImages.length === 0 && editDraft.newImages.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500">
-                      Chưa có ảnh nào cho bài đăng này.
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <label className="inline-flex cursor-pointer items-center rounded-full border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50">
-                    Thêm ảnh
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={(event) => addImages(event.target.files)}
-                      className="hidden"
-                    />
-                  </label>
-                  <span className="text-xs text-gray-500">Tối đa 10 ảnh.</span>
-                </div>
-              </div>
-            </div>
-
-            {editError ? <div className="mt-3 text-sm text-rose-600">{editError}</div> : null}
-
-            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={closeEdit}
-                className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={savingId === editingId}
-                className="inline-flex h-9 items-center justify-center rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {savingId === editingId ? "Đang lưu..." : "Lưu thay đổi"}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <EditPostModal
+        post={editingPost}
+        draft={editDraft}
+        initialDraft={initialEditDraft}
+        isSaving={savingId === editingPost?.id}
+        error={editError}
+        onClose={closeEdit}
+        onSave={handleSave}
+        onFieldChange={updateDraftField}
+        onAddImages={addImages}
+        onRemoveExistingImage={removeExistingImage}
+        onRemoveNewImage={removeNewImage}
+      />
     </UserPageShell>
+  );
+}
+
+type SummaryCardProps = {
+  label: string;
+  value: number;
+};
+
+function SummaryCard({ label, value }: SummaryCardProps) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md">
+      <p className="text-sm text-gray-500">{label}</p>
+      <p className="mt-2 text-3xl font-semibold text-gray-900">{value}</p>
+    </div>
+  );
+}
+
+function PostCardSkeleton() {
+  return (
+    <div className="animate-pulse rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex gap-4">
+        <div className="h-24 w-24 rounded-xl bg-gray-200" />
+        <div className="flex-1 space-y-3">
+          <div className="h-5 w-1/3 rounded-full bg-gray-200" />
+          <div className="h-4 w-2/3 rounded-full bg-gray-100" />
+          <div className="h-4 w-1/2 rounded-full bg-gray-100" />
+          <div className="h-10 w-full rounded-2xl bg-gray-100" />
+        </div>
+      </div>
+    </div>
   );
 }
