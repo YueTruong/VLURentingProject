@@ -14,6 +14,7 @@ import { UserProfileEntity } from './user-profile.entity';
 import { PostEntity } from './post.entity';
 import { NotificationEntity } from './notification.entity';
 import { UserOauthAccountEntity } from './user-oauth-account.entity';
+import { UserSettingsEntity } from './user-settings.entity';
 
 @Entity({ name: 'users' })
 export class UserEntity {
@@ -65,4 +66,9 @@ export class UserEntity {
 
   @OneToMany(() => UserOauthAccountEntity, (oauthAccount) => oauthAccount.user)
   oauthAccounts: UserOauthAccountEntity[];
+
+  @OneToOne(() => UserSettingsEntity, (settings) => settings.user, {
+    cascade: true,
+  })
+  settings: UserSettingsEntity;
 }

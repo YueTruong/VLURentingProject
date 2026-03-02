@@ -1,5 +1,5 @@
-import api from "./api";
 import axios from 'axios';
+import api from './api';
 
 export type CreatePostPayload = {
   title: string;
@@ -91,16 +91,21 @@ type UploadResult = {
   public_id?: string;
 };
 
+const getBaseUrl = () =>
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  'http://localhost:3001';
+
 export async function uploadImages(files: File[]): Promise<string[]> {
   if (!files || files.length === 0) return [];
 
   const formData = new FormData();
   files.forEach((file) => {
-    formData.append("files", file);
+    formData.append('files', file);
   });
 
-  const res = await api.post<UploadResult[]>("/upload/multiple", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
+  const res = await api.post<UploadResult[]>('/upload/multiple', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
   });
 
   return (res.data || [])
@@ -109,16 +114,15 @@ export async function uploadImages(files: File[]): Promise<string[]> {
 }
 
 export async function createPost(payload: CreatePostPayload) {
-  const res = await api.post("/posts", payload);
+  const res = await api.post('/posts', payload);
   return res.data;
 }
 
 export async function getApprovedPosts(): Promise<Post[]> {
-  const res = await api.get<Post[]>("/posts");
+  const res = await api.get<Post[]>('/posts');
   return res.data ?? [];
 }
 
-const getBaseUrl = () => process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
 export async function getAdminPosts(status: string | undefined, token: string) {
   const res = await axios.get(`${getBaseUrl()}/posts/admin`, {
     params: status ? { status } : undefined,
@@ -137,9 +141,9 @@ export async function updatePostStatus(
   if (rejectionReason) payload.rejectionReason = rejectionReason;
 
   const res = await axios.patch(
-    `${getBaseUrl()}/posts/admin/${id}/approve`, // Khớp với controller backend
+    `${getBaseUrl()}/posts/admin/${id}/approve`,
     payload,
-    { headers: { Authorization: `Bearer ${token}` } }
+    { headers: { Authorization: `Bearer ${token}` } },
   );
   return res.data;
 }
@@ -149,13 +153,13 @@ export async function getPostById(id: number | string): Promise<Post> {
   return res.data;
 }
 
-export async function getMyPosts(token: string) {
-  const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL}/posts/me`, {
+export async function getMyPosts(token: string): Promise<Post[]> {
+  const res = await axios.get<Post[]>(`${getBaseUrl()}/posts/me`, {
     headers: {
-      Authorization: `Bearer ${token}`, // 👈 Phải có dòng này
+      Authorization: `Bearer ${token}`,
     },
   });
-  return res.data;
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function getMySavedPostIds(token: string): Promise<number[]> {
@@ -181,24 +185,25 @@ export async function unsavePost(postId: number, token: string) {
   return res.data;
 }
 
-export async function updatePost(id: number, payload: UpdatePostPayload, token: string) {
-  // Thay vì dùng biến 'api' chung chung, ta cấu hình trực tiếp để chắc chắn có Header
-  const res = await axios.patch(
-    `${process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL}/posts/${id}`, // Đảm bảo đường dẫn API đúng
-    payload,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`, // 👈 QUAN TRỌNG: Gắn vé thông hành vào đây
-        'Content-Type': 'application/json',
-      },
-    }
-  );
+export async function updatePost(
+  id: number,
+  payload: UpdatePostPayload,
+  token: string,
+) {
+  const res = await axios.patch(`${getBaseUrl()}/posts/${id}`, payload, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
   return res.data;
 }
 
 export async function deletePost(id: number, token: string) {
   const res = await axios.delete(`${getBaseUrl()}/posts/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
   return res.data;
 }

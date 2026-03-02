@@ -1,13 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import SectionCard from "../../components/SectionCard";
 import FiltersBar from "../../components/FiltersBar";
-import DataTable, { Column } from "../../components/DataTable";
+import DataTable, { type Column } from "../../components/DataTable";
 import StatusBadge from "../../components/StatusBadge";
 import { getAdminPosts, updatePostStatus, type Post } from "@/app/services/posts";
+
+type ListingStatus = "approved" | "pending" | "rejected" | "hidden" | "rented";
+type ListingStatusFilter = "all" | ListingStatus;
+type LoadErrorType = "auth_failed" | "load_failed" | null;
 
 type AdminPostRow = {
   id: number;
@@ -15,11 +19,29 @@ type AdminPostRow = {
   owner: string;
   city: string;
   price: number;
-  status: string;
+  status: ListingStatus;
   resubmittedAt?: string | null;
   createdAt: string;
   createdAtValue: number;
 };
+
+const LISTING_STATUSES: ListingStatus[] = [
+  "approved",
+  "pending",
+  "rejected",
+  "hidden",
+  "rented",
+];
+
+const actionButtonBase =
+  "inline-flex h-8 w-full min-w-[96px] items-center justify-center rounded-lg border px-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60";
+
+const rejectReasonPresets = [
+  "Ảnh không rõ/thiếu ảnh",
+  "Thiếu địa chỉ cụ thể",
+  "Thiếu thông tin giá/diện tích",
+  "Nội dung không phù hợp/quảng cáo",
+];
 
 const toNumberValue = (value: number | string | undefined | null) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -84,7 +106,6 @@ const formatDate = (value?: string) => {
   });
 };
 
-const formatPriceVnd = (value: number) => `${value.toLocaleString("vi-VN")} đ`;
 const formatDateTime = (value?: string) => {
   if (!value) return "-";
   const date = new Date(value);
@@ -98,37 +119,33 @@ const formatDateTime = (value?: string) => {
   });
 };
 
-const normalizeStatus = (status?: string | null) => (status ?? "pending").toLowerCase();
+const formatPriceVnd = (value: number) => `${value.toLocaleString("vi-VN")} đ`;
 
-const statusTone = (status?: string | null): "green" | "yellow" | "red" | "gray" => {
-  const normalized = normalizeStatus(status);
-  if (normalized === "approved") return "green";
-  if (normalized === "rented") return "green";
-  if (normalized === "pending") return "yellow";
-  if (normalized === "rejected") return "red";
-  if (normalized === "hidden") return "gray";
+const isListingStatus = (value: string): value is ListingStatus =>
+  LISTING_STATUSES.includes(value as ListingStatus);
+
+const isListingStatusFilter = (value: string): value is ListingStatusFilter =>
+  value === "all" || isListingStatus(value);
+
+const normalizeStatus = (status?: string | null): ListingStatus => {
+  const normalized = status?.trim().toLowerCase();
+  return normalized && isListingStatus(normalized) ? normalized : "pending";
+};
+
+const statusTone = (status: ListingStatus): "green" | "yellow" | "red" | "gray" => {
+  if (status === "approved" || status === "rented") return "green";
+  if (status === "pending") return "yellow";
+  if (status === "rejected") return "red";
   return "gray";
 };
 
-const statusLabel = (status?: string | null, resubmittedAt?: string | null) => {
-  const normalized = normalizeStatus(status);
-  if (normalized === "approved") return "Đã duyệt";
-  if (normalized === "pending") return resubmittedAt ? "Chờ duyệt lại" : "Chờ duyệt";
-  if (normalized === "rejected") return "Từ chối";
-  if (normalized === "hidden") return "Cân nhắc";
-  if (normalized === "rented") return "Đã cho thuê";
-  return status ?? "pending";
+const statusLabel = (status: ListingStatus, resubmittedAt?: string | null) => {
+  if (status === "approved") return "Đã duyệt";
+  if (status === "pending") return resubmittedAt ? "Chờ duyệt lại" : "Chờ duyệt";
+  if (status === "rejected") return "Từ chối";
+  if (status === "hidden") return "Cân nhắc";
+  return "Đã cho thuê";
 };
-
-const actionButtonBase =
-  "inline-flex h-8 w-full min-w-[96px] items-center justify-center rounded-lg border px-2.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60";
-
-const rejectReasonPresets = [
-  "Ảnh không rõ/thiếu ảnh",
-  "Thiếu địa chỉ cụ thể",
-  "Thiếu thông tin giá/diện tích",
-  "Nội dung không phù hợp/quảng cáo",
-];
 
 const mapPostToRow = (post: Post): AdminPostRow => {
   const owner =
@@ -137,6 +154,7 @@ const mapPostToRow = (post: Post): AdminPostRow => {
     post.user?.email ||
     "Không rõ";
   const createdSource = post.createdAt ?? post.updatedAt ?? "";
+
   return {
     id: post.id,
     title: post.title,
@@ -152,11 +170,12 @@ const mapPostToRow = (post: Post): AdminPostRow => {
 
 export default function ListingsPage() {
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState<ListingStatusFilter>("all");
   const [posts, setPosts] = useState<Post[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<LoadErrorType>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [actionKey, setActionKey] = useState<string | null>(null);
   const [rejectTargetId, setRejectTargetId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -165,6 +184,7 @@ export default function ListingsPage() {
 
   const { data: session, status: sessionStatus } = useSession();
   const accessToken = session?.user?.accessToken;
+  const qDeferred = useDeferredValue(q);
 
   const fetchPosts = useCallback(async () => {
     if (sessionStatus === "loading") return;
@@ -197,58 +217,62 @@ export default function ListingsPage() {
     () =>
       posts
         .map(mapPostToRow)
-        .sort((a: AdminPostRow, b: AdminPostRow) => b.createdAtValue - a.createdAtValue),
+        .sort((a, b) => b.createdAtValue - a.createdAtValue),
     [posts],
   );
 
-  const statusOptions = [
-    { value: "all", label: "Tất cả trạng thái" },
-    { value: "approved", label: "Đã duyệt" },
-    { value: "pending", label: "Chờ duyệt" },
-    { value: "rejected", label: "Từ chối" },
-    { value: "hidden", label: "Cân nhắc" },
-    { value: "rented", label: "Đã cho thuê" },
-  ];
+  const statusOptions = useMemo(
+    () =>
+      [
+        { value: "all", label: "Tất cả trạng thái" },
+        { value: "approved", label: "Đã duyệt" },
+        { value: "pending", label: "Chờ duyệt" },
+        { value: "rejected", label: "Từ chối" },
+        { value: "hidden", label: "Cân nhắc" },
+        { value: "rented", label: "Đã cho thuê" },
+      ] satisfies { value: ListingStatusFilter; label: string }[],
+    [],
+  );
 
   const filteredRows = useMemo(() => {
-    const qq = q.trim().toLowerCase();
-    return rows.filter((l) => {
+    const normalizedQ = qDeferred.trim().toLowerCase();
+
+    return rows.filter((row) => {
       const okQ =
-        !qq ||
-        l.title.toLowerCase().includes(qq) ||
-        l.owner.toLowerCase().includes(qq) ||
-        l.city.toLowerCase().includes(qq);
-      const okS = status === "all" ? true : normalizeStatus(l.status) === status;
+        !normalizedQ ||
+        row.title.toLowerCase().includes(normalizedQ) ||
+        row.owner.toLowerCase().includes(normalizedQ) ||
+        row.city.toLowerCase().includes(normalizedQ);
+      const okS = status === "all" ? true : row.status === status;
+
       return okQ && okS;
     });
-  }, [q, rows, status]);
+  }, [qDeferred, rows, status]);
 
   useEffect(() => {
-    if (filteredRows.length === 0) {
-      if (selectedId !== null) {
-        setSelectedId(null);
-      }
-      return;
-    }
+    const nextSelectedId =
+      filteredRows.length === 0
+        ? null
+        : filteredRows.some((row) => row.id === selectedId)
+          ? selectedId
+          : filteredRows[0].id;
 
-    if (selectedId === null) {
-      setSelectedId(filteredRows[0].id);
-      return;
-    }
-
-    const stillExists = filteredRows.some((row) => row.id === selectedId);
-    if (!stillExists) {
-      setSelectedId(filteredRows[0].id);
+    if (nextSelectedId !== selectedId) {
+      setSelectedId(nextSelectedId);
     }
   }, [filteredRows, selectedId]);
 
+  useEffect(() => {
+    setLightboxIndex((current) => (current === null ? current : null));
+  }, [selectedId]);
+
   const selectedPost = useMemo(
-    () => posts.find((post) => post.id === selectedId) ?? null,
+    () => (selectedId === null ? null : posts.find((post) => post.id === selectedId) ?? null),
     [posts, selectedId],
   );
   const selectedNormalizedStatus = normalizeStatus(selectedPost?.status);
   const rejectTargetPost = useMemo(
-    () => posts.find((post) => post.id === rejectTargetId) ?? null,
+    () => (rejectTargetId === null ? null : posts.find((post) => post.id === rejectTargetId) ?? null),
     [posts, rejectTargetId],
   );
   const selectedImages = useMemo(
@@ -273,34 +297,38 @@ export default function ListingsPage() {
   const imageCount = selectedImages.length;
   const activeImageSrc = lightboxIndex !== null ? selectedImages[lightboxIndex] ?? null : null;
 
-  const updateLocalStatus = (
-    id: number,
-    nextStatus: string,
-    rejectionReason?: string | null,
-  ) => {
-    const normalizedNextStatus = normalizeStatus(nextStatus);
-    setPosts((prev) =>
-      prev.map((post) =>
-        post.id === id
-          ? {
-              ...post,
-              status: normalizedNextStatus,
-              rejectionReason:
-                normalizedNextStatus === "rejected" ? rejectionReason ?? null : null,
-            }
-          : post,
-      ),
-    );
-  };
+  const updateLocalStatus = useCallback(
+    (id: number, nextStatus: ListingStatus, rejectionReasonValue?: string | null) => {
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.id === id
+            ? {
+                ...post,
+                status: nextStatus,
+                rejectionReason:
+                  nextStatus === "rejected"
+                    ? rejectionReasonValue ?? post.rejectionReason ?? null
+                    : null,
+              }
+            : post,
+        ),
+      );
+    },
+    [],
+  );
 
-  const handleRowSelect = (row: AdminPostRow) => {
-    setSelectedId(row.id);
-    setLightboxIndex(null);
-  };
+  const handleFilterStatusChange = useCallback((value: string) => {
+    if (!isListingStatusFilter(value)) return;
+    setStatus(value);
+  }, []);
 
-  const openLightbox = (index: number) => {
+  const handleRowSelect = useCallback((row: AdminPostRow) => {
+    setSelectedId((current) => (current === row.id ? current : row.id));
+  }, []);
+
+  const openLightbox = useCallback((index: number) => {
     setLightboxIndex(index);
-  };
+  }, []);
 
   const closeLightbox = useCallback(() => {
     setLightboxIndex(null);
@@ -351,150 +379,162 @@ export default function ListingsPage() {
     };
   }, [activeImageSrc, closeLightbox, showNextImage, showPrevImage]);
 
-  // Hàm xử lý duyệt/từ chối
-  const handleStatusChange = async (id: number, nextStatus: string, rejectionReason?: string) => {
-    if (!accessToken) {
-      setLoadError("auth_failed");
-      return false;
-    }
+  const handleStatusChange = useCallback(
+    async (id: number, nextStatus: ListingStatus, rejectionReasonValue?: string): Promise<boolean> => {
+      if (!accessToken) {
+        setLoadError("auth_failed");
+        setActionError("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
+        return false;
+      }
 
-    const normalizedNextStatus = normalizeStatus(nextStatus);
+      const key = `${id}:${nextStatus}`;
+      setActionKey(key);
+      setActionError(null);
 
-    const key = `${id}:${normalizedNextStatus}`;
-    setActionKey(key);
-    try {
-      await updatePostStatus(id, normalizedNextStatus, accessToken, rejectionReason);
-      updateLocalStatus(id, normalizedNextStatus, rejectionReason);
-      return true;
-    } catch (error) {
-      console.error(error);
-      return false;
-    } finally {
-      setActionKey(null);
-    }
-  };
+      try {
+        await updatePostStatus(id, nextStatus, accessToken, rejectionReasonValue);
+        updateLocalStatus(id, nextStatus, rejectionReasonValue);
+        return true;
+      } catch (error) {
+        console.error(error);
+        setActionError("Không thể cập nhật trạng thái. Vui lòng thử lại.");
+        return false;
+      } finally {
+        setActionKey(null);
+      }
+    },
+    [accessToken, updateLocalStatus],
+  );
 
-  const openRejectDialog = (id: number) => {
-    const current = posts.find((post) => post.id === id);
-    setRejectTargetId(id);
-    setRejectReason(current?.rejectionReason ?? "");
-    setRejectError(null);
-  };
+  const openRejectDialog = useCallback(
+    (id: number) => {
+      const current = posts.find((post) => post.id === id);
+      setRejectTargetId(id);
+      setRejectReason(current?.rejectionReason ?? "");
+      setRejectError(null);
+      setActionError(null);
+    },
+    [posts],
+  );
 
-  const closeRejectDialog = () => {
+  const closeRejectDialog = useCallback(() => {
     setRejectTargetId(null);
     setRejectReason("");
     setRejectError(null);
-  };
+  }, []);
 
-  const appendRejectPreset = (preset: string) => {
+  const appendRejectPreset = useCallback((preset: string) => {
     setRejectReason((current) => {
       if (!current.trim()) return `- ${preset}`;
       return `${current}\n- ${preset}`;
     });
     setRejectError(null);
-  };
+  }, []);
 
-  const confirmReject = async () => {
-    if (!rejectTargetId) return;
+  const confirmReject = useCallback(async () => {
+    if (rejectTargetId === null) return;
+
     const trimmed = rejectReason.trim();
     if (!trimmed) {
       setRejectError("Vui lòng nhập lý do từ chối.");
       return;
     }
+
     setRejectError(null);
     const ok = await handleStatusChange(rejectTargetId, "rejected", trimmed);
+
     if (ok) {
       closeRejectDialog();
-    } else {
-      setRejectError("Không thể cập nhật trạng thái. Vui lòng thử lại.");
+      return;
     }
-  };
 
-  const emptyText =
-    loading
-      ? "Đang tải dữ liệu..."
-      : loadError === "auth_failed"
-        ? "Phiên đăng nhập hết hạn."
-        : loadError === "load_failed"
-          ? "Tải dữ liệu thất bại"
-          : "Không có dữ liệu";
+    setRejectError("Không thể cập nhật trạng thái. Vui lòng thử lại.");
+  }, [closeRejectDialog, handleStatusChange, rejectReason, rejectTargetId]);
 
-  const cols: Column<AdminPostRow>[] = [
-    { key: "title", header: "Tiêu đề", width: "24%" },
-    { key: "owner", header: "Người đăng", sortable: true, width: "14%" },
-    { key: "city", header: "Địa chỉ", sortable: true, width: "22%" },
-    {
-      key: "price",
-      header: "Giá",
-      sortable: true,
-      width: "10%",
-      render: (r) => <span className="font-medium">{formatPriceVnd(r.price)}</span>,
-      sortValue: (r) => r.price,
-    },
-    {
-      key: "status",
-      header: "Trạng thái",
-      sortable: true,
-      width: "10%",
-      render: (r) => (
-        <StatusBadge label={statusLabel(r.status, r.resubmittedAt)} tone={statusTone(r.status)} />
-      ),
-    },
-    {
-      key: "createdAt",
-      header: "Ngày tạo",
-      sortable: true,
-      width: "10%",
-      sortValue: (r) => r.createdAtValue,
-    },
-    {
-      key: "actions",
-      header: "Thao tác",
-      align: "right",
-      width: "10%",
-      render: (r) => {
-        const normalizedRowStatus = normalizeStatus(r.status);
-        return (
+  const emptyText = loading
+    ? "Đang tải dữ liệu..."
+    : loadError === "auth_failed"
+      ? "Phiên đăng nhập hết hạn."
+      : loadError === "load_failed"
+        ? "Tải dữ liệu thất bại"
+        : "Không có dữ liệu";
+
+  const cols = useMemo<Column<AdminPostRow>[]>(
+    () => [
+      { key: "title", header: "Tiêu đề", width: "24%" },
+      { key: "owner", header: "Người đăng", sortable: true, width: "14%" },
+      { key: "city", header: "Địa chỉ", sortable: true, width: "22%" },
+      {
+        key: "price",
+        header: "Giá",
+        sortable: true,
+        width: "10%",
+        render: (row) => <span className="font-medium">{formatPriceVnd(row.price)}</span>,
+        sortValue: (row) => row.price,
+      },
+      {
+        key: "status",
+        header: "Trạng thái",
+        sortable: true,
+        width: "10%",
+        render: (row) => (
+          <StatusBadge label={statusLabel(row.status, row.resubmittedAt)} tone={statusTone(row.status)} />
+        ),
+      },
+      {
+        key: "createdAt",
+        header: "Ngày tạo",
+        sortable: true,
+        width: "10%",
+        sortValue: (row) => row.createdAtValue,
+      },
+      {
+        key: "actions",
+        header: "Thao tác",
+        align: "right",
+        width: "10%",
+        render: (row) => (
           <div className="flex flex-col items-stretch gap-2">
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                handleStatusChange(r.id, "approved");
+                void handleStatusChange(row.id, "approved");
               }}
-              disabled={normalizedRowStatus === "approved" || actionKey === `${r.id}:approved`}
+              disabled={row.status === "approved" || actionKey === `${row.id}:approved`}
               className={`${actionButtonBase} border-emerald-200 text-emerald-700 hover:bg-emerald-50`}
             >
-              {actionKey === `${r.id}:approved` ? "Đang duyệt..." : "Duyệt"}
+              {actionKey === `${row.id}:approved` ? "Đang duyệt..." : "Duyệt"}
             </button>
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                openRejectDialog(r.id);
+                openRejectDialog(row.id);
               }}
-              disabled={actionKey === `${r.id}:rejected`}
+              disabled={actionKey === `${row.id}:rejected`}
               className={`${actionButtonBase} border-rose-200 text-rose-700 hover:bg-rose-50`}
             >
-              {actionKey === `${r.id}:rejected` ? "Đang từ chối..." : "Từ chối"}
+              {actionKey === `${row.id}:rejected` ? "Đang từ chối..." : "Từ chối"}
             </button>
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                handleStatusChange(r.id, "hidden");
+                void handleStatusChange(row.id, "hidden");
               }}
-              disabled={normalizedRowStatus === "hidden" || actionKey === `${r.id}:hidden`}
+              disabled={row.status === "hidden" || actionKey === `${row.id}:hidden`}
               className={`${actionButtonBase} border-gray-200 text-gray-700 hover:bg-gray-50`}
             >
-              {actionKey === `${r.id}:hidden` ? "Đang cập nhật..." : "Cân nhắc"}
+              {actionKey === `${row.id}:hidden` ? "Đang cập nhật..." : "Cân nhắc"}
             </button>
           </div>
-        );
+        ),
       },
-    },
-  ];
+    ],
+    [actionKey, handleStatusChange, openRejectDialog],
+  );
+
   return (
     <div className="space-y-6">
       <SectionCard
@@ -505,7 +545,7 @@ export default function ListingsPage() {
           q={q}
           onQ={setQ}
           status={status}
-          onStatus={setStatus}
+          onStatus={handleFilterStatusChange}
           statusOptions={statusOptions}
           placeholder="Search by title, owner, address"
         />
@@ -533,6 +573,14 @@ export default function ListingsPage() {
             </button>
           </div>
         ) : null}
+        {actionError ? (
+          <div
+            role="alert"
+            className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+          >
+            {actionError}
+          </div>
+        ) : null}
       </SectionCard>
 
       <SectionCard
@@ -544,7 +592,7 @@ export default function ListingsPage() {
           rows={filteredRows}
           columns={cols}
           pageSize={8}
-          rowKey={(r) => String(r.id)}
+          rowKey={(row) => String(row.id)}
           emptyText={emptyText}
           onRowClick={handleRowSelect}
           getRowClassName={(row) =>
@@ -685,7 +733,7 @@ export default function ListingsPage() {
                         type="button"
                         onClick={() => openLightbox(idx)}
                         aria-label={`Xem ảnh ${idx + 1}`}
-                        className="relative h-32 overflow-hidden rounded-xl border border-gray-100 bg-gray-50 cursor-zoom-in"
+                        className="relative h-32 cursor-zoom-in overflow-hidden rounded-xl border border-gray-100 bg-gray-50"
                       >
                         <Image
                           src={src}
@@ -715,7 +763,7 @@ export default function ListingsPage() {
                 <div className="mt-3 grid gap-2">
                   <button
                     type="button"
-                    onClick={() => handleStatusChange(selectedPost.id, "approved")}
+                    onClick={() => void handleStatusChange(selectedPost.id, "approved")}
                     disabled={
                       selectedNormalizedStatus === "approved" ||
                       actionKey === `${selectedPost.id}:approved`
@@ -727,16 +775,14 @@ export default function ListingsPage() {
                   <button
                     type="button"
                     onClick={() => openRejectDialog(selectedPost.id)}
-                    disabled={
-                      actionKey === `${selectedPost.id}:rejected`
-                    }
+                    disabled={actionKey === `${selectedPost.id}:rejected`}
                     className={`${actionButtonBase} border-rose-200 text-rose-700 hover:bg-rose-50`}
                   >
                     {actionKey === `${selectedPost.id}:rejected` ? "Đang từ chối..." : "Từ chối"}
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleStatusChange(selectedPost.id, "hidden")}
+                    onClick={() => void handleStatusChange(selectedPost.id, "hidden")}
                     disabled={
                       selectedNormalizedStatus === "hidden" ||
                       actionKey === `${selectedPost.id}:hidden`
@@ -780,7 +826,7 @@ export default function ListingsPage() {
         )}
       </SectionCard>
 
-      {rejectTargetId ? (
+      {rejectTargetId !== null ? (
         <div
           className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4"
           onClick={closeRejectDialog}
@@ -829,7 +875,7 @@ export default function ListingsPage() {
               </button>
               <button
                 type="button"
-                onClick={confirmReject}
+                onClick={() => void confirmReject()}
                 disabled={actionKey === `${rejectTargetId}:rejected`}
                 className="inline-flex h-9 items-center justify-center rounded-lg bg-rose-600 px-4 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -866,7 +912,7 @@ export default function ListingsPage() {
             >
               Đóng
             </button>
-            {imageCount > 1 && (
+            {imageCount > 1 ? (
               <>
                 <button
                   type="button"
@@ -885,10 +931,10 @@ export default function ListingsPage() {
                   Sau
                 </button>
                 <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white">
-                  {lightboxIndex! + 1}/{imageCount}
+                  {lightboxIndex === null ? 0 : lightboxIndex + 1}/{imageCount}
                 </div>
               </>
-            )}
+            ) : null}
           </div>
         </div>
       ) : null}

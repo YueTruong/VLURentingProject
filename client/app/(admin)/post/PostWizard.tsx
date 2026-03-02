@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { createPost, uploadImages } from "@/app/services/posts";
+import {
+  getIdentityVerificationOverview,
+  readVerificationStatusFromStorage,
+  VERIFICATION_STATUS_EVENT,
+} from "@/app/services/security";
 
 type ListingType = "PHONG_TRO" | "CAN_HO" | "NHA_NGUYEN_CAN";
 type ListingPurpose = "RENT" | "ROOMMATE";
@@ -149,9 +155,6 @@ const MapPicker = dynamic(() => import("./MapPicker"), { ssr: false });
 const DRAFT_STORAGE_KEY = "vlu.post.draft.v1";
 const DRAFT_STORAGE_VERSION = 1;
 const DRAFT_SAVE_DELAY = 700;
-const VERIFICATION_STORAGE_KEY = "vlu.landlord.verified";
-const VERIFICATION_PENDING_KEY = "vlu.landlord.pending";
-
 function createEmptyDraft(): ListingDraft {
   return {
     purpose: "RENT",
@@ -646,6 +649,7 @@ function PreviewCard({
 }
 
 export default function PostWizard() {
+  const { data: session, status: sessionStatus } = useSession();
   const [verificationStatus, setVerificationStatus] = useState<
     "loading" | "verified" | "pending" | "unverified"
   >("loading");
@@ -663,15 +667,24 @@ export default function PostWizard() {
   const [showDiscardDraftDialog, setShowDiscardDraftDialog] = useState(false);
   const [draftNotice, setDraftNotice] = useState<string | null>(null);
 
-  const refreshVerificationStatus = () => {
-    const verified = localStorage.getItem(VERIFICATION_STORAGE_KEY) === "true";
-    const pending = localStorage.getItem(VERIFICATION_PENDING_KEY) === "true";
-    if (verified) {
-      setVerificationStatus("verified");
+  const refreshVerificationStatus = useCallback(async () => {
+    const syncFromStorage = () => {
+      setVerificationStatus(readVerificationStatusFromStorage());
+    };
+
+    const accessToken = session?.user?.accessToken;
+    if (!accessToken) {
+      syncFromStorage();
       return;
     }
-    setVerificationStatus(pending ? "pending" : "unverified");
-  };
+
+    try {
+      const data = await getIdentityVerificationOverview(accessToken);
+      setVerificationStatus(data.status);
+    } catch {
+      syncFromStorage();
+    }
+  }, [session?.user?.accessToken]);
 
   const hydrateDraft = () => {
     const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
@@ -761,10 +774,30 @@ export default function PostWizard() {
   };
 
   useEffect(() => {
-    refreshVerificationStatus();
     hydrateDraft();
     setDraftReady(true);
   }, []);
+
+  useEffect(() => {
+    if (sessionStatus === "loading") return;
+    void refreshVerificationStatus();
+  }, [refreshVerificationStatus, sessionStatus]);
+
+  useEffect(() => {
+    const syncVerification = () => {
+      void refreshVerificationStatus();
+    };
+
+    window.addEventListener("storage", syncVerification);
+    window.addEventListener("focus", syncVerification);
+    window.addEventListener(VERIFICATION_STATUS_EVENT, syncVerification as EventListener);
+
+    return () => {
+      window.removeEventListener("storage", syncVerification);
+      window.removeEventListener("focus", syncVerification);
+      window.removeEventListener(VERIFICATION_STATUS_EVENT, syncVerification as EventListener);
+    };
+  }, [refreshVerificationStatus]);
 
   useEffect(() => {
     if (!draftReady) return;

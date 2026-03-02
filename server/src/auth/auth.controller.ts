@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -20,6 +21,9 @@ import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { OauthLoginDto } from './dto/oauth-login.dto';
 import { LinkProviderDto } from './dto/link-provider.dto';
+import { UpdateSettingsPersonalDto } from './dto/update-settings-personal.dto';
+import { UpdateSettingsPreferencesDto } from './dto/update-settings-preferences.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 type AuthenticatedRequest = Request & {
   user?: {
@@ -34,11 +38,11 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Đăng ký tài khoản mới' })
+  @ApiOperation({ summary: 'Register a new account' })
   async register(@Body() registerDto: RegisterDto) {
     const user = await this.authService.register(registerDto);
     return {
-      message: 'Đăng ký tài khoản thành công',
+      message: 'Register successfully',
       data: user,
     };
   }
@@ -46,14 +50,14 @@ export class AuthController {
   @Post('login')
   @UseGuards(AuthGuard('local'))
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đăng nhập bằng email/username và mật khẩu' })
+  @ApiOperation({ summary: 'Login by email/username and password' })
   async login(@Req() req: any, @Body() _loginDto: LoginDto) {
     return this.authService.login(req.user);
   }
 
   @Post('oauth-login')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đăng nhập OAuth từ NextAuth bridge' })
+  @ApiOperation({ summary: 'OAuth login from NextAuth bridge' })
   async oauthLogin(
     @Body() dto: OauthLoginDto,
     @Headers('x-oauth-bridge-secret') bridgeSecret?: string,
@@ -64,7 +68,7 @@ export class AuthController {
   @Post('link/:provider')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Liên kết provider OAuth vào tài khoản hiện tại' })
+  @ApiOperation({ summary: 'Link OAuth provider to current account' })
   async linkProvider(
     @Req() req: AuthenticatedRequest,
     @Param('provider') provider: string,
@@ -91,9 +95,54 @@ export class AuthController {
   @Get('profile')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Lấy thông tin tài khoản hiện tại' })
+  @ApiOperation({ summary: 'Get current account profile' })
   async getProfile(@Req() req: AuthenticatedRequest) {
     const userId = req.user?.userId;
     return this.authService.getProfile(userId);
+  }
+
+  @Get('settings')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get settings (compat route)' })
+  async getSettings(@Req() req: AuthenticatedRequest) {
+    const userId = req.user?.userId;
+    return this.authService.getSettings(userId);
+  }
+
+  @Patch('settings/personal')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update personal settings (compat route)' })
+  async updateSettingsPersonal(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: UpdateSettingsPersonalDto,
+  ) {
+    const userId = req.user?.userId;
+    return this.authService.updateSettingsPersonal(userId, dto);
+  }
+
+  @Patch('settings/preferences')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update preferences settings (compat route)' })
+  async updateSettingsPreferences(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: UpdateSettingsPreferencesDto,
+  ) {
+    const userId = req.user?.userId;
+    return this.authService.updateSettingsPreferences(userId, dto);
+  }
+
+  @Patch('settings/password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change password from settings (compat route)' })
+  async changePassword(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    const userId = req.user?.userId;
+    return this.authService.changePassword(userId, dto);
   }
 }

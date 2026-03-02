@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import SectionCard from "../../components/SectionCard";
 import FiltersBar from "../../components/FiltersBar";
-import DataTable, { Column } from "../../components/DataTable";
+import DataTable, { type Column } from "../../components/DataTable";
 import StatusBadge from "../../components/StatusBadge";
 import {
   getAdminUsers,
@@ -12,15 +12,36 @@ import {
   type AdminUser,
 } from "@/app/services/admin-users";
 
+type UserStatus = "ACTIVE" | "BLOCKED" | "PENDING";
+type RoleName = "ADMIN" | "LANDLORD" | "STUDENT" | "UNKNOWN";
+type StatusFilter = "all" | UserStatus;
+type VerificationLabel = "Đã xác minh" | "Chưa xác minh" | "N/A";
+type VerificationTone = "green" | "yellow" | "gray";
+type VerificationSortValue = "verified" | "unverified" | "na";
+
 type AdminUserRow = {
   id: number;
   username: string;
   email: string;
-  role: string;
-  status: "ACTIVE" | "BLOCKED" | "PENDING";
+  role: RoleName;
+  status: UserStatus;
   verified: boolean | null;
+  verifiedLabel: VerificationLabel;
+  verifiedTone: VerificationTone;
+  verifiedSortValue: VerificationSortValue;
   createdAt: string;
   createdAtValue: number;
+};
+
+type VerificationMeta = Pick<
+  AdminUserRow,
+  "verified" | "verifiedLabel" | "verifiedTone" | "verifiedSortValue"
+>;
+
+type VerificationAwareProfile = NonNullable<AdminUser["profile"]> & {
+  is_verified?: boolean | null;
+  verified?: boolean | null;
+  verification_status?: string | null;
 };
 
 type LoadErrorType = "auth_failed" | "forbidden" | "load_failed" | null;
@@ -40,12 +61,46 @@ const formatDate = (value?: string) => {
   });
 };
 
-const normalizeRole = (value?: string | null) =>
-  (value?.trim() || "UNKNOWN").toUpperCase();
+const createVerificationMeta = (verified: boolean | null): VerificationMeta => {
+  if (verified === true) {
+    return {
+      verified: true,
+      verifiedLabel: "Đã xác minh",
+      verifiedTone: "green",
+      verifiedSortValue: "verified",
+    };
+  }
 
-const normalizeUserStatus = (user: AdminUser): AdminUserRow["status"] => {
+  if (verified === false) {
+    return {
+      verified: false,
+      verifiedLabel: "Chưa xác minh",
+      verifiedTone: "yellow",
+      verifiedSortValue: "unverified",
+    };
+  }
+
+  return {
+    verified: null,
+    verifiedLabel: "N/A",
+    verifiedTone: "gray",
+    verifiedSortValue: "na",
+  };
+};
+
+const normalizeRole = (value?: string | null): RoleName => {
+  const normalized = value?.trim().toUpperCase();
+
+  if (normalized === "ADMIN") return "ADMIN";
+  if (normalized === "LANDLORD") return "LANDLORD";
+  if (normalized === "STUDENT") return "STUDENT";
+  return "UNKNOWN";
+};
+
+const normalizeUserStatus = (user: AdminUser): UserStatus => {
   const statusValue = (user as AdminUser & { status?: string | null }).status;
   const normalizedStatus = statusValue?.toUpperCase();
+
   if (
     normalizedStatus === "ACTIVE" ||
     normalizedStatus === "BLOCKED" ||
@@ -53,22 +108,80 @@ const normalizeUserStatus = (user: AdminUser): AdminUserRow["status"] => {
   ) {
     return normalizedStatus;
   }
+
   if (user.is_active === true) return "ACTIVE";
   if (user.is_active === false) return "BLOCKED";
   return "PENDING";
 };
 
-const getStatusLabel = (status: AdminUserRow["status"]) => {
+const getStatusLabel = (status: UserStatus) => {
   if (status === "ACTIVE") return "Đang hoạt động";
   if (status === "PENDING") return "Chờ xác minh";
   return "Đã khóa";
 };
 
-const getStatusTone = (status: AdminUserRow["status"]) => {
+const getStatusTone = (status: UserStatus) => {
   if (status === "ACTIVE") return "green" as const;
   if (status === "PENDING") return "yellow" as const;
   return "red" as const;
 };
+
+const getRoleTone = (role: RoleName) => {
+  if (role === "ADMIN") return "blue" as const;
+  if (role === "LANDLORD") return "yellow" as const;
+  if (role === "STUDENT") return "green" as const;
+  return "gray" as const;
+};
+
+const normalizeVerificationStatus = (value?: string | null): boolean | null => {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) return null;
+
+  if (
+    normalized === "verified" ||
+    normalized === "approved" ||
+    normalized === "true"
+  ) {
+    return true;
+  }
+
+  if (
+    normalized === "unverified" ||
+    normalized === "pending" ||
+    normalized === "rejected" ||
+    normalized === "false"
+  ) {
+    return false;
+  }
+
+  return null;
+};
+
+const resolveVerificationMeta = (user: AdminUser, role: RoleName): VerificationMeta => {
+  if (role !== "LANDLORD") {
+    return createVerificationMeta(null);
+  }
+
+  const profile = user.profile as VerificationAwareProfile | undefined;
+
+  if (typeof profile?.is_verified === "boolean") {
+    return createVerificationMeta(profile.is_verified);
+  }
+
+  if (typeof profile?.verified === "boolean") {
+    return createVerificationMeta(profile.verified);
+  }
+
+  return createVerificationMeta(
+    normalizeVerificationStatus(profile?.verification_status),
+  );
+};
+
+const isStatusFilter = (value: string): value is StatusFilter =>
+  value === "all" ||
+  value === "ACTIVE" ||
+  value === "BLOCKED" ||
+  value === "PENDING";
 
 const mapUserToRow = (user: AdminUser): AdminUserRow => {
   const displayName =
@@ -79,31 +192,25 @@ const mapUserToRow = (user: AdminUser): AdminUserRow => {
   const email = user.email?.trim() || "-";
   const createdSource = user.createdAt ?? user.updatedAt ?? "";
   const createdAtValue = createdSource ? new Date(createdSource).getTime() : 0;
-  const roleName = normalizeRole(user.role?.name);
+  const role = normalizeRole(user.role?.name);
   const status = normalizeUserStatus(user);
+  const verificationMeta = resolveVerificationMeta(user, role);
 
   return {
     id: user.id,
     username: displayName,
     email,
-    role: roleName,
+    role,
     status,
-    verified: null,
+    ...verificationMeta,
     createdAt: formatDate(createdSource),
     createdAtValue,
   };
 };
 
-const getRoleTone = (role: string) => {
-  if (role === "ADMIN") return "blue";
-  if (role === "LANDLORD") return "yellow";
-  if (role === "STUDENT") return "green";
-  return "gray";
-};
-
 export default function UsersPage() {
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState<StatusFilter>("all");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<LoadErrorType>(null);
@@ -151,6 +258,7 @@ export default function UsersPage() {
           typeof err === "object" && err !== null && "response" in err
             ? (err as { response?: { status?: number } }).response?.status
             : undefined;
+
         if (statusCode === 403) {
           setLoadError("forbidden");
         } else if (statusCode === 401) {
@@ -178,24 +286,37 @@ export default function UsersPage() {
     [users],
   );
 
-  const statusOptions = [
-    { value: "all", label: "Tất cả trạng thái" },
-    { value: "ACTIVE", label: "Đang hoạt động" },
-    { value: "PENDING", label: "Chờ xác minh" },
-    { value: "BLOCKED", label: "Đã khóa" },
-  ];
+  const statusOptions = useMemo(
+    () =>
+      [
+        { value: "all", label: "Tất cả trạng thái" },
+        { value: "ACTIVE", label: "Đang hoạt động" },
+        { value: "PENDING", label: "Chờ xác minh" },
+        { value: "BLOCKED", label: "Đã khóa" },
+      ] satisfies { value: StatusFilter; label: string }[],
+    [],
+  );
 
   const filteredRows = useMemo(() => {
-    const qq = q.trim().toLowerCase();
-    return rows.filter((u) => {
-      const okQ =
-        !qq || u.username.toLowerCase().includes(qq) || u.email.toLowerCase().includes(qq);
-      const okS = status === "all" ? true : u.status === status;
-      return okQ && okS;
-    });
-  }, [q, status, rows]);
+    const normalizedQ = q.trim().toLowerCase();
 
-  const handleChangeUserStatus = async (
+    return rows.filter((user) => {
+      const matchesQ =
+        !normalizedQ ||
+        user.username.toLowerCase().includes(normalizedQ) ||
+        user.email.toLowerCase().includes(normalizedQ);
+      const matchesStatus = status === "all" || user.status === status;
+
+      return matchesQ && matchesStatus;
+    });
+  }, [q, rows, status]);
+
+  const handleStatusChange = useCallback((value: string) => {
+    if (!isStatusFilter(value)) return;
+    setStatus(value);
+  }, []);
+
+  const handleChangeUserStatus = useCallback(async (
     id: number,
     isActive: boolean,
     action: UserActionType,
@@ -216,6 +337,7 @@ export default function UsersPage() {
 
     try {
       await updateAdminUserStatus(id, isActive, accessToken);
+
       setUsers((prev) =>
         prev.map((user) =>
           user.id === id
@@ -227,6 +349,14 @@ export default function UsersPage() {
             : user,
         ),
       );
+
+      setRowActionError((prev) => {
+        if (!prev[id]) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+
       return true;
     } catch (err) {
       const statusCode =
@@ -244,91 +374,82 @@ export default function UsersPage() {
     } finally {
       setActionKey(null);
     }
-  };
-  
-  const cols: Column<AdminUserRow>[] = [
-    { key: "username", header: "Username", sortable: true },
-    { key: "email", header: "Email" },
-    {
-      key: "role",
-      header: "Role",
-      sortable: true,
-      render: (r) => <StatusBadge label={r.role} tone={getRoleTone(r.role)} />,
-      sortValue: (r) => r.role,
-    },
-    {
-      key: "verified",
-      header: "Verification",
-      render: (r) => {
-        if (r.role !== "LANDLORD" || r.verified === null) {
-          return <StatusBadge label="N/A" tone="gray" />;
-        }
-        return (
-          <StatusBadge
-            label={r.verified ? "Verified" : "Unverified"}
-            tone={r.verified ? "green" : "yellow"}
-          />
-        );
+  }, [accessToken]);
+
+  const cols = useMemo<Column<AdminUserRow>[]>(
+    () => [
+      { key: "username", header: "Username", sortable: true },
+      { key: "email", header: "Email" },
+      {
+        key: "role",
+        header: "Role",
+        sortable: true,
+        render: (row) => <StatusBadge label={row.role} tone={getRoleTone(row.role)} />,
+        sortValue: (row) => row.role,
       },
-      sortValue: (r) =>
-        r.role === "LANDLORD" && r.verified !== null
-          ? r.verified
-            ? "verified"
-            : "unverified"
-          : "na",
-    },
-    {
-      key: "status",
-      header: "Status",
-      sortable: true,
-      render: (r) => (
-        <StatusBadge label={getStatusLabel(r.status)} tone={getStatusTone(r.status)} />
-      ),
-    },
-    {
-      key: "createdAt",
-      header: "Created",
-      sortable: true,
-      sortValue: (r) => r.createdAtValue,
-    },
-    {
-      key: "actions",
-      header: "Thao tác",
-      align: "right",
-      render: (r) => {
-        const isBlocking = actionKey === `${r.id}:block`;
-        const isUnblocking = actionKey === `${r.id}:unblock`;
-        return (
-          <div className="flex flex-col items-end gap-1.5">
-            {r.status === "ACTIVE" ? (
-              <button
-                type="button"
-                onClick={() => handleChangeUserStatus(r.id, false, "block")}
-                disabled={isBlocking}
-                className={`${actionButtonBase} border-rose-200 text-rose-700 hover:bg-rose-50`}
-              >
-                {isBlocking ? "Đang khóa..." : "Khóa"}
-              </button>
-            ) : r.status === "BLOCKED" ? (
-              <button
-                type="button"
-                onClick={() => handleChangeUserStatus(r.id, true, "unblock")}
-                disabled={isUnblocking}
-                className={`${actionButtonBase} border-emerald-200 text-emerald-700 hover:bg-emerald-50`}
-              >
-                {isUnblocking ? "Đang mở..." : "Mở khóa"}
-              </button>
-            ) : (
-              <span className="text-xs text-gray-400">-</span>
-            )}
-            {rowActionError[r.id] ? (
-              <span className="text-[11px] text-rose-600">{rowActionError[r.id]}</span>
-            ) : null}
-          </div>
-        );
+      {
+        key: "verified",
+        header: "Verification",
+        render: (row) => (
+          <StatusBadge label={row.verifiedLabel} tone={row.verifiedTone} />
+        ),
+        sortValue: (row) => row.verifiedSortValue,
       },
-    },
-  ];
+      {
+        key: "status",
+        header: "Status",
+        sortable: true,
+        render: (row) => (
+          <StatusBadge label={getStatusLabel(row.status)} tone={getStatusTone(row.status)} />
+        ),
+      },
+      {
+        key: "createdAt",
+        header: "Created",
+        sortable: true,
+        sortValue: (row) => row.createdAtValue,
+      },
+      {
+        key: "actions",
+        header: "Thao tác",
+        align: "right",
+        render: (row) => {
+          const isBlocking = actionKey === `${row.id}:block`;
+          const isUnblocking = actionKey === `${row.id}:unblock`;
+
+          return (
+            <div className="flex flex-col items-end gap-1.5">
+              {row.status === "ACTIVE" ? (
+                <button
+                  type="button"
+                  onClick={() => void handleChangeUserStatus(row.id, false, "block")}
+                  disabled={isBlocking}
+                  className={`${actionButtonBase} border-rose-200 text-rose-700 hover:bg-rose-50`}
+                >
+                  {isBlocking ? "Đang khóa..." : "Khóa"}
+                </button>
+              ) : row.status === "BLOCKED" ? (
+                <button
+                  type="button"
+                  onClick={() => void handleChangeUserStatus(row.id, true, "unblock")}
+                  disabled={isUnblocking}
+                  className={`${actionButtonBase} border-emerald-200 text-emerald-700 hover:bg-emerald-50`}
+                >
+                  {isUnblocking ? "Đang mở..." : "Mở khóa"}
+                </button>
+              ) : (
+                <span className="text-xs text-gray-400">-</span>
+              )}
+              {rowActionError[row.id] ? (
+                <span className="text-[11px] text-rose-600">{rowActionError[row.id]}</span>
+              ) : null}
+            </div>
+          );
+        },
+      },
+    ],
+    [actionKey, handleChangeUserStatus, rowActionError],
+  );
 
   const resolvedLoadError = authError ?? loadError;
 
@@ -338,10 +459,10 @@ export default function UsersPage() {
       ? "Vui lòng đăng nhập lại."
       : resolvedLoadError === "forbidden"
         ? "Bạn không có quyền truy cập."
-      : resolvedLoadError === "load_failed"
-        ? "Tải dữ liệu thất bại."
-        : "Không có dữ liệu";
-  
+        : resolvedLoadError === "load_failed"
+          ? "Tải dữ liệu thất bại."
+          : "Không có dữ liệu";
+
   return (
     <div className="space-y-6">
       <SectionCard
@@ -352,7 +473,7 @@ export default function UsersPage() {
           q={q}
           onQ={setQ}
           status={status}
-          onStatus={setStatus}
+          onStatus={handleStatusChange}
           statusOptions={statusOptions}
           placeholder="Search by username or email"
         />
@@ -395,7 +516,7 @@ export default function UsersPage() {
           rows={filteredRows}
           columns={cols}
           pageSize={8}
-          rowKey={(r) => String(r.id)}
+          rowKey={(row) => String(row.id)}
           emptyText={emptyText}
         />
       </SectionCard>
