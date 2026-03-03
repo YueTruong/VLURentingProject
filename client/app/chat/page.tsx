@@ -23,7 +23,7 @@ import {
 // --- CẤU HÌNH ---
 const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
 const IMAGE_PREFIX = "[[image]]";
-let socket: Socket;
+let socket: Socket | null = null;
 const CHAT_PROFILE_PREVIEW_KEY = "vlu.chat.profile.preview";
 
 // --- UTILS FORMAT THỜI GIAN CHUẨN ---
@@ -338,9 +338,14 @@ function ChatPageContent() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const selectedIdRef = useRef<number | null>(null);
   const searchParams = useSearchParams();
   const router = useRouter();
   const partnerIdFromUrl = searchParams.get('partnerId');
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   const mapConversation = useCallback((c: RawConversation): Conversation => {
     // 1. Xác định ai là người chat cùng mình
@@ -416,22 +421,23 @@ function ChatPageContent() {
     }).catch(console.error);
 
     // --- SETUP SOCKET ---
-    socket = io(SOCKET_URL);
+    const socketInstance = io(SOCKET_URL, { transports: ["websocket", "polling"] });
+    socket = socketInstance;
     
-    socket.emit("user_connected", currentUserId);
+    socketInstance.emit("user_connected", currentUserId);
 
-    socket.on("user_online", (userId: number) => {
+    socketInstance.on("user_online", (userId: number) => {
       setOnlineUsers(prev => {
         if (!prev.includes(userId)) return [...prev, userId];
         return prev;
       });
     });
 
-    socket.on("user_offline", (userId: number) => {
+    socketInstance.on("user_offline", (userId: number) => {
       setOnlineUsers(prev => prev.filter(id => id !== userId));
     });
 
-    socket.on("online_status_result", (data: { userId: number, isOnline: boolean }) => {
+    socketInstance.on("online_status_result", (data: { userId: number, isOnline: boolean }) => {
       if (data.isOnline) {
         setOnlineUsers(prev => prev.includes(data.userId) ? prev : [...prev, data.userId]);
       } else {
@@ -439,13 +445,26 @@ function ChatPageContent() {
       }
     });
 
-    socket.on("new_message", (newMsg: Message) => {
+    socketInstance.on("new_message", (newMsg: Message) => {
         // Gán thời gian chuẩn (UTC) nếu socket không có để tránh lỗi sai múi giờ
         if (!newMsg.created_at) newMsg.created_at = new Date().toISOString();
+
+        if (selectedIdRef.current === newMsg.conversation.id) {
+          setMessages((prev) => {
+            if (prev.some((msg) => msg.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+          setTimeout(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, 100);
+        }
         
         setConversations(prev => {
             const index = prev.findIndex(c => c.id === newMsg.conversation.id);
             if (index === -1) return prev; // Chặn lỗi không tìm thấy
+
+            if (selectedIdRef.current === newMsg.conversation.id) {
+              setMessages(prev => [...prev, newMsg]);
+              setTimeout(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, 100);
+            }
             
             const newArr = [...prev];
             const updatedConvo = { ...newArr[index], last_message: newMsg.content, last_time: newMsg.created_at };
@@ -455,43 +474,33 @@ function ChatPageContent() {
         });
     });
 
-    return () => { socket.disconnect(); };
-  }, [currentUserId, accessToken, partnerIdFromUrl, mapConversation, router]);
-
-  // UI update cho tin nhắn mới của Chat đang mở
-  useEffect(() => {
-    if (!socket) return;
-    const handleNewMsg = (newMsg: Message) => {
-        if (selectedId === newMsg.conversation.id) {
-            setMessages(prev => [...prev, newMsg]);
-            setTimeout(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, 100);
-        }
+    return () => {
+      socketInstance.disconnect();
+      if (socket === socketInstance) socket = null;
     };
-    socket.on("new_message", handleNewMsg);
-    return () => { socket.off("new_message", handleNewMsg); }
-  }, [selectedId]);
-
+    }, [currentUserId, accessToken, partnerIdFromUrl, mapConversation, router]);
 
   // Fetch Messages & Check Online Status khi đổi cuộc hội thoại
   useEffect(() => {
       if (!selectedId || !accessToken) return;
       
-      const currentConv = conversations.find(c => c.id === selectedId);
-      
-      if (socket) {
-        socket.emit("join_conversation", selectedId);
-        if (currentConv) {
-          socket.emit("check_online_status", currentConv.partner.id);
-        }
-      }
+      socket?.emit("join_conversation", selectedId);
 
       fetch(`${SOCKET_URL}/chat/${selectedId}/messages`, {
-          headers: { Authorization: `Bearer ${accessToken}` }
+        headers: { Authorization: `Bearer ${accessToken}` }
       })
       .then(res => res.json())
       .then(setMessages)
       .catch(console.error);
-  }, [selectedId, accessToken, conversations]);
+  }, [selectedId, accessToken]);
+
+  useEffect(() => {
+    if (!selectedId || !socket) return;
+    const currentConv = conversations.find(c => c.id === selectedId);
+    if (currentConv) {
+      socket.emit("check_online_status", currentConv.partner.id);
+    }
+  }, [selectedId, conversations]);
 
   useEffect(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
@@ -537,6 +546,7 @@ function ChatPageContent() {
           senderId: currentUserId,
           content: buildMessageContent(inputVal, pendingImageUrl)
       };
+      if (!socket) return;
       socket.emit("send_message", payload);
       setInputVal("");
       setPendingImageUrl(null);
@@ -669,7 +679,7 @@ function ChatPageContent() {
                         </div>
                     </div>
                     {messages.map((m, idx) => (
-                        <MessageBubble key={idx} msg={m} isMe={m.sender.id === currentUserId} />
+                        <MessageBubble key={m.id ?? `${m.created_at}-${idx}`} msg={m} isMe={m.sender.id === currentUserId} />
                     ))}
                     <div ref={messagesEndRef} />
                 </div>
