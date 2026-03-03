@@ -853,7 +853,7 @@ export default function ListingDetailPage() {
             <section className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-4 transition-colors dark:border-gray-800 dark:bg-gray-900">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Đánh giá người thuê</h2>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Đánh giá tin đăng</h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">Chia sẻ trải nghiệm thực tế của người dùng về tin đăng này.</p>
                 </div>
                 <div className="rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-right transition-colors dark:border-gray-700 dark:bg-gray-800">
