@@ -4,7 +4,7 @@ export type Notification = {
   id: number;
   title: string;
   message: string;
-  type: "listing" | "message" | "system";
+  type: "listing" | "message" | "system" | "booking";
   isRead: boolean;
   createdAt: string;
   relatedId?: number;

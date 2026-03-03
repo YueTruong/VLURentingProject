@@ -177,7 +177,6 @@ export default function UserMenu({ variant = "default" }: UserMenuProps) {
 
   const user = (session.user ?? {}) as SessionUser;
   const userImage = user.image || "/images/Admins.png";
-  // Ưu tiên lấy full_name, nếu không có thì lấy name, cuối cùng fallback về "User"
   const displayName = user.full_name || user.name || "User";
   
   const roleKey = (user.role ?? "student").toLowerCase();
@@ -208,6 +207,8 @@ export default function UserMenu({ variant = "default" }: UserMenuProps) {
       { href: "/my-reviews", label: "Đánh giá từ tôi", roles: ["student", "landlord"], icon: <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27z" /></svg> },
       { href: "/contracts", label: "Hợp đồng", roles: ["student", "landlord", "admin"], icon: <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M7 3h7l5 5v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" /><path strokeLinecap="round" strokeLinejoin="round" d="M14 3v5h5" /><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6" /><path strokeLinecap="round" strokeLinejoin="round" d="M9 17h6" /></svg> },
       { href: "/roommate-management", label: "Quản lý ở ghép", roles: ["student"], icon: <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><path strokeLinecap="round" strokeLinejoin="round" d="M9 11a4 4 0 100-8 4 4 0 000 8z" /><path strokeLinecap="round" strokeLinejoin="round" d="M23 20v-2a4 4 0 00-3-3.87" /><path strokeLinecap="round" strokeLinejoin="round" d="M16 3.13a4 4 0 010 7.75" /></svg> },
+      { href: "/my-bookings", label: "Lịch hẹn của tôi", roles: ["student"], icon: <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 11l2 2 4-4" /></svg> },
+      { href: "/manage-bookings", label: "Duyệt lịch hẹn", roles: ["landlord", "admin"], icon: <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /><path strokeLinecap="round" strokeLinejoin="round" d="M9 16l2 2 4-4" /></svg> },
     ],
     others: [
       { href: "/settings", label: "Cài đặt", roles: ["admin", "landlord", "student"], icon: <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.4 15a1 1 0 00.2 1.1l.1.1a1.25 1.25 0 01-1.77 1.77l-.1-.1a1 1 0 00-1.1-.2 1 1 0 00-.6.9V19a1.25 1.25 0 01-2.5 0v-.2a1 1 0 00-.66-.95 1 1 0 00-1.06.24l-.14.14a1.25 1.25 0 01-1.77-1.77l.14-.14a1 1 0 00.24-1.06 1 1 0 00-.95-.66H5a1.25 1.25 0 010-2.5h.2a1 1 0 00.95-.66 1 1 0 00-.24-1.06l-.14-.14a1.25 1.25 0 011.77-1.77l.14.14a1 1 0 001.06.24A1 1 0 009.5 8.8V8.5a1.25 1.25 0 012.5 0v.2a1 1 0 00.66.95 1 1 0 001.06-.24l.14-.14a1.25 1.25 0 011.77 1.77l-.14.14a1 1 0 00-.24 1.06 1 1 0 00.95.66h.2A1.25 1.25 0 0119.4 15z" /></svg> },
@@ -291,13 +292,11 @@ export default function UserMenu({ variant = "default" }: UserMenuProps) {
 
               <div className="mt-3 text-center">
                 <div className="flex items-center justify-center gap-2">
-                  {/* Hiển thị tên kề bên vai trò */}
                   <p className="text-sm font-bold text-(--theme-text)">{displayName}</p>
                   <span className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold ${roleBadgeClassName}`}>
                     {roleLabel}
                   </span>
                 </div>
-                {/* Vẫn giữ lại email ở dưới như yêu cầu */}
                 {user.email ? <p className="mt-1 max-w-[260px] truncate text-xs text-(--theme-text-muted)">{user.email}</p> : null}
                 
                 {isVerified && roleKey === "landlord" ? (
@@ -372,6 +371,3 @@ export default function UserMenu({ variant = "default" }: UserMenuProps) {
     </div>
   );
 }
-
-
-

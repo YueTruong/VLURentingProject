@@ -62,6 +62,12 @@ type ListingReviewSummary = {
   totalReviews: number;
 };
 
+type BookingFormData = {
+  bookingDate: string;
+  timeSlot: string;
+  note?: string;
+};
+
 // --- Helper Functions ---
 const toNumberValue = (value: number | string | undefined | null) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -278,13 +284,123 @@ function ReviewStars({ rating, showValue = false }: { rating: number; showValue?
   );
 }
 
+function BookingModal({ 
+  isOpen, 
+  onClose, 
+  listingTitle, 
+  onSubmit 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  listingTitle: string;
+  onSubmit: (data: BookingFormData) => void;
+}) {
+  const [formData, setFormData] = useState({
+    bookingDate: "",
+    timeSlot: "Sáng (08:00 - 11:00)",
+    note: ""
+  });
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-1000 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+      <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white">Hẹn lịch xem phòng</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl">✕</button>
+        </div>
+
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-100 dark:border-red-900/20">
+          <p className="text-xs font-bold text-[#d51f35] uppercase mb-1">Tin đăng:</p>
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 line-clamp-1">{listingTitle}</p>
+        </div>
+
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Chọn ngày đi xem</label>
+            <input 
+              type="date" 
+              min={new Date().toISOString().split("T")[0]}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3.5 text-sm outline-none focus:border-[#d51f35] dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              onChange={(e) => setFormData({...formData, bookingDate: e.target.value})}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Khung giờ rảnh</label>
+            <select 
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 p-3.5 text-sm outline-none focus:border-[#d51f35] dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              onChange={(e) => setFormData({...formData, timeSlot: e.target.value})}
+            >
+              <option value="Sáng (08:00 - 11:00)">Sáng (08:00 - 11:00)</option>
+              <option value="Chiều (14:00 - 17:00)">Chiều (14:00 - 17:00)</option>
+              <option value="Tối (18:00 - 20:00)">Tối (18:00 - 20:00)</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Lời nhắn (không bắt buộc)</label>
+            <textarea 
+              placeholder="Bạn muốn nhắn gì cho chủ trọ không?"
+              className="w-full min-h-[100px] rounded-xl border border-gray-200 bg-gray-50 p-3.5 text-sm outline-none focus:border-[#d51f35] dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+              onChange={(e) => setFormData({...formData, note: e.target.value})}
+            />
+          </div>
+
+          <button 
+            onClick={() => onSubmit(formData)}
+            disabled={!formData.bookingDate}
+            className="w-full rounded-full bg-[#d51f35] py-4 text-sm font-bold text-white shadow-lg hover:bg-[#b01628] transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
+          >
+            Xác nhận gửi yêu cầu
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- MAIN COMPONENT ---
 export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter(); 
   const { data: session } = useSession(); 
   const currentUserId = session?.user ? Number(session.user.id) : null;
-  const userRole = session?.user?.role?.toLowerCase(); 
+  const userRole = session?.user?.role?.toLowerCase();
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+
+  // Hàm này sẽ được gọi khi bấm nút "Xác nhận đặt lịch" trong Modal
+  const handleCreateBooking = async (bookingData: BookingFormData) => {
+  if (!session?.user?.accessToken) {
+    toast.error("Vui lòng đăng nhập lại!");
+    return;
+  }
+
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+    const res = await fetch(`${apiUrl}/bookings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.user.accessToken}`
+      },
+      body: JSON.stringify({
+        postId: Number(listing?.id),
+        landlordId: listing?.landlord.id,
+        // Backend sẽ tự lấy studentId từ JWT Token (req.user.id)
+        ...bookingData
+      }),
+    });
+
+    if (!res.ok) throw new Error();
+
+    toast.success("Đã gửi yêu cầu đặt lịch đến chủ trọ!");
+    setIsBookingModalOpen(false);
+  } catch {
+    toast.error("Gửi yêu cầu thất bại.");
+  }
+};
 
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
@@ -300,11 +416,6 @@ export default function ListingDetailPage() {
   });
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [reviewsError, setReviewsError] = useState(false);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState("");
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  const [reviewSubmitError, setReviewSubmitError] = useState("");
-  const [reviewSubmitSuccess, setReviewSubmitSuccess] = useState("");
   const [editRating, setEditRating] = useState(5);
   const [editComment, setEditComment] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
@@ -598,7 +709,7 @@ export default function ListingDetailPage() {
   const isAdminRole = userRole === "admin";
   const isOwner = currentUserId !== null && currentUserId === listing.landlord.id;
   const canViewModerationInfo = isOwner || isAdminRole;
-  const canUseTenantActions = !isLandlordRole && !isOwner;
+  const canUseStudentActions = !isLandlordRole && !isOwner;
   const canContactLandlord = !isOwner;
 
   return (
@@ -780,7 +891,7 @@ export default function ListingDetailPage() {
               )}
 
               <div className="border-t border-gray-200 pt-4 dark:border-gray-700">
-                {!canUseTenantActions ? (
+                {!canUseStudentActions ? (
                   <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
                     {isOwner ? "Bạn là chủ của tin đăng này nên không thể tự đánh giá." : "Tính năng đánh giá hiện áp dụng cho sinh viên/người thuê."}
                   </div>
@@ -865,28 +976,45 @@ export default function ListingDetailPage() {
             </div>
 
             <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-3 sticky top-24 transition-colors dark:border-gray-800 dark:bg-gray-900">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">Hành động nhanh</h3>
-              <div className="flex flex-col gap-2">
-                {canUseTenantActions ? (
-                  <>
-                    <button onClick={() => toast("Tính năng đặt lịch đang được phát triển!", { icon: '📅' })} className="rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black active:scale-95 transition-all shadow-sm dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100">
-                      Đặt lịch xem phòng
-                    </button>
-                    <button onClick={handleToggleFavorite} className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all active:scale-95 ${isSaved ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40" : "border-gray-300 bg-white text-gray-800 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"}`}>
-                      {isSaved ? "Đã lưu tin ♥" : "Lưu tin ♡"}
-                    </button>
-                  </>
-                ) : (
-                  <div className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-                    Tài khoản chủ trọ chỉ có thể xem và quản lý tin đăng của mình.
-                  </div>
-                )}
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Hành động nhanh</h3>
+            <div className="flex flex-col gap-2">
+              {canUseStudentActions ? (
+                <>
+                  {/* Nút Đặt lịch mới - Gọi Modal */}
+                  <button 
+                    onClick={() => setIsBookingModalOpen(true)} 
+                    className="rounded-full bg-gray-900 py-3 text-sm font-bold text-white hover:bg-black transition-all dark:bg-white dark:text-gray-900 shadow-md active:scale-95"
+                  >
+                    Đặt lịch xem phòng
+                  </button>
 
-                <button onClick={handleShare} className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 active:scale-95 transition-all dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
-                  Chia sẻ cho bạn bè
-                </button>
-              </div>
+                  {/* Nút Lưu tin */}
+                  <button 
+                    onClick={handleToggleFavorite} 
+                    className={`rounded-full border px-4 py-2 text-sm font-semibold transition-all active:scale-95 ${
+                      isSaved 
+                        ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40" 
+                        : "border-gray-300 bg-white text-gray-800 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    {isSaved ? "Đã lưu tin ♥" : "Lưu tin ♡"}
+                  </button>
+                </>
+              ) : (
+                <div className="rounded-xl bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                  Tài khoản chủ trọ chỉ có thể quản lý tin đăng của mình.
+                </div>
+              )}
+
+              {/* NÚT CHIA SẺ TIN ĐĂNG - Đã cập nhật theo ý em */}
+              <button 
+                onClick={handleShare} 
+                className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 active:scale-95 transition-all dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+              >
+                Chia sẻ tin đăng
+              </button>
             </div>
+          </div>
           </aside>
         </div>
 
@@ -916,6 +1044,12 @@ export default function ListingDetailPage() {
           </div>
         </div>
       ) : null}
+      <BookingModal 
+        isOpen={isBookingModalOpen} 
+        onClose={() => setIsBookingModalOpen(false)} 
+        listingTitle={listing.title}
+        onSubmit={handleCreateBooking} // Truyền hàm xử lý API vào đây
+      />
     </UserPageShell>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation"; // 👈 1. Import Router
+import { useRouter } from "next/navigation"; 
 import UserTopBar from "@/app/homepage/components/UserTopBar";
 import { 
   getNotifications, 
@@ -39,12 +39,13 @@ function TypeBadge({ type }: { type: string }) {
     system: { label: "Hệ thống", color: "bg-(--theme-surface-muted) text-(--theme-text-muted)" },
     message: { label: "Tin nhắn", color: "bg-(--brand-primary-soft) text-(--brand-primary-text)" },
     listing: { label: "Tin phòng", color: "bg-(--brand-accent-soft) text-(--brand-accent)" },
+    // 👈 Bổ sung loại thông báo đặt lịch
+    booking: { label: "Lịch hẹn", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" },
   };
   const chosen = map[type] || map.system;
   return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${chosen.color}`}>{chosen.label}</span>;
 }
 
-// 👈 Thêm prop onOpenDetail
 function NotificationCard({ 
   item, 
   onMarkRead, 
@@ -73,7 +74,7 @@ function NotificationCard({
         {isUnread && (
           <button 
             onClick={(e) => {
-              e.stopPropagation(); // Tránh kích hoạt click của thẻ cha
+              e.stopPropagation(); 
               onMarkRead(item.id);
             }}
             className="rounded-full border border-(--theme-border) bg-(--theme-surface) px-3 py-2 text-xs font-semibold text-(--theme-text) hover:bg-(--theme-surface-muted) active:scale-95"
@@ -97,11 +98,10 @@ function NotificationCard({
 
 export default function NotificationsPage() {
   const { data: session, status } = useSession();
-  const router = useRouter(); // 👈 Init Router
+  const router = useRouter(); 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch dữ liệu
   useEffect(() => {
     const fetchData = async () => {
       if (status === "loading") return;
@@ -123,7 +123,6 @@ export default function NotificationsPage() {
     fetchData();
   }, [session, status]);
 
-  // Xử lý đọc 1 tin
   const handleMarkAsRead = async (id: number) => {
     const token = session?.user?.accessToken;
     if (!token) return;
@@ -139,7 +138,6 @@ export default function NotificationsPage() {
     }
   };
 
-  // Xử lý đọc hết
   const handleMarkAll = async () => {
     const token = session?.user?.accessToken;
     if (!token) return;
@@ -154,30 +152,34 @@ export default function NotificationsPage() {
     }
   };
 
-  // 👈 LOGIC MỞ CHI TIẾT
   const handleOpenDetail = async (item: Notification) => {
-    // 1. Nếu chưa đọc thì đánh dấu đã đọc trước
     if (!item.isRead) {
        await handleMarkAsRead(item.id);
     }
 
-    // 2. Điều hướng dựa theo loại thông báo
-    if (item.type === 'listing' && item.relatedId) {
-      if (item.title.includes("từ chối")) {
-        // Nếu bị từ chối, dẫn về trang Quản lý tin để sửa
+    // 👈 Bổ sung logic điều hướng cho Đặt lịch (booking)
+    if (item.type === 'booking') {
+      const userRole = session?.user?.role?.toLowerCase();
+      // Nếu là landlord thì dẫn về trang quản lý duyệt lịch
+      if (userRole === 'landlord') {
+        router.push('/manage-bookings');
+      } else {
+        // Nếu là student thì dẫn về trang danh sách lịch hẹn của tôi (nếu em có làm)
+        router.push('/my-bookings'); 
+      }
+    }
+    else if (item.type === 'listing' && item.relatedId) {
+      if (item.title.toLowerCase().includes("từ chối")) {
         router.push('/my-posts'); 
       } else {
-        // Nếu được duyệt, dẫn về trang xem chi tiết công khai
         router.push(`/listings/${item.relatedId}`);
       }
     }
     else if (item.type === 'message') {
-      // Chuyển sang trang tin nhắn và ưu tiên mở đúng người chat nếu có relatedId
       const chatUrl = item.relatedId ? `/chat?partnerId=${item.relatedId}` : '/chat';
       router.push(chatUrl);
     }
     else {
-      // Mặc định reload hoặc không làm gì nếu là system notif không có link
       alert(item.message); 
     }
   };
@@ -233,7 +235,7 @@ export default function NotificationsPage() {
                   key={n.id} 
                   item={n} 
                   onMarkRead={handleMarkAsRead} 
-                  onOpenDetail={handleOpenDetail} // 👈 Truyền hàm xuống
+                  onOpenDetail={handleOpenDetail} 
                 />
               ))
             )}

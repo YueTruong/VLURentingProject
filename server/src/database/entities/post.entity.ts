@@ -19,7 +19,6 @@ import { ReviewEntity } from './review.entity';
 // Tạm thời dùng string
 type PostStatus = 'pending' | 'approved' | 'rejected' | 'rented' | 'hidden';
 
-
 export type Campus = 'CS1' | 'CS2' | 'CS3';
 export type AvailabilityStatus = 'available' | 'rented';
 
@@ -59,7 +58,6 @@ export class PostEntity {
 
   @Column({ type: 'text', name: 'video_url', nullable: true })
   videoUrl: string | null;
-
 
   @Column({ type: 'double precision', nullable: true })
   latitude: number;

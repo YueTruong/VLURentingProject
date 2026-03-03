@@ -12,6 +12,7 @@ import { UsersModule } from './users/user.module';
 import { ChatModule } from './chat/chat.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AiModule } from './ai/ai.module';
+import { BookingsModule } from './bookings/bookings.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { AiModule } from './ai/ai.module';
     ChatModule,
     NotificationsModule,
     AiModule,
+    BookingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
