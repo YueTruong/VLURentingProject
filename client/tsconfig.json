@@ -29,9 +29,6 @@
       "react-hot-toast": [
         "./app/shims/react-hot-toast"
       ],
-      "socket.io-client": [
-        "./app/shims/socket-io-client"
-      ]
     }
   },
   "include": [
