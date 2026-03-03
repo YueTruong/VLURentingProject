@@ -99,6 +99,23 @@ const normalizeText = (input: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
+const normalizeAmenityToken = (value: string) =>
+  normalizeText(value)
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const hasAmenityKeyword = (tags: string[], keywords: string[]) => {
+  const normalizedTags = tags.map(normalizeAmenityToken);
+  return keywords.some((keyword) => {
+    const normalizedKeyword = normalizeAmenityToken(keyword);
+    if (!normalizedKeyword) return false;
+    return normalizedTags.some(
+      (tag) => tag.includes(normalizedKeyword) || normalizedKeyword.includes(tag),
+    );
+  });
+};
+
 const parseNumber = (value: string) => {
   const cleaned = value.trim();
   if (!cleaned) return undefined;
@@ -163,7 +180,9 @@ const mapPostToListing = (post: Post): Listing => {
   const amenityNames = (post.amenities ?? [])
     .map((amenity) => formatAmenityLabel(amenity?.name ?? ""))
     .filter(Boolean);
-  const amenityText = normalizeText(amenityNames.join(" "));
+  const hasWifiAmenity = hasAmenityKeyword(amenityNames, ["wifi", "wi fi", "wi-fi"]);
+  const hasParkingAmenity = hasAmenityKeyword(amenityNames, ["giu xe", "gui xe", "bai xe", "dau xe", "parking", "garage", "gara"]);
+  const hasFurnishedAmenity = hasAmenityKeyword(amenityNames, ["noi that", "day du noi that", "full noi that", "furnished"]);
   const price = toPriceMillionValue(post.price);
   const area = toNumberValue(post.area);
   const campusFallback = "CS1";
@@ -182,13 +201,13 @@ const mapPostToListing = (post: Post): Listing => {
     type: categoryName,
     beds: Math.max(1, Math.round(toNumberValue(post.max_occupancy ?? 1))),
     baths: 1,
-    wifi: amenityText.includes("wifi"),
+    wifi: hasWifiAmenity,
     area: Number.isFinite(area) && area > 0 ? area : 0,
     price: Number.isFinite(price) && price > 0 ? price : 0,
     latitude: typeof post.latitude === "number" ? post.latitude : undefined,
     longitude: typeof post.longitude === "number" ? post.longitude : undefined,
-    furnished: amenityText.includes("noi that"),
-    parking: amenityText.includes("giu xe") || amenityText.includes("parking"),
+    furnished: hasFurnishedAmenity,
+    parking: hasParkingAmenity,
     rating: 0,
     reviews: 0,
     updatedAt: Number.isFinite(updatedAtValue) ? updatedAtValue : Date.now(),
@@ -376,6 +395,12 @@ const parseCriteria = (
 const matchesCriteria = (item: Listing, criteria?: Criteria | null) => {
   if (!criteria) return true;
 
+  const hasWifiAmenity = item.wifi || hasAmenityKeyword(item.tags, ["wifi", "wi fi", "wi-fi"]);
+  const hasParkingAmenity =
+    item.parking || hasAmenityKeyword(item.tags, ["giu xe", "gui xe", "bai xe", "dau xe", "parking", "garage", "gara"]);
+  const hasFurnishedAmenity =
+    item.furnished || hasAmenityKeyword(item.tags, ["noi that", "day du noi that", "full noi that", "furnished"]);
+
   if (criteria.query) {
     const q = normalizeText(criteria.query);
     const inTitle = normalizeText(item.title).includes(q);
@@ -395,12 +420,18 @@ const matchesCriteria = (item: Listing, criteria?: Criteria | null) => {
   if (criteria.areaMax !== undefined && item.area > criteria.areaMax) return false;
   if (criteria.bedsMin !== undefined && item.beds < criteria.bedsMin) return false;
 
-  if (criteria.wifi && !item.wifi) return false;
-  if (criteria.parking && !item.parking) return false;
-  if (criteria.furnished && !item.furnished) return false;
+  if (criteria.wifi && !hasWifiAmenity) return false;
+  if (criteria.parking && !hasParkingAmenity) return false;
+  if (criteria.furnished && !hasFurnishedAmenity) return false;
 
   if (criteria.tags && criteria.tags.length > 0) {
-    const hasAllTags = criteria.tags.every((tag) => item.tags.includes(tag));
+    const normalizedItemTags = item.tags.map(normalizeAmenityToken);
+    const hasAllTags = criteria.tags.every((tag) => {
+      const normalizedCriteriaTag = normalizeAmenityToken(tag);
+      return normalizedItemTags.some(
+        (itemTag) => itemTag.includes(normalizedCriteriaTag) || normalizedCriteriaTag.includes(itemTag),
+      );
+    });
     if (!hasAllTags) return false;
   }
 
