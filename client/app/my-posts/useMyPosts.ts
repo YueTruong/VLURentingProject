@@ -37,7 +37,10 @@ export type EditableDraftField =
   | 'area'
   | 'address'
   | 'description'
-  | 'maxOccupancy';
+  | 'maxOccupancy'
+  | 'campus'
+  | 'availability'
+  | 'videoUrl';
 
 export type EditDraft = {
   title: string;
@@ -46,6 +49,9 @@ export type EditDraft = {
   address: string;
   description: string;
   maxOccupancy: string;
+  campus: string;
+  availability: string;
+  videoUrl: string;
   existingImages: string[];
   newImages: File[];
   imagesTouched: boolean;
@@ -126,6 +132,9 @@ const buildEditDraft = (post: Post): EditDraft => ({
     post.max_occupancy !== undefined && post.max_occupancy !== null
       ? String(post.max_occupancy)
       : '',
+      campus: post.campus ?? '',
+  availability: post.availability ?? 'available',
+  videoUrl: post.videoUrl ?? '',
   existingImages: getImageUrls(post),
   newImages: [],
   imagesTouched: false,
@@ -150,6 +159,9 @@ export const getEditDraftSignature = (draft: EditDraft): string =>
     address: draft.address.trim(),
     description: draft.description.trim(),
     maxOccupancy: draft.maxOccupancy.trim(),
+    campus: draft.campus.trim(),
+    availability: draft.availability.trim(),
+    videoUrl: draft.videoUrl.trim(),
     existingImages: draft.existingImages,
     newImages: draft.newImages.map(fileSignature),
   });
@@ -519,6 +531,30 @@ export function useMyPosts({ accessToken, sessionStatus }: UseMyPostsOptions) {
       nextMaxOccupancy !== undefined
     ) {
       payload.max_occupancy = Math.max(1, Math.floor(nextMaxOccupancy));
+    }
+
+const nextCampus = editDraft.campus.trim();
+    const initialCampus = initialEditDraft.campus.trim();
+    if (
+      nextCampus !== initialCampus &&
+      (nextCampus === 'CS1' || nextCampus === 'CS2' || nextCampus === 'CS3')
+    ) {
+      payload.campus = nextCampus;
+    }
+
+    const nextAvailability = editDraft.availability.trim();
+    const initialAvailability = initialEditDraft.availability.trim();
+    if (
+      nextAvailability !== initialAvailability &&
+      (nextAvailability === 'available' || nextAvailability === 'rented')
+    ) {
+      payload.availability = nextAvailability;
+    }
+
+    const nextVideoUrl = editDraft.videoUrl.trim();
+    const initialVideoUrl = initialEditDraft.videoUrl.trim();
+    if (nextVideoUrl !== initialVideoUrl) {
+      payload.videoUrl = nextVideoUrl || undefined;
     }
 
     setSavingId(editingId);

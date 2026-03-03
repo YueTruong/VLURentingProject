@@ -150,12 +150,13 @@ export default function EditPostModal({
       role="presentation"
     >
       <div
-        className="w-full max-w-4xl rounded-2xl border border-white/60 bg-white p-5 shadow-2xl md:p-6"
+        className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-white/60 bg-linear-to-br from-white via-white to-slate-50 shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-post-title"
       >
-        <div className="flex items-start justify-between gap-4">
+        <div className="border-b border-slate-100 px-5 py-4 md:px-7 md:py-5">
+          <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-gray-500">
               Cập nhật bài đăng
@@ -177,11 +178,13 @@ export default function EditPostModal({
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:bg-gray-50"
             aria-label="Đóng cửa sổ chỉnh sửa"
           >
-            X
+            <span aria-hidden="true" className="text-lg leading-none">×</span>
           </button>
+          </div>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="custom-scrollbar overflow-y-auto px-5 py-5 md:px-7">
+          <div className="grid gap-4 md:grid-cols-2">
           <div className="md:col-span-2">
             <label
               htmlFor="edit-title"
@@ -193,7 +196,7 @@ export default function EditPostModal({
               id="edit-title"
               value={draft.title}
               onChange={(event) => onFieldChange('title', event.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-slate-200"
+              className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-slate-200"
             />
             {validation.title ? (
               <p className="mt-2 text-sm text-rose-600">{validation.title}</p>
@@ -211,7 +214,7 @@ export default function EditPostModal({
               id="edit-price"
               value={draft.price}
               onChange={(event) => onFieldChange('price', event.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-slate-200"
+              className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-slate-200"
               inputMode="numeric"
             />
             {validation.price ? (
@@ -230,7 +233,7 @@ export default function EditPostModal({
               id="edit-area"
               value={draft.area}
               onChange={(event) => onFieldChange('area', event.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-slate-200"
+              className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-slate-200"
               inputMode="numeric"
             />
           </div>
@@ -248,10 +251,51 @@ export default function EditPostModal({
               onChange={(event) =>
                 onFieldChange('maxOccupancy', event.target.value)
               }
-              className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-slate-200"
+              className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-slate-200"
               inputMode="numeric"
             />
           </div>
+
+          <div>
+              <label
+                htmlFor="edit-campus"
+                className="text-sm font-semibold text-gray-700"
+              >
+                Cơ sở
+              </label>
+              <select
+                id="edit-campus"
+                value={draft.campus}
+                onChange={(event) => onFieldChange('campus', event.target.value)}
+                className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-slate-200"
+              >
+                <option value="">Chọn cơ sở</option>
+                <option value="CS1">CS1</option>
+                <option value="CS2">CS2</option>
+                <option value="CS3">CS3</option>
+              </select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="edit-availability"
+                className="text-sm font-semibold text-gray-700"
+              >
+                Tình trạng
+              </label>
+              <select
+                id="edit-availability"
+                value={draft.availability}
+                onChange={(event) =>
+                  onFieldChange('availability', event.target.value)
+                }
+                className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-slate-200"
+              >
+                <option value="available">Còn trống</option>
+                <option value="rented">Đã cho thuê</option>
+              </select>
+            </div>
+
 
           <div className="md:col-span-2">
             <label
@@ -264,7 +308,25 @@ export default function EditPostModal({
               id="edit-address"
               value={draft.address}
               onChange={(event) => onFieldChange('address', event.target.value)}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-slate-200"
+              className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-slate-200"
+            />
+          </div>
+
+
+
+          <div className="md:col-span-2">
+            <label
+              htmlFor="edit-video-url"
+              className="text-sm font-semibold text-gray-700"
+            >
+              Video URL
+            </label>
+            <input
+              id="edit-video-url"
+              value={draft.videoUrl}
+              onChange={(event) => onFieldChange('videoUrl', event.target.value)}
+              className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-slate-200"
+              placeholder="https://..."
             />
           </div>
 
@@ -282,7 +344,7 @@ export default function EditPostModal({
                 onFieldChange('description', event.target.value)
               }
               rows={4}
-              className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-slate-200"
+              className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-slate-200"
             />
           </div>
 
@@ -324,7 +386,7 @@ export default function EditPostModal({
                     className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-white"
                     aria-label={`Xóa ảnh hiện tại ${index + 1}`}
                   >
-                    X
+                    <span aria-hidden="true" className="text-base leading-none">×</span>
                   </button>
                 </div>
               ))}
@@ -349,7 +411,7 @@ export default function EditPostModal({
                     className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-white"
                     aria-label={`Xóa ảnh mới ${index + 1}`}
                   >
-                    X
+                    <span aria-hidden="true" className="text-base leading-none">×</span>
                   </button>
                 </div>
               ))}
@@ -366,8 +428,10 @@ export default function EditPostModal({
         {error ? (
           <div className="mt-4 text-sm text-rose-600">{error}</div>
         ) : null}
+        </div>
 
-        <div className="mt-6 flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="border-t border-slate-100 bg-white/80 px-5 py-4 md:px-7">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-gray-500">
             {!hasChanges
               ? 'Chưa có thay đổi để lưu.'
@@ -389,6 +453,7 @@ export default function EditPostModal({
             >
               {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
             </button>
+          </div>
           </div>
         </div>
       </div>
