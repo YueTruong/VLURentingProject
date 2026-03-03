@@ -29,6 +29,11 @@ type Criteria = {
   wifi?: boolean;
   parking?: boolean;
   furnished?: boolean;
+  privateWc?: boolean;
+  mezzanine?: boolean;
+  aircon?: boolean;
+  security?: boolean;
+  freeTime?: boolean;
   campus?: string;
   district?: string;
   type?: string;
@@ -116,6 +121,15 @@ const hasAmenityKeyword = (tags: string[], keywords: string[]) => {
   });
 };
 
+const WIFI_KEYWORDS = ["wifi", "wi fi", "wi-fi"];
+const PARKING_KEYWORDS = ["giu xe", "gui xe", "bai xe", "dau xe", "parking", "garage", "gara"];
+const FURNISHED_KEYWORDS = ["noi that", "day du noi that", "full noi that", "furnished"];
+const PRIVATE_WC_KEYWORDS = ["wc rieng", "ve sinh rieng", "toilet rieng", "nha ve sinh rieng"];
+const MEZZANINE_KEYWORDS = ["gac lung", "co gac", "mezzanine"];
+const AIRCON_KEYWORDS = ["may lanh", "dieu hoa", "aircon", "air conditioner"];
+const SECURITY_KEYWORDS = ["an ninh", "bao ve", "camera", "24 7", "24/7"];
+const FREE_TIME_KEYWORDS = ["gio giac tu do", "tu do gio giac", "khong gio nghiem", "gio tu do"];
+
 const parseNumber = (value: string) => {
   const cleaned = value.trim();
   if (!cleaned) return undefined;
@@ -180,9 +194,9 @@ const mapPostToListing = (post: Post): Listing => {
   const amenityNames = (post.amenities ?? [])
     .map((amenity) => formatAmenityLabel(amenity?.name ?? ""))
     .filter(Boolean);
-  const hasWifiAmenity = hasAmenityKeyword(amenityNames, ["wifi", "wi fi", "wi-fi"]);
-  const hasParkingAmenity = hasAmenityKeyword(amenityNames, ["giu xe", "gui xe", "bai xe", "dau xe", "parking", "garage", "gara"]);
-  const hasFurnishedAmenity = hasAmenityKeyword(amenityNames, ["noi that", "day du noi that", "full noi that", "furnished"]);
+  const hasWifiAmenity = hasAmenityKeyword(amenityNames, WIFI_KEYWORDS);
+  const hasParkingAmenity = hasAmenityKeyword(amenityNames, PARKING_KEYWORDS);
+  const hasFurnishedAmenity = hasAmenityKeyword(amenityNames, FURNISHED_KEYWORDS);
   const price = toPriceMillionValue(post.price);
   const area = toNumberValue(post.area);
   const campusFallback = "CS1";
@@ -245,7 +259,7 @@ const extractQuery = (input: string, normalized: string, districtOptions: string
   }
 
   candidate = candidate
-    .replace(/\b(wifi|wi-fi|bai xe|giu xe|dau xe|parking|garage|gara|noi that|day du noi that|full noi that|furnished)\b/g, " ")
+    .replace(/\b(wifi|wi-fi|bai xe|giu xe|dau xe|parking|garage|gara|noi that|day du noi that|full noi that|furnished|wc rieng|ve sinh rieng|toilet rieng|nha ve sinh rieng|gac lung|co gac|mezzanine|may lanh|dieu hoa|aircon|air conditioner|an ninh|bao ve|camera|24\s*\/\s*7|24\s*7|gio giac tu do|tu do gio giac|khong gio nghiem|gio tu do)\b/g, " ")
     .replace(/\b(tim kiem|tim|search|ten|phong|nha|can ho|studio|o ghep|ky tuc xa|ktx|coliving|co-living|room)\b/g, " ")
     .replace(/\b(duoi|nho hon|toi da|<=|tren|>=|tu|it nhat|den|khoang|tam)\b/g, " ")
     .replace(/\b\d+(?:[.,]\d+)?\s*(?:tr|trieu|m2|m)\b/g, " ")
@@ -328,6 +342,26 @@ const parseCriteria = (
     criteria.furnished = true;
   }
 
+  if (/wc rieng|ve sinh rieng|toilet rieng|nha ve sinh rieng/.test(normalized)) {
+    criteria.privateWc = true;
+  }
+
+  if (/gac lung|co gac|mezzanine/.test(normalized)) {
+    criteria.mezzanine = true;
+  }
+
+  if (/may lanh|dieu hoa|aircon|air conditioner/.test(normalized)) {
+    criteria.aircon = true;
+  }
+
+  if (/an ninh|bao ve|camera|24\s*\/\s*7|24\s*7/.test(normalized)) {
+    criteria.security = true;
+  }
+
+  if (/gio giac tu do|tu do gio giac|khong gio nghiem|gio tu do/.test(normalized)) {
+    criteria.freeTime = true;
+  }
+
   const bedsMatch = normalized.match(/(\d+)\s*(giuong|phong ngu|pn)/);
   if (bedsMatch) {
     criteria.bedsMin = Number(bedsMatch[1]);
@@ -395,11 +429,14 @@ const parseCriteria = (
 const matchesCriteria = (item: Listing, criteria?: Criteria | null) => {
   if (!criteria) return true;
 
-  const hasWifiAmenity = item.wifi || hasAmenityKeyword(item.tags, ["wifi", "wi fi", "wi-fi"]);
-  const hasParkingAmenity =
-    item.parking || hasAmenityKeyword(item.tags, ["giu xe", "gui xe", "bai xe", "dau xe", "parking", "garage", "gara"]);
-  const hasFurnishedAmenity =
-    item.furnished || hasAmenityKeyword(item.tags, ["noi that", "day du noi that", "full noi that", "furnished"]);
+  const hasWifiAmenity = item.wifi || hasAmenityKeyword(item.tags, WIFI_KEYWORDS);
+  const hasParkingAmenity = item.parking || hasAmenityKeyword(item.tags, PARKING_KEYWORDS);
+  const hasFurnishedAmenity = item.furnished || hasAmenityKeyword(item.tags, FURNISHED_KEYWORDS);
+  const hasPrivateWcAmenity = hasAmenityKeyword(item.tags, PRIVATE_WC_KEYWORDS);
+  const hasMezzanineAmenity = hasAmenityKeyword(item.tags, MEZZANINE_KEYWORDS);
+  const hasAirconAmenity = hasAmenityKeyword(item.tags, AIRCON_KEYWORDS);
+  const hasSecurityAmenity = hasAmenityKeyword(item.tags, SECURITY_KEYWORDS);
+  const hasFreeTimeAmenity = hasAmenityKeyword(item.tags, FREE_TIME_KEYWORDS);
 
   if (criteria.query) {
     const q = normalizeText(criteria.query);
@@ -423,6 +460,11 @@ const matchesCriteria = (item: Listing, criteria?: Criteria | null) => {
   if (criteria.wifi && !hasWifiAmenity) return false;
   if (criteria.parking && !hasParkingAmenity) return false;
   if (criteria.furnished && !hasFurnishedAmenity) return false;
+  if (criteria.privateWc && !hasPrivateWcAmenity) return false;
+  if (criteria.mezzanine && !hasMezzanineAmenity) return false;
+  if (criteria.aircon && !hasAirconAmenity) return false;
+  if (criteria.security && !hasSecurityAmenity) return false;
+  if (criteria.freeTime && !hasFreeTimeAmenity) return false;
 
   if (criteria.tags && criteria.tags.length > 0) {
     const normalizedItemTags = item.tags.map(normalizeAmenityToken);
@@ -458,6 +500,11 @@ const mergeCriteria = (base: Criteria, incoming?: Criteria | null): Criteria => 
   assign("wifi", incoming.wifi);
   assign("parking", incoming.parking);
   assign("furnished", incoming.furnished);
+  assign("privateWc", incoming.privateWc);
+  assign("mezzanine", incoming.mezzanine);
+  assign("aircon", incoming.aircon);
+  assign("security", incoming.security);
+  assign("freeTime", incoming.freeTime);
   assign("campus", incoming.campus);
   assign("district", incoming.district);
   assign("type", incoming.type);
@@ -496,6 +543,11 @@ const normalizeAiCriteria = (
   if (raw.wifi === true) next.wifi = true;
   if (raw.parking === true) next.parking = true;
   if (raw.furnished === true) next.furnished = true;
+  if (raw.privateWc === true) next.privateWc = true;
+  if (raw.mezzanine === true) next.mezzanine = true;
+  if (raw.aircon === true) next.aircon = true;
+  if (raw.security === true) next.security = true;
+  if (raw.freeTime === true) next.freeTime = true;
 
   const normalizedCampus = normalizeText(String(raw.campus ?? ""));
   const campusMatch = normalizedCampus.match(/(?:cs)?\s*([123])/);
@@ -586,6 +638,11 @@ const buildSummary = (criteria: Criteria) => {
   if (criteria.wifi) parts.push("có Wi-Fi");
   if (criteria.parking) parts.push("có bãi xe");
   if (criteria.furnished) parts.push("đầy đủ nội thất");
+  if (criteria.privateWc) parts.push("có WC riêng");
+  if (criteria.mezzanine) parts.push("có gác lửng");
+  if (criteria.aircon) parts.push("có máy lạnh");
+  if (criteria.security) parts.push("an ninh");
+  if (criteria.freeTime) parts.push("giờ giấc tự do");
 
   if (criteria.tags && criteria.tags.length > 0) {
     parts.push(`tiện ích: ${criteria.tags.join(", ")}`);
@@ -615,6 +672,11 @@ const countStructuredCriteria = (criteria: Criteria) => {
   if (criteria.wifi) score += 1;
   if (criteria.parking) score += 1;
   if (criteria.furnished) score += 1;
+  if (criteria.privateWc) score += 1;
+  if (criteria.mezzanine) score += 1;
+  if (criteria.aircon) score += 1;
+  if (criteria.security) score += 1;
+  if (criteria.freeTime) score += 1;
   if (criteria.videoOnly) score += 1;
   if (criteria.tags && criteria.tags.length > 0) score += 1;
   return score;
@@ -698,6 +760,11 @@ export default function ListingsPage() {
   const [wifiOnly, setWifiOnly] = useState(false);
   const [parkingOnly, setParkingOnly] = useState(false);
   const [furnishedOnly, setFurnishedOnly] = useState(false);
+  const [privateWcOnly, setPrivateWcOnly] = useState(false);
+  const [mezzanineOnly, setMezzanineOnly] = useState(false);
+  const [airconOnly, setAirconOnly] = useState(false);
+  const [securityOnly, setSecurityOnly] = useState(false);
+  const [freeTimeOnly, setFreeTimeOnly] = useState(false);
   const [videoOnly, setVideoOnly] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>("latest");
   const [selectedMapId, setSelectedMapId] = useState<number | null>(null);
@@ -784,6 +851,11 @@ export default function ListingsPage() {
     setWifiOnly(Boolean(criteria.wifi));
     setParkingOnly(Boolean(criteria.parking));
     setFurnishedOnly(Boolean(criteria.furnished));
+    setPrivateWcOnly(Boolean(criteria.privateWc));
+    setMezzanineOnly(Boolean(criteria.mezzanine));
+    setAirconOnly(Boolean(criteria.aircon));
+    setSecurityOnly(Boolean(criteria.security));
+    setFreeTimeOnly(Boolean(criteria.freeTime));
     setVideoOnly(Boolean(criteria.videoOnly));
     if (criteria.sortBy) setSortBy(criteria.sortBy);
   };
@@ -815,10 +887,15 @@ export default function ListingsPage() {
     if (wifiOnly) criteria.wifi = true;
     if (parkingOnly) criteria.parking = true;
     if (furnishedOnly) criteria.furnished = true;
+    if (privateWcOnly) criteria.privateWc = true;
+    if (mezzanineOnly) criteria.mezzanine = true;
+    if (airconOnly) criteria.aircon = true;
+    if (securityOnly) criteria.security = true;
+    if (freeTimeOnly) criteria.freeTime = true;
     if (videoOnly) criteria.videoOnly = true;
 
     return criteria;
-  }, [allOption, availability, campus, district, furnishedOnly, maxArea, maxPrice, minArea, minBeds, minPrice, parkingOnly, query, type, videoOnly, wifiOnly]);
+  }, [airconOnly, allOption, availability, campus, district, freeTimeOnly, furnishedOnly, maxArea, maxPrice, mezzanineOnly, minArea, minBeds, minPrice, parkingOnly, privateWcOnly, query, securityOnly, type, videoOnly, wifiOnly]);
 
   const assistantExtras = useMemo(() => {
     if (!assistantCriteria) return null;
@@ -892,9 +969,14 @@ export default function ListingsPage() {
     if (wifiOnly) items.push("Có Wi-Fi");
     if (parkingOnly) items.push("Có bãi xe");
     if (furnishedOnly) items.push("Đầy đủ nội thất");
+    if (privateWcOnly) items.push("Có WC riêng");
+    if (mezzanineOnly) items.push("Có gác lửng");
+    if (airconOnly) items.push("Có máy lạnh");
+    if (securityOnly) items.push("An ninh");
+    if (freeTimeOnly) items.push("Giờ giấc tự do");
     if (videoOnly) items.push("Có video phòng");
     return items;
-  }, [allOption, availability, campus, district, furnishedOnly, maxArea, maxPrice, minArea, minBeds, minPrice, parkingOnly, query, type, videoOnly, wifiOnly]);
+  }, [airconOnly, allOption, availability, campus, district, freeTimeOnly, furnishedOnly, maxArea, maxPrice, mezzanineOnly, minArea, minBeds, minPrice, parkingOnly, privateWcOnly, query, securityOnly, type, videoOnly, wifiOnly]);
 
   const assistantExtraBadges = useMemo(() => {
     if (!assistantExtras) return [];
@@ -1003,6 +1085,11 @@ ${buildAssistantReply(parsed, matched.length, sourceListings.length, cloudProvid
     setWifiOnly(false);
     setParkingOnly(false);
     setFurnishedOnly(false);
+    setPrivateWcOnly(false);
+    setMezzanineOnly(false);
+    setAirconOnly(false);
+    setSecurityOnly(false);
+    setFreeTimeOnly(false);
     setVideoOnly(false);
     setSortBy("latest");
     setAssistantCriteria(null);
@@ -1306,6 +1393,51 @@ ${buildAssistantReply(parsed, matched.length, sourceListings.length, cloudProvid
                       className="h-4 w-4 rounded border-gray-300 text-[#D51F35] dark:border-gray-600 dark:bg-gray-700"
                     />
                     Đầy đủ nội thất
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={privateWcOnly}
+                      onChange={(event) => setPrivateWcOnly(event.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-[#D51F35] dark:border-gray-600 dark:bg-gray-700"
+                    />
+                    Có WC riêng
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={mezzanineOnly}
+                      onChange={(event) => setMezzanineOnly(event.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-[#D51F35] dark:border-gray-600 dark:bg-gray-700"
+                    />
+                    Có gác lửng
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={airconOnly}
+                      onChange={(event) => setAirconOnly(event.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-[#D51F35] dark:border-gray-600 dark:bg-gray-700"
+                    />
+                    Có máy lạnh
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={securityOnly}
+                      onChange={(event) => setSecurityOnly(event.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-[#D51F35] dark:border-gray-600 dark:bg-gray-700"
+                    />
+                    An ninh
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={freeTimeOnly}
+                      onChange={(event) => setFreeTimeOnly(event.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-[#D51F35] dark:border-gray-600 dark:bg-gray-700"
+                    />
+                    Giờ giấc tự do
                   </label>
                   <label className="flex items-center gap-2">
                     <input
