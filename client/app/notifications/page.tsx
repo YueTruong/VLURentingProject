@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation"; 
 import UserTopBar from "@/app/homepage/components/UserTopBar";
@@ -16,7 +16,14 @@ function parseNotificationDate(dateString: string) {
   const normalized = dateString.includes("T") ? dateString : dateString.replace(" ", "T");
   const safe = /[zZ]|[+-]\d\d:?\d\d$/.test(normalized) ? normalized : `${normalized}Z`;
   const date = new Date(safe);
-  return Number.isNaN(date.getTime()) ? new Date() : date;
+  if (Number.isNaN(date.getTime())) return new Date();
+
+  // Backend lưu UTC, hiển thị theo giờ Việt Nam (+7)
+  date.setHours(date.getHours() + 7);
+
+  const now = new Date();
+  // Tránh hiển thị thời gian tương lai do sai lệch đồng hồ/client
+  return date.getTime() > now.getTime() ? now : date;
 }
 
 function formatTimeAgo(dateString: string) {
@@ -101,6 +108,7 @@ export default function NotificationsPage() {
   const router = useRouter(); 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(10);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -114,6 +122,7 @@ export default function NotificationsPage() {
       try {
         const data = await getNotifications(token);
         setNotifications(data);
+        setVisibleCount(10);
       } catch (err) {
         console.error("Lỗi tải thông báo:", err);
       } finally {
@@ -186,6 +195,19 @@ export default function NotificationsPage() {
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
+  const sortedNotifications = useMemo(() => {
+    return [...notifications].sort(
+      (a, b) => parseNotificationDate(b.createdAt).getTime() - parseNotificationDate(a.createdAt).getTime(),
+    );
+  }, [notifications]);
+
+  const visibleNotifications = useMemo(
+    () => sortedNotifications.slice(0, visibleCount),
+    [sortedNotifications, visibleCount],
+  );
+
+  const hasMoreNotifications = visibleCount < sortedNotifications.length;
+
   return (
     <div className="min-h-screen bg-(--theme-bg)">
       <UserTopBar />
@@ -227,10 +249,10 @@ export default function NotificationsPage() {
           <div className="space-y-3 bg-(--theme-surface) px-6 py-5">
             {loading ? (
               <div className="py-10 text-center text-(--theme-text-subtle)">Đang tải dữ liệu...</div>
-            ) : notifications.length === 0 ? (
+            ) : sortedNotifications.length === 0 ? (
               <div className="py-10 text-center text-(--theme-text-subtle)">Bạn chưa có thông báo nào.</div>
             ) : (
-              notifications.map((n) => (
+              visibleNotifications.map((n) => (
                 <NotificationCard 
                   key={n.id} 
                   item={n} 
@@ -240,9 +262,12 @@ export default function NotificationsPage() {
               ))
             )}
             
-            {notifications.length > 0 && (
+            {hasMoreNotifications && (
               <div className="flex justify-center py-2">
-                <button className="text-sm font-semibold text-(--brand-primary-text) hover:underline">
+                <button
+                  onClick={() => setVisibleCount((prev) => prev + 10)}
+                  className="text-sm font-semibold text-(--brand-primary-text) hover:underline"
+                >
                   Xem các thông báo cũ hơn
                 </button>
               </div>
