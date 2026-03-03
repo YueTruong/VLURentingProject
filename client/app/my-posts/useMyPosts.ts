@@ -400,6 +400,12 @@ export function useMyPosts({ accessToken, sessionStatus }: UseMyPostsOptions) {
             return { ...previousDraft, description: value };
           case 'maxOccupancy':
             return { ...previousDraft, maxOccupancy: value };
+          case 'campus':
+            return { ...previousDraft, campus: value };
+          case 'availability':
+            return { ...previousDraft, availability: value };
+          case 'videoUrl':
+            return { ...previousDraft, videoUrl: value };
           default:
             return previousDraft;
         }
