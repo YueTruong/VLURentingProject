@@ -29,7 +29,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Kích hoạt CORS (Quan trọng để ReactJS gọi được API)
-  app.enableCors();
+  app.enableCors({
+    origin: ['http://localhost:3000', 'https://vlu-renting-client.vercel.app'],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+  });
 
   // Kích hoạt Validation tự động
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));

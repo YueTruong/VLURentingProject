@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 import SessionProviderWrapper from "./homepage/components/SessionProviderWrapper";
 import { ThemeProvider } from "./theme/ThemeProvider";
-import { Toaster } from "react-hot-toast"; // 👈 1. Import Toaster
+import { Toaster } from "react-hot-toast";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: "VLU Renting",
@@ -30,6 +32,8 @@ export default function RootLayout({
             />
           </SessionProviderWrapper>
         </ThemeProvider>
+        <SpeedInsights/>
+        <Analytics />
       </body>
     </html>
   );

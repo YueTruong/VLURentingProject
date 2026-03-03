@@ -56,7 +56,7 @@ function TopHeader() {
             iconClassName="h-5 w-5"
           />
           <Link
-            href="/login"
+            href="/register"
             className="
               group relative flex h-10 sm:h-11 w-[130px] sm:w-[150px] items-center justify-center gap-2.5 
               rounded-full bg-[#ffffff] text-[#010433]

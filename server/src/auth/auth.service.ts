@@ -115,9 +115,26 @@ export class AuthService {
 
     try {
       const savedUser = await this.userRepository.save(newUser);
-      const { password_hash, ...safeUser } = savedUser;
-      void password_hash;
-      return safeUser;
+
+      // ✅ CÁCH GIẢI QUYẾT: Tự định nghĩa lại object trả về (DTO pattern)
+      // Chỉ lấy những trường thực sự cần thiết, ngắt bỏ vòng lặp vô tận
+      return {
+        id: savedUser.id,
+        email: savedUser.email,
+        username: savedUser.username,
+        is_active: savedUser.is_active,
+        created_at: savedUser.createdAt,
+        role: {
+          id: savedUser.role?.id,
+          name: savedUser.role?.name,
+        },
+        profile: {
+          full_name: savedUser.profile?.full_name,
+          phone_number: savedUser.profile?.phone_number,
+          avatar_url: savedUser.profile?.avatar_url,
+          address: savedUser.profile?.address,
+        },
+      };
     } catch (error) {
       console.error(error);
       throw new InternalServerErrorException('Registration failed');
@@ -191,7 +208,7 @@ export class AuthService {
     const providerAccountId = dto.providerAccountId.trim();
     const normalizedEmail = this.normalizeOptionalEmail(dto.email);
 
-    let oauthAccount = await this.oauthAccountRepository.findOne({
+    const oauthAccount = await this.oauthAccountRepository.findOne({
       where: { provider, provider_account_id: providerAccountId },
       relations: ['user', 'user.role', 'user.profile'],
     });

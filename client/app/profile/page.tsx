@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import UserPageShell from "@/app/homepage/components/UserPageShell"; 
@@ -219,7 +219,8 @@ function ListingCard({
   );
 }
 
-export default function ProfilePage() {
+// 1️⃣ TÁCH LOGIC THÀNH COMPONENT CON
+function ProfileContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -309,7 +310,6 @@ export default function ProfilePage() {
   useEffect(() => {
     let active = true;
 
-    // ✅ Bọc logic vào một async function để tránh lỗi "synchronous setState" của ESLint
     const loadData = async () => {
       if (status !== "authenticated" || !isLandlord) {
         if (active) setLoadingListings(false);
@@ -799,5 +799,18 @@ export default function ProfilePage() {
         </section>
       </div>
     </UserPageShell>
+  );
+}
+
+// 2️⃣ COMPONENT XUẤT RA CHỈ CÒN ĐÚNG NHIỆM VỤ BỌC SUSPENSE
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center bg-(--theme-bg) text-(--theme-text)">
+        <span className="animate-spin text-2xl mr-3">⏳</span> Đang tải hồ sơ...
+      </div>
+    }>
+      <ProfileContent />
+    </Suspense>
   );
 }
