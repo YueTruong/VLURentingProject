@@ -54,16 +54,11 @@ export default function ListingCard({ item }: ListingCardProps) {
   const availabilityClass = item.availability === "rented" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700";
   const districtLabel = item.district?.trim() || "Chưa cập nhật";
   const amenityBadges = useMemo(() => {
-    const baseAmenities = [
-      item.wifi ? "Wi-Fi" : null,
-      item.parking ? "Bãi xe" : null,
-      item.furnished ? "Nội thất" : null,
-    ].filter(Boolean) as string[];
 
     const normalized = new Set<string>();
     const merged: string[] = [];
 
-    for (const amenity of [...baseAmenities, ...item.tags]) {
+    for (const amenity of item.tags) {
       const value = amenity?.trim();
       if (!value) continue;
       const key = value.toLowerCase();
@@ -73,7 +68,7 @@ export default function ListingCard({ item }: ListingCardProps) {
     }
 
     return merged;
-  }, [item.furnished, item.parking, item.tags, item.wifi]);
+  }, [item.tags]);
 
   return (
     <article className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-gray-800 dark:bg-gray-900">
