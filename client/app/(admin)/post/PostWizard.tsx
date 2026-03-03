@@ -263,6 +263,27 @@ function collectRoommateLifestyleLabels(lifestyle: RoommateLifestyle) {
     .map((key) => roommateLifestyleMap[key]);
 }
 
+function normalizeDistrictLabel(raw: string) {
+  const value = raw.trim();
+  if (!value) return "";
+  const lowered = value.toLowerCase();
+  if (lowered.startsWith("quận") || lowered.startsWith("huyện") || lowered.startsWith("thành phố")) {
+    return value;
+  }
+  if (/^\d+$/.test(value)) return `Quận ${value}`;
+  return `Quận ${value}`;
+}
+
+function normalizeWardLabel(raw: string) {
+  const value = raw.trim();
+  if (!value) return "";
+  const lowered = value.toLowerCase();
+  if (lowered.startsWith("phường") || lowered.startsWith("xã") || lowered.startsWith("thị trấn")) {
+    return value;
+  }
+  return `Phường ${value}`;
+}
+
 function buildRoommateSummary(draft: ListingDraft) {
   const lines: string[] = [];
   if (draft.roommateListingTitle) {
@@ -592,7 +613,7 @@ function PreviewCard({
               )}
             </div>
             <div className="mt-1 text-sm text-gray-500">
-              {data.ward || "Phường"} - {data.district || "Quận"} - {data.addressText || "Địa chỉ chi tiết"}
+              {data.addressText || "Địa chỉ chi tiết"} - {data.ward || "Phường"} - {data.district || "Quận"}
             </div>
             {isRoommate && data.roommateListingTitle && (
               <div className="mt-1 text-xs text-gray-500">
@@ -1198,23 +1219,6 @@ export default function PostWizard() {
                   />
                 </div>
 
-                <div>
-                  <FieldLabel>Tình trạng phòng</FieldLabel>
-                  <Select
-                    value={draft.availability}
-                    onChange={(v) =>
-                      setDraft((d) => ({
-                        ...d,
-                        availability: v as "available" | "rented",
-                      }))
-                    }
-                    options={[
-                      { value: "available", label: "Còn phòng" },
-                      { value: "rented", label: "Đã cho thuê" },
-                    ]}
-                  />
-                </div>
-
                 <div className="md:col-span-2">
                   <FieldLabel>Video URL (không bắt buộc)</FieldLabel>
                   <Input
@@ -1553,7 +1557,7 @@ export default function PostWizard() {
                 <div className="md:col-span-2">
                   <FieldLabel>Map</FieldLabel>
                   <div className="space-y-3">
-                    <div className="h-72 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                    <div className="h-136 overflow-hidden rounded-2xl border border-gray-200 bg-white">
                       <MapPicker
                         defaultAddress={currentAddress}
                         value={
@@ -1562,6 +1566,14 @@ export default function PostWizard() {
                             : null
                         }
                         onChange={(value) => setDraft((d) => ({ ...d, lat: value.lat, lng: value.lng }))}
+                        onAddressResolved={(resolved) =>
+                          setDraft((d) => ({
+                            ...d,
+                            addressText: resolved.addressText || d.addressText,
+                            ward: normalizeWardLabel(resolved.ward) || d.ward,
+                            district: normalizeDistrictLabel(resolved.district) || d.district,
+                          }))
+                        }
                       />
                     </div>
                     <div className="text-xs text-gray-500">Bạn có thể lấy tọa độ theo địa chỉ hoặc nhập tay latitude/longitude.</div>

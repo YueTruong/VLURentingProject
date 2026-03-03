@@ -15,10 +15,12 @@ type GeoError = "missing" | "not_found" | "failed";
 export default function MapPicker({
   value,
   onChange,
+  onAddressResolved,
   defaultAddress = "",
 }: {
   value?: LatLng | null;
   onChange: (value: LatLng) => void;
+  onAddressResolved?: (value: { addressText: string; ward: string; district: string }) => void;
   defaultAddress?: string;
 }) {
   const safeValue = useMemo(() => value ?? DEFAULT_CENTER, [value]);
@@ -50,25 +52,72 @@ export default function MapPicker({
     setGeoError(null);
 
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`;
-      const res = await fetch(url, {
-        headers: {
-          "Accept-Language": "vi",
-        },
-      });
+      const doSearch = async (q: string) => {
+        const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=vn&q=${encodeURIComponent(q)}`;
+        const res = await fetch(url, {
+          headers: {
+            "Accept-Language": "vi",
+          },
+        });
 
-      if (!res.ok) {
-        setGeoError("failed");
-        return;
-      }
+        if (!res.ok) return null;
+        return (await res.json()) as Array<{
+          lat?: string;
+          lon?: string;
+          address?: {
+            road?: string;
+            pedestrian?: string;
+            neighbourhood?: string;
+            suburb?: string;
+            quarter?: string;
+            village?: string;
+            hamlet?: string;
+            house_number?: string;
+            city_district?: string;
+            district?: string;
+            county?: string;
+            state_district?: string;
+            municipality?: string;
+            city?: string;
+            town?: string;
+            state?: string;
+          };
+        }>;
+      };
 
-      const data = (await res.json()) as Array<{ lat?: string; lon?: string }>;
-      const first = data?.[0];
+      const firstPass = await doSearch(query);
+      const results = firstPass && firstPass.length > 0 ? firstPass : await doSearch(`${query}, Hồ Chí Minh, Việt Nam`);
+      const first = results?.[0];
       const lat = first?.lat ? Number(first.lat) : NaN;
       const lng = first?.lon ? Number(first.lon) : NaN;
 
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
         onChange({ lat, lng });
+        
+        if (onAddressResolved && first?.address) {
+          const address = first.address;
+          const streetName = address.road || address.pedestrian || address.neighbourhood || address.suburb || address.quarter || "";
+          const houseNumber = address.house_number?.trim() || "";
+          const street = [houseNumber, streetName.trim()].filter(Boolean).join(" ").trim() || streetName.trim();
+          const ward = (address.suburb || address.quarter || address.village || address.hamlet || "").trim();
+          const district = (
+            address.city_district ||
+            address.district ||
+            address.county ||
+            address.state_district ||
+            address.municipality ||
+            address.city ||
+            address.town ||
+            address.state ||
+            ""
+          ).trim();
+
+          onAddressResolved({
+            addressText: street,
+            ward,
+            district,
+          });
+        }
         return;
       }
 
@@ -118,7 +167,7 @@ export default function MapPicker({
         <iframe
           title="Map preview"
           src={`https://maps.google.com/maps?q=${safeValue.lat},${safeValue.lng}&z=15&output=embed`}
-          className="h-52 w-full"
+          className="h-72 w-full"
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
         />
