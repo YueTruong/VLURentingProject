@@ -15,7 +15,6 @@ type GeoError = "missing" | "not_found" | "failed";
 export default function MapPicker({
   value,
   onChange,
-  onAddressResolved,
   defaultAddress = "",
 }: {
   value?: LatLng | null;
@@ -93,31 +92,7 @@ export default function MapPicker({
 
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
         onChange({ lat, lng });
-        
-        if (onAddressResolved && first?.address) {
-          const address = first.address;
-          const streetName = address.road || address.pedestrian || address.neighbourhood || address.suburb || address.quarter || "";
-          const houseNumber = address.house_number?.trim() || "";
-          const street = [houseNumber, streetName.trim()].filter(Boolean).join(" ").trim() || streetName.trim();
-          const ward = (address.suburb || address.quarter || address.village || address.hamlet || "").trim();
-          const district = (
-            address.city_district ||
-            address.district ||
-            address.county ||
-            address.state_district ||
-            address.municipality ||
-            address.city ||
-            address.town ||
-            address.state ||
-            ""
-          ).trim();
 
-          onAddressResolved({
-            addressText: street,
-            ward,
-            district,
-          });
-        }
         return;
       }
 
