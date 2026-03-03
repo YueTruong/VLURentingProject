@@ -12,6 +12,12 @@ const DEFAULT_CENTER: LatLng = { lat: 10.762622, lng: 106.660172 };
 
 type GeoError = "missing" | "not_found" | "failed";
 
+type GeocodeCandidate = {
+  lat?: string | number;
+  lon?: string | number;
+  lng?: string | number;
+};
+
 export default function MapPicker({
   value,
   onChange,
@@ -19,7 +25,7 @@ export default function MapPicker({
 }: {
   value?: LatLng | null;
   onChange: (value: LatLng) => void;
-  onAddressResolved?: (value: { addressText: string; ward: string; district: string }) => void;
+  // onAddressResolved?: (value: { addressText: string; ward: string; district: string }) => void;
   defaultAddress?: string;
 }) {
   const safeValue = useMemo(() => value ?? DEFAULT_CENTER, [value]);
@@ -27,6 +33,7 @@ export default function MapPicker({
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState<GeoError | null>(null);
   const previousDefaultAddressRef = useRef(defaultAddress);
+  const isGeocodingRef = useRef(false);
 
   useEffect(() => {
     const prev = previousDefaultAddressRef.current;
@@ -41,59 +48,81 @@ export default function MapPicker({
   }, [defaultAddress, addressQuery]);
 
   async function geocodeAddress() {
-    const query = addressQuery.trim();
+    if (isGeocodingRef.current) return;
+    const normalizedDefaultAddress = defaultAddress.trim();
+    const query = normalizedDefaultAddress || addressQuery.trim();
     if (!query) {
       setGeoError("missing");
       return;
     }
 
+    if (normalizedDefaultAddress && normalizedDefaultAddress !== addressQuery) {
+      setAddressQuery(normalizedDefaultAddress);
+    }
+
     setGeoLoading(true);
+    isGeocodingRef.current = true;
     setGeoError(null);
 
     try {
-      const doSearch = async (q: string) => {
-        const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=vn&q=${encodeURIComponent(q)}`;
-        const res = await fetch(url, {
-          headers: {
-            "Accept-Language": "vi",
-          },
-        });
+      const queryWithCity = `${query}, Hồ Chí Minh, Việt Nam`;
 
-        if (!res.ok) return null;
-        return (await res.json()) as Array<{
-          lat?: string;
-          lon?: string;
-          address?: {
-            road?: string;
-            pedestrian?: string;
-            neighbourhood?: string;
-            suburb?: string;
-            quarter?: string;
-            village?: string;
-            hamlet?: string;
-            house_number?: string;
-            city_district?: string;
-            district?: string;
-            county?: string;
-            state_district?: string;
-            municipality?: string;
-            city?: string;
-            town?: string;
-            state?: string;
-          };
-        }>;
+      const tryFetchJson = async (url: string, headers?: HeadersInit) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 7000);
+
+        try {
+          const res = await fetch(url, {
+            headers,
+            signal: controller.signal,
+          });
+          if (!res.ok) return null;
+          return await res.json();
+        } finally {
+          clearTimeout(timeout);
+        }
       };
 
-      const firstPass = await doSearch(query);
-      const results = firstPass && firstPass.length > 0 ? firstPass : await doSearch(`${query}, Hồ Chí Minh, Việt Nam`);
-      const first = results?.[0];
-      const lat = first?.lat ? Number(first.lat) : NaN;
-      const lng = first?.lon ? Number(first.lon) : NaN;
+      const toLatLng = (candidate?: GeocodeCandidate | null) => {
+        if (!candidate) return null;
+        const lat = Number(candidate.lat);
+        const lng = Number(candidate.lon ?? candidate.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        return { lat, lng };
+      };
 
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        onChange({ lat, lng });
+      const tryNominatim = async (q: string, restrictToVn: boolean) => {
+        const countryCode = restrictToVn ? "&countrycodes=vn" : "";
+        const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&countrycodes=vn&q=${encodeURIComponent(q)}`;
+        const normalizedUrl = url.replace("&countrycodes=vn", countryCode);
+        const json = await tryFetchJson(normalizedUrl, { "Accept-Language": "vi" });
+        if (!Array.isArray(json) || json.length === 0) return null;
+        return toLatLng(json[0] as GeocodeCandidate);
+      };
 
-        return;
+      const tryPhoton = async (q: string) => {
+        const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5&lang=vi`;
+        const json = await tryFetchJson(url);
+        const features = (json as { features?: Array<{ geometry?: { coordinates?: [number, number] } }> })?.features;
+        const coords = features?.[0]?.geometry?.coordinates;
+        if (!Array.isArray(coords) || coords.length < 2) return null;
+        const [lng, lat] = coords;
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        return { lat, lng };
+      };
+
+      const attempts = [
+        () => tryNominatim(query, true),
+        () => tryNominatim(queryWithCity, false),
+        () => tryPhoton(queryWithCity),
+      ];
+
+      for (const attempt of attempts) {
+        const result = await attempt();
+        if (result) {
+          onChange(result);
+          return;
+        }
       }
 
       setGeoError("not_found");
@@ -102,6 +131,7 @@ export default function MapPicker({
       setGeoError("failed");
     } finally {
       setGeoLoading(false);
+      isGeocodingRef.current = false;
     }
   }
 

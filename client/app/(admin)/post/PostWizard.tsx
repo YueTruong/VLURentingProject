@@ -263,27 +263,6 @@ function collectRoommateLifestyleLabels(lifestyle: RoommateLifestyle) {
     .map((key) => roommateLifestyleMap[key]);
 }
 
-function normalizeDistrictLabel(raw: string) {
-  const value = raw.trim();
-  if (!value) return "";
-  const lowered = value.toLowerCase();
-  if (lowered.startsWith("quận") || lowered.startsWith("huyện") || lowered.startsWith("thành phố")) {
-    return value;
-  }
-  if (/^\d+$/.test(value)) return `Quận ${value}`;
-  return `Quận ${value}`;
-}
-
-function normalizeWardLabel(raw: string) {
-  const value = raw.trim();
-  if (!value) return "";
-  const lowered = value.toLowerCase();
-  if (lowered.startsWith("phường") || lowered.startsWith("xã") || lowered.startsWith("thị trấn")) {
-    return value;
-  }
-  return `Phường ${value}`;
-}
-
 function buildRoommateSummary(draft: ListingDraft) {
   const lines: string[] = [];
   if (draft.roommateListingTitle) {
@@ -1566,14 +1545,6 @@ export default function PostWizard() {
                             : null
                         }
                         onChange={(value) => setDraft((d) => ({ ...d, lat: value.lat, lng: value.lng }))}
-                        onAddressResolved={(resolved) =>
-                          setDraft((d) => ({
-                            ...d,
-                            addressText: resolved.addressText || d.addressText,
-                            ward: normalizeWardLabel(resolved.ward) || d.ward,
-                            district: normalizeDistrictLabel(resolved.district) || d.district,
-                          }))
-                        }
                       />
                     </div>
                     <div className="text-xs text-gray-500">Bạn có thể lấy tọa độ theo địa chỉ hoặc nhập tay latitude/longitude.</div>
