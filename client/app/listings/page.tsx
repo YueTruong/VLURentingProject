@@ -197,6 +197,11 @@ const mapPostToListing = (post: Post): Listing => {
   const hasWifiAmenity = hasAmenityKeyword(amenityNames, WIFI_KEYWORDS);
   const hasParkingAmenity = hasAmenityKeyword(amenityNames, PARKING_KEYWORDS);
   const hasFurnishedAmenity = hasAmenityKeyword(amenityNames, FURNISHED_KEYWORDS);
+  const hasPrivateWcAmenity = hasAmenityKeyword(amenityNames, PRIVATE_WC_KEYWORDS);
+  const hasMezzanineAmenity = hasAmenityKeyword(amenityNames, MEZZANINE_KEYWORDS);
+  const hasAirconAmenity = hasAmenityKeyword(amenityNames, AIRCON_KEYWORDS);
+  const hasSecurityAmenity = hasAmenityKeyword(amenityNames, SECURITY_KEYWORDS);
+  const hasFreeTimeAmenity = hasAmenityKeyword(amenityNames, FREE_TIME_KEYWORDS);
   const price = toPriceMillionValue(post.price);
   const area = toNumberValue(post.area);
   const campusFallback = "CS1";
@@ -222,6 +227,11 @@ const mapPostToListing = (post: Post): Listing => {
     longitude: typeof post.longitude === "number" ? post.longitude : undefined,
     furnished: hasFurnishedAmenity,
     parking: hasParkingAmenity,
+    privateWc: hasPrivateWcAmenity,
+    mezzanine: hasMezzanineAmenity,
+    aircon: hasAirconAmenity,
+    security: hasSecurityAmenity,
+    freeTime: hasFreeTimeAmenity,
     rating: 0,
     reviews: 0,
     updatedAt: Number.isFinite(updatedAtValue) ? updatedAtValue : Date.now(),
@@ -1211,7 +1221,7 @@ ${buildAssistantReply(parsed, matched.length, sourceListings.length, cloudProvid
             </section>
 
             {/* BỘ LỌC NÂNG CAO */}
-            <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900 lg:sticky lg:top-24">
+            <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7.5rem)] lg:overflow-y-auto lg:pr-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-semibold text-gray-900 dark:text-white">Bộ lọc nâng cao</h2>
                 <button

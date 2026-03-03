@@ -15,6 +15,11 @@ export type Listing = {
   longitude?: number;
   furnished: boolean;
   parking: boolean;
+  privateWc?: boolean;
+  mezzanine?: boolean;
+  aircon?: boolean;
+  security?: boolean;
+  freeTime?: boolean;
   rating: number;
   reviews: number;
   updatedAt: number;
