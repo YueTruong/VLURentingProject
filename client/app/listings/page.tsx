@@ -121,6 +121,11 @@ const hasAmenityKeyword = (tags: string[], keywords: string[]) => {
   });
 };
 
+const hasAnyKeyword = (text: string, keywords: string[]) => {
+  const normalizedText = normalizeAmenityToken(text);
+  return keywords.some((keyword) => normalizedText.includes(normalizeAmenityToken(keyword)));
+};
+
 const WIFI_KEYWORDS = ["wifi", "wi fi", "wi-fi"];
 const PARKING_KEYWORDS = ["giu xe", "gui xe", "bai xe", "dau xe", "parking", "garage", "gara"];
 const FURNISHED_KEYWORDS = ["noi that", "day du noi that", "full noi that", "furnished"];
@@ -703,6 +708,57 @@ const hasFollowupIntent = (input: string) => {
   return /\b(them|bo sung|con|va|kem|uu tien|them nua|ngoai ra|them tieu chi)\b/.test(normalized);
 };
 
+const getCriteriaKeysToUnset = (input: string): Array<keyof Criteria> => {
+  const normalized = normalizeAmenityToken(input);
+  const toUnset = new Set<keyof Criteria>();
+
+  const shouldUnsetByKeywords = (keywords: string[]) =>
+    keywords.some((keyword) => {
+      const token = normalizeAmenityToken(keyword);
+      if (!token) return false;
+      return (
+        normalized.includes(`khong ${token}`) ||
+        normalized.includes(`khong can ${token}`) ||
+        normalized.includes(`khong yeu cau ${token}`) ||
+        normalized.includes(`bo ${token}`) ||
+        normalized.includes(`xoa ${token}`) ||
+        normalized.includes(`tat ${token}`)
+      );
+    });
+
+  if (shouldUnsetByKeywords(WIFI_KEYWORDS)) toUnset.add("wifi");
+  if (shouldUnsetByKeywords(PARKING_KEYWORDS)) toUnset.add("parking");
+  if (shouldUnsetByKeywords(FURNISHED_KEYWORDS)) toUnset.add("furnished");
+  if (shouldUnsetByKeywords(PRIVATE_WC_KEYWORDS)) toUnset.add("privateWc");
+  if (shouldUnsetByKeywords(MEZZANINE_KEYWORDS)) toUnset.add("mezzanine");
+  if (shouldUnsetByKeywords(AIRCON_KEYWORDS)) toUnset.add("aircon");
+  if (shouldUnsetByKeywords(SECURITY_KEYWORDS)) toUnset.add("security");
+  if (shouldUnsetByKeywords(FREE_TIME_KEYWORDS)) toUnset.add("freeTime");
+
+  if (/bo\s+co\s*so|xoa\s+co\s*so|khong\s+loc\s+co\s*so/.test(normalized)) toUnset.add("campus");
+  if (/bo\s+khu\s*vuc|xoa\s+khu\s*vuc|khong\s+loc\s+khu\s*vuc/.test(normalized)) toUnset.add("district");
+  if (/bo\s+loai\s*phong|xoa\s+loai\s*phong|khong\s+loc\s+loai/.test(normalized)) toUnset.add("type");
+  if (/bo\s+gia|xoa\s+gia|khong\s+gioi\s+han\s+gia/.test(normalized)) {
+    toUnset.add("priceMin");
+    toUnset.add("priceMax");
+  }
+  if (/bo\s+dien\s*tich|xoa\s+dien\s*tich|khong\s+gioi\s+han\s+dien\s*tich/.test(normalized)) {
+    toUnset.add("areaMin");
+    toUnset.add("areaMax");
+  }
+
+  return Array.from(toUnset);
+};
+
+const unsetCriteriaKeys = (criteria: Criteria, keys: Array<keyof Criteria>): Criteria => {
+  if (keys.length === 0) return criteria;
+  const next = { ...criteria };
+  for (const key of keys) {
+    delete next[key];
+  }
+  return next;
+};
+
 const optimizeCloudMergedCriteria = (
   merged: Criteria,
   cloudCriteria: Criteria | null,
@@ -1015,6 +1071,17 @@ export default function ListingsPage() {
     if (shouldUseConversationContext && assistantCriteria) {
       parsed = mergeCriteria(assistantCriteria, parsed);
     }
+
+    parsed = unsetCriteriaKeys(parsed, getCriteriaKeysToUnset(trimmed));
+
+    if (hasAnyKeyword(trimmed, WIFI_KEYWORDS)) parsed.wifi = true;
+    if (hasAnyKeyword(trimmed, PARKING_KEYWORDS)) parsed.parking = true;
+    if (hasAnyKeyword(trimmed, FURNISHED_KEYWORDS)) parsed.furnished = true;
+    if (hasAnyKeyword(trimmed, PRIVATE_WC_KEYWORDS)) parsed.privateWc = true;
+    if (hasAnyKeyword(trimmed, MEZZANINE_KEYWORDS)) parsed.mezzanine = true;
+    if (hasAnyKeyword(trimmed, AIRCON_KEYWORDS)) parsed.aircon = true;
+    if (hasAnyKeyword(trimmed, SECURITY_KEYWORDS)) parsed.security = true;
+    if (hasAnyKeyword(trimmed, FREE_TIME_KEYWORDS)) parsed.freeTime = true;
 
     if (!resetRequested && CLOUD_AI_ENABLED) {
       try {
