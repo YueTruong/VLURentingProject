@@ -1,0 +1,97 @@
+@startuml User Entities Diagram
+
+' ======================== USER & AUTH ENTITIES ========================
+
+class UserEntity {
+  +id: number
+  +email: string
+  +username: string
+  +password_hash: string
+  +roleId: number
+  +is_active: boolean
+  +createdAt: Date
+  +updatedAt: Date
+  +role: RoleEntity
+  +profile: UserProfileEntity
+  +posts: PostEntity[]
+  +notifications: NotificationEntity[]
+  +oauthAccounts: UserOauthAccountEntity[]
+  +settings: UserSettingsEntity
+}
+
+class RoleEntity {
+  +id: number
+  +name: string
+  +users: UserEntity[]
+}
+
+class UserProfileEntity {
+  +userId: number
+  +full_name: string
+  +phone_number: string
+  +avatar_url: string
+  +address: string
+  +user: UserEntity
+}
+
+class UserSettingsEntity {
+  +user_id: number
+  +preferred_name: string
+  +residence_address: string
+  +mailing_address: string
+  +emergency_name: string
+  +emergency_relationship: string
+  +emergency_email: string
+  +emergency_phone: string
+  +language_code: string
+  +currency_code: string
+  +timezone: string
+  +read_receipts_enabled: boolean
+  +identity_verification_status: string
+  +identity_document_type: string
+  +identity_front_image_name: string
+  +identity_back_image_name: string
+  +identity_submitted_at: Date
+  +identity_verified_at: Date
+  +created_at: Date
+  +updated_at: Date
+  +user: UserEntity
+}
+
+class UserOauthAccountEntity {
+  +id: number
+  +userId: number
+  +provider: string
+  +providerAccountId: string
+  +user: UserEntity
+}
+
+' ======================== NOTIFICATION ENTITIES ========================
+
+class NotificationEntity {
+  +id: number
+  +title: string
+  +message: string
+  +type: string
+  +isRead: boolean
+  +relatedId: number
+  +createdAt: Date
+  +userId: number
+  +user: UserEntity
+}
+
+' ======================== RELATIONSHIPS ========================
+
+' User relationships
+UserEntity ||--o{ RoleEntity : "many-to-one"
+UserEntity ||--|| UserProfileEntity : "one-to-one"
+UserEntity ||--o{ PostEntity : "one-to-many"
+UserEntity ||--o{ NotificationEntity : "one-to-many"
+UserEntity ||--|| UserSettingsEntity : "one-to-one"
+UserEntity ||--o{ UserOauthAccountEntity : "one-to-many"
+
+' Notification relationships
+NotificationEntity ||--o{ UserEntity : "many-to-one"
+
+@enduml
+

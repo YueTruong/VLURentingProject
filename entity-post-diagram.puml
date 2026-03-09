@@ -1,0 +1,115 @@
+@startuml Post Entities Diagram
+
+' ======================== POST ENTITIES ========================
+
+class PostEntity {
+  +id: number
+  +title: string
+  +description: string
+  +price: number
+  +area: number
+  +address: string
+  +campus: Campus
+  +availability: AvailabilityStatus
+  +videoUrl: string
+  +latitude: number
+  +longitude: number
+  +rejectionReason: string
+  +resubmittedAt: Date
+  +max_occupancy: number
+  +status: PostStatus
+  +createdAt: Date
+  +updatedAt: Date
+  +userId: number
+  +categoryId: number
+  +user: UserEntity
+  +category: CategoryEntity
+  +images: PostImageEntity[]
+  +amenities: AmenityEntity[]
+  +reviews: ReviewEntity[]
+}
+
+class CategoryEntity {
+  +id: number
+  +name: string
+  +description: string
+  +posts: PostEntity[]
+}
+
+class AmenityEntity {
+  +id: number
+  +name: string
+  +icon_url: string
+  +posts: PostEntity[]
+}
+
+class PostImageEntity {
+  +id: number
+  +postId: number
+  +image_url: string
+  +is_video: boolean
+  +post: PostEntity
+}
+
+class ReviewEntity {
+  +id: number
+  +rating: number
+  +comment: string
+  +createdAt: Date
+  +userId: number
+  +postId: number
+  +user: UserEntity
+  +post: PostEntity
+}
+
+class SavedPostEntity {
+  +id: number
+  +userId: number
+  +postId: number
+  +createdAt: Date
+  +user: UserEntity
+  +post: PostEntity
+}
+
+class BookingEntity {
+  +id: number
+  +postId: number
+  +studentId: number
+  +landlordId: number
+  +booking_date: string
+  +time_slot: string
+  +note: string
+  +status: string
+  +createdAt: Date
+  +updatedAt: Date
+  +post: PostEntity
+  +student: UserEntity
+  +landlord: UserEntity
+}
+
+' ======================== RELATIONSHIPS ========================
+
+' Post relationships
+PostEntity ||--o{ CategoryEntity : "many-to-one"
+PostEntity ||--o{ UserEntity : "many-to-one"
+PostEntity ||--o{ PostImageEntity : "one-to-many"
+PostEntity }o--o{ AmenityEntity : "many-to-many"
+PostEntity ||--o{ ReviewEntity : "one-to-many"
+PostEntity ||--o{ SavedPostEntity : "one-to-many"
+PostEntity ||--o{ BookingEntity : "one-to-many"
+
+' Review relationships
+ReviewEntity ||--o{ UserEntity : "many-to-one"
+ReviewEntity ||--o{ PostEntity : "many-to-one"
+
+' Booking relationships
+BookingEntity ||--o{ PostEntity : "many-to-one"
+BookingEntity ||--o{ UserEntity : "many-to-one (student)"
+BookingEntity ||--o{ UserEntity : "many-to-one (landlord)"
+
+' Saved post relationships
+SavedPostEntity ||--o{ UserEntity : "many-to-one"
+SavedPostEntity ||--o{ PostEntity : "many-to-one"
+
+@enduml
+

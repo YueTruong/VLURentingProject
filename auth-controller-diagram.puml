@@ -4,15 +4,29 @@ class AuthController {
   +constructor(authService: AuthService)
   +register(registerDto: RegisterDto): any
   +login(req: any, loginDto: LoginDto): any
-  +getProfile(req: any): any
+  +oauthLogin(dto: OauthLoginDto, bridgeSecret?: string): any
+  +linkProvider(req: AuthenticatedRequest, provider: string, dto: LinkProviderDto): any
+  +unlinkProvider(req: AuthenticatedRequest, provider: string): any
+  +getProfile(req: AuthenticatedRequest): any
+  +getSettings(req: AuthenticatedRequest): any
+  +updateSettingsPersonal(req: AuthenticatedRequest, dto: UpdateSettingsPersonalDto): any
+  +updateSettingsPreferences(req: AuthenticatedRequest, dto: UpdateSettingsPreferencesDto): any
+  +changePassword(req: AuthenticatedRequest, dto: ChangePasswordDto): any
 }
 
 class AuthService {
-  +constructor(userRepository: Repository<UserEntity>, roleRepository: Repository<RoleEntity>, profileRepository: Repository<UserProfileEntity>, jwtService: JwtService)
+  +constructor(userRepository, roleRepository, profileRepository, settingsRepository, oauthAccountRepository, jwtService)
   +register(registerDto: RegisterDto): any
   +validateUser(identifier: string, pass: string): any
   +login(user: any): any
+  +oauthLogin(dto: OauthLoginDto, bridgeSecret?: string): any
+  +linkProvider(userId: number, provider: string, dto: LinkProviderDto): any
+  +unlinkProvider(userId: number, provider: string): any
   +getProfile(userId: number): any
+  +getSettings(userId: number): any
+  +updateSettingsPersonal(userId: number, dto: UpdateSettingsPersonalDto): any
+  +updateSettingsPreferences(userId: number, dto: UpdateSettingsPreferencesDto): any
+  +changePassword(userId: number, dto: ChangePasswordDto): any
 }
 
 class UserEntity {
@@ -27,6 +41,9 @@ class UserEntity {
   +role: RoleEntity
   +profile: UserProfileEntity
   +posts: PostEntity[]
+  +notifications: NotificationEntity[]
+  +oauthAccounts: UserOauthAccountEntity[]
+  +settings: UserSettingsEntity
 }
 
 class RoleEntity {
@@ -44,10 +61,69 @@ class UserProfileEntity {
   +user: UserEntity
 }
 
+class UserSettingsEntity {
+  +user_id: number
+  +preferred_name: string
+  +residence_address: string
+  +mailing_address: string
+  +emergency_name: string
+  +emergency_relationship: string
+  +emergency_email: string
+  +emergency_phone: string
+  +language_code: string
+  +currency_code: string
+  +timezone: string
+  +read_receipts_enabled: boolean
+  +post_privacy_search_engine: boolean
+  +post_privacy_hometown: boolean
+  +post_privacy_expert_type: boolean
+  +post_privacy_joined_time: boolean
+  +post_privacy_booked_services: boolean
+  +stop_all_marketing_emails: boolean
+  +notify_offer_host_recognition: boolean
+  +notify_offer_trip_offers: boolean
+  +notify_offer_price_suggestions: boolean
+  +notify_offer_host_perks: boolean
+  +notify_offer_news_and_programs: boolean
+  +notify_offer_local_regulations: boolean
+  +notify_offer_inspiration_and_deals: boolean
+  +notify_offer_trip_planning: boolean
+  +notify_account_new_device_login: boolean
+  +notify_account_security_updates: boolean
+  +notify_account_payment_activity: boolean
+  +notify_account_profile_reminders: boolean
+  +notify_account_verification_reminders: boolean
+  +notify_account_support_tips: boolean
+  +identity_verification_status: string
+  +identity_document_type: string
+  +identity_front_image_name: string
+  +identity_back_image_name: string
+  +identity_submitted_at: Date
+  +identity_verified_at: Date
+  +created_at: Date
+  +updated_at: Date
+  +user: UserEntity
+}
+
+class UserOauthAccountEntity {
+  +id: number
+  +userId: number
+  +provider: string
+  +providerAccountId: string
+  +user: UserEntity
+}
+
 ' Relationships
 AuthController --> AuthService : uses
 AuthService --> UserEntity : manages
 AuthService --> RoleEntity : manages
 AuthService --> UserProfileEntity : manages
+AuthService --> UserSettingsEntity : manages
+AuthService --> UserOauthAccountEntity : manages
+UserEntity --> RoleEntity : many-to-one
+UserEntity --> UserProfileEntity : one-to-one
+UserEntity --> UserSettingsEntity : one-to-one
+UserEntity --> UserOauthAccountEntity : one-to-many
 
 @enduml
+
