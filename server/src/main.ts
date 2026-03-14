@@ -27,6 +27,7 @@ async function ensurePostsSchema(dataSource: DataSource) {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
 
   // Kích hoạt CORS (Quan trọng để ReactJS gọi được API)
   app.enableCors({
@@ -52,6 +53,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document); // Truy cập tại localhost:3000/api
 
-  await app.listen(3001);
+  const port = Number(process.env.PORT || 3001);
+  await app.listen(port);
+  logger.log(`Server listening on port ${port}`);
 }
 bootstrap();

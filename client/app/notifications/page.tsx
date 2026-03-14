@@ -45,8 +45,7 @@ function TypeBadge({ type }: { type: string }) {
   const map: Record<string, { label: string; color: string }> = {
     system: { label: "Hệ thống", color: "bg-(--theme-surface-muted) text-(--theme-text-muted)" },
     message: { label: "Tin nhắn", color: "bg-(--brand-primary-soft) text-(--brand-primary-text)" },
-    listing: { label: "Tin phòng", color: "bg-(--brand-accent-soft) text-(--brand-accent)" },
-    // 👈 Bổ sung loại thông báo đặt lịch
+    listing: { label: "Tin đăng", color: "bg-(--brand-accent-soft) text-(--brand-accent)" },
     booking: { label: "Lịch hẹn", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" },
   };
   const chosen = map[type] || map.system;
@@ -96,7 +95,7 @@ function NotificationCard({
           }}
           className="rounded-full bg-(--surface-navy-900) px-3 py-2 text-xs font-semibold text-white hover:bg-(--surface-navy-800) active:scale-95"
         >
-          Mở chi tiết
+          Xem chi tiết
         </button>
       </div>
     </article>
@@ -166,14 +165,11 @@ export default function NotificationsPage() {
        await handleMarkAsRead(item.id);
     }
 
-    // 👈 Bổ sung logic điều hướng cho Đặt lịch (booking)
     if (item.type === 'booking') {
       const userRole = session?.user?.role?.toLowerCase();
-      // Nếu là landlord thì dẫn về trang quản lý duyệt lịch
       if (userRole === 'landlord') {
         router.push('/manage-bookings');
       } else {
-        // Nếu là student thì dẫn về trang danh sách lịch hẹn của tôi (nếu em có làm)
         router.push('/my-bookings'); 
       }
     }
