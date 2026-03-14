@@ -12,7 +12,7 @@ export default function TaxpayerDetailsClient({ country, businessIdChoice }: Tax
   const isBusinessFlow = businessIdChoice === "yes";
 
   return (
-    <div className="min-h-screen bg-white text-[#222222]">
+    <div className="settings-standalone-shell min-h-screen bg-white text-[#222222]">
       <main className="mx-auto w-full px-6 py-6 lg:px-8">
         <div className="flex items-center justify-between">
           <button

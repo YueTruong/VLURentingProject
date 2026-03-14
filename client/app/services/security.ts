@@ -54,6 +54,37 @@ export type SubmitIdentityVerificationInput = {
   backImageName?: string;
 };
 
+export type SettingsPrivacyPostPreferences = {
+  searchEngine: boolean;
+  hometown: boolean;
+  expertType: boolean;
+  joinedTime: boolean;
+  bookedServices: boolean;
+};
+
+export type SettingsPreferences = {
+  language: string;
+  currency: string;
+  timezone: string;
+  privacy: {
+    readReceiptsEnabled: boolean;
+    post: SettingsPrivacyPostPreferences;
+  };
+};
+
+export type SettingsOverview = {
+  preferences: SettingsPreferences;
+};
+
+export type UpdateSettingsPreferencesInput = {
+  readReceiptsEnabled?: boolean;
+  postPrivacySearchEngine?: boolean;
+  postPrivacyHometown?: boolean;
+  postPrivacyExpertType?: boolean;
+  postPrivacyJoinedTime?: boolean;
+  postPrivacyBookedServices?: boolean;
+};
+
 export const VERIFICATION_STORAGE_KEY = "vlu.landlord.verified";
 export const VERIFICATION_PENDING_KEY = "vlu.landlord.pending";
 export const VERIFICATION_STATUS_EVENT = "vlu:verification-status-changed";
@@ -119,6 +150,27 @@ export async function changePassword(input: ChangePasswordInput, token: string) 
     headers: getAuthHeaders(token),
   });
   return res.data;
+}
+
+export async function getSettingsOverview(token: string): Promise<SettingsOverview> {
+  const res = await axios.get<SettingsOverview>(`${getBaseUrl()}/me/settings`, {
+    headers: getAuthHeaders(token),
+  });
+  return res.data;
+}
+
+export async function updateSettingsPreferences(
+  input: UpdateSettingsPreferencesInput,
+  token: string,
+): Promise<SettingsPreferences> {
+  const res = await axios.patch<{ message: string; preferences: SettingsPreferences }>(
+    `${getBaseUrl()}/me/settings/preferences`,
+    input,
+    {
+      headers: getAuthHeaders(token),
+    },
+  );
+  return res.data.preferences;
 }
 
 export async function getIdentityVerificationOverview(

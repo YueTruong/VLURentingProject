@@ -10,7 +10,7 @@ export default async function IdentityDocumentUploadPage() {
   if (!session) redirect("/homepage");
 
   return (
-    <div className="min-h-screen bg-white text-[#222222]">
+    <div className="settings-standalone-shell min-h-screen bg-white text-[#222222]">
       <header className="border-b border-[#e5e7eb]">
         <div className="mx-auto flex h-[88px] w-full items-center justify-between px-6 lg:px-16">
           <Link href="/" className="inline-flex items-center">
