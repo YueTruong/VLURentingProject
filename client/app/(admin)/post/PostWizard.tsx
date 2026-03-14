@@ -1406,7 +1406,7 @@ export default function PostWizard() {
                         options={[
                           { value: "Sinh viên", label: "Sinh viên" },
                           { value: "Nhân viên văn phòng", label: "Nhân viên văn phòng" },
-                          { value: "Freelancer", label: "Freelancer" },
+                          { value: "Làm việc tự do", label: "Làm việc tự do" },
                           { value: "Không yêu cầu", label: "Không yêu cầu" },
                         ]}
                       />

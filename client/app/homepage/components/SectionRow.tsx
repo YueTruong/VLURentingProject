@@ -1,6 +1,6 @@
 import Link from "next/link";
 import HorizontalCarousel from "./HorizontalCarousel";
-import { RoomCardData } from "./RoomCard";
+import type { RoomCardData } from "./RoomCard";
 
 type SectionRowProps = {
   title: string;
@@ -21,9 +21,10 @@ export default function SectionRow({ title, subtitle, items }: SectionRowProps) 
             }}
           >
             <div className="space-y-2">
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{title}</h3>
-              {subtitle ? <p className="text-sm text-gray-600 dark:text-gray-400">{subtitle}</p> : null}
+              <h3 className="text-2xl font-bold text-(--theme-text)">{title}</h3>
+              {subtitle ? <p className="text-sm text-(--theme-text-muted)">{subtitle}</p> : null}
             </div>
+
             <Link
               href="/listings"
               className="flex items-center gap-1 font-semibold text-(--brand-accent) hover:text-(--brand-accent-strong)"
