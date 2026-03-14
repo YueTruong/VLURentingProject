@@ -10,12 +10,62 @@ export class NotificationsService {
     private repo: Repository<NotificationEntity>,
   ) {}
 
+  private normalizeNotificationText(text: string) {
+    if (!text) return text;
+
+    return text
+      .replace(/Yeu cau o ghep moi can duyet/gi, 'Yêu cầu ở ghép mới cần duyệt')
+      .replace(/Yeu cau o ghep da duoc duyet/gi, 'Yêu cầu ở ghép đã được duyệt')
+      .replace(/Yeu cau o ghep bi tu choi/gi, 'Yêu cầu ở ghép bị từ chối')
+      .replace(/Yeu cau o ghep dang cho duyet/gi, 'Yêu cầu ở ghép đang chờ duyệt')
+      .replace(/Yeu cau o ghep cho phong/gi, 'Yêu cầu ở ghép cho phòng')
+      .replace(/da duoc admin chap nhan va da hien thi trong listings/gi, 'đã được quản trị viên chấp nhận và đã hiển thị công khai')
+      .replace(/da duoc admin chap nhan/gi, 'đã được quản trị viên chấp nhận')
+      .replace(/da bi admin tu choi/gi, 'đã bị quản trị viên từ chối')
+      .replace(/dang cho admin xac nhan/gi, 'đang chờ quản trị viên duyệt')
+      .replace(/da duoc chuyen ve trang thai cho duyet/gi, 'đã được chuyển về trạng thái chờ duyệt')
+      .replace(/Tin nhan moi tu/gi, 'Tin nhắn mới từ')
+      .replace(/Dang cho ban phan hoi/gi, 'Đang chờ bạn phản hồi')
+      .replace(/Yeu cau xem phong moi/gi, 'Yêu cầu xem phòng mới')
+      .replace(/Cap nhat lich xem phong/gi, 'Cập nhật lịch xem phòng')
+      .replace(/Lich hen da bi huy/gi, 'Lịch hẹn đã bị hủy')
+      .replace(/lich hen xem phong/gi, 'lịch hẹn xem phòng')
+      .replace(/bai dang/gi, 'bài đăng')
+      .replace(/Nha tro/gi, 'Nhà trọ')
+      .replace(/Can ho/gi, 'Căn hộ');
+  }
+
+  private normalizeNotificationEntity(notification: NotificationEntity) {
+    const nextTitle = this.normalizeNotificationText(notification.title);
+    const nextMessage = this.normalizeNotificationText(notification.message);
+    const changed =
+      nextTitle !== notification.title || nextMessage !== notification.message;
+
+    if (changed) {
+      notification.title = nextTitle;
+      notification.message = nextMessage;
+    }
+
+    return { notification, changed };
+  }
+
   // Lấy danh sách thông báo của user
   async findMyNotifications(userId: number) {
-    return this.repo.find({
+    const notifications = await this.repo.find({
       where: { userId },
       order: { createdAt: 'DESC' }, // Mới nhất lên đầu
     });
+
+    const changedNotifications = notifications
+      .map((notification) => this.normalizeNotificationEntity(notification))
+      .filter((item) => item.changed)
+      .map((item) => item.notification);
+
+    if (changedNotifications.length > 0) {
+      await this.repo.save(changedNotifications);
+    }
+
+    return notifications;
   }
 
   // Đánh dấu 1 thông báo là đã đọc
@@ -40,7 +90,7 @@ export class NotificationsService {
     message: string,
     type: string,
     relatedId?: number,
-  ) {
+    ) {
     // 1. Nếu là tin nhắn chat, kiểm tra xem có thông báo nào CÙNG NGƯỜI GỬI (relatedId) và CHƯA ĐỌC không?
     if (type === 'message') {
       const existingNotif = await this.repo.findOne({
@@ -64,7 +114,13 @@ export class NotificationsService {
     }
 
     // 3. Tạo thông báo mới (hoặc tái tạo cái vừa xóa để nó mới nhất)
-    const notif = this.repo.create({ userId, title, message, type, relatedId });
+    const notif = this.repo.create({
+      userId,
+      title: this.normalizeNotificationText(title),
+      message: this.normalizeNotificationText(message),
+      type,
+      relatedId,
+    });
     return this.repo.save(notif);
   }
 

@@ -13,6 +13,7 @@ import { ChatModule } from './chat/chat.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AiModule } from './ai/ai.module';
 import { BookingsModule } from './bookings/bookings.module';
+import { RoommateManagementModule } from './roommate-management/roommate-management.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { BookingsModule } from './bookings/bookings.module';
     NotificationsModule,
     AiModule,
     BookingsModule,
+    RoommateManagementModule,
   ],
   controllers: [AppController],
   providers: [AppService],
