@@ -4,7 +4,33 @@ import SessionProviderWrapper from "./homepage/components/SessionProviderWrapper
 import { ThemeProvider } from "./theme/ThemeProvider";
 import { Toaster } from "react-hot-toast";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { Analytics } from "@vercel/analytics/next";
+import { Analytics } from "@vercel/analytics/react";
+
+const themeInitScript = `
+(() => {
+  try {
+    const storageKey = "vlu.theme";
+    const stored = window.localStorage.getItem(storageKey);
+    const theme =
+      stored === "light" || stored === "dark"
+        ? stored
+        : window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light";
+    const root = document.documentElement;
+    root.dataset.theme = theme;
+    root.style.colorScheme = theme;
+    root.classList.toggle("dark", theme === "dark");
+    root.classList.toggle("light", theme === "light");
+  } catch {
+    const root = document.documentElement;
+    root.dataset.theme = "light";
+    root.style.colorScheme = "light";
+    root.classList.add("light");
+    root.classList.remove("dark");
+  }
+})();
+`;
 
 export const metadata: Metadata = {
   title: "VLU Renting",
@@ -18,6 +44,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="overflow-x-hidden">
         <ThemeProvider>
           <SessionProviderWrapper>
