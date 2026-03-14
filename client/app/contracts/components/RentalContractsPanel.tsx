@@ -22,11 +22,11 @@ type SessionUser = {
 
 const statusBadge = {
   pending_tenant_signature: {
-    label: "Chờ ký",
+    label: "Chờ ký cọc",
     tone: "bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-200",
   },
   fully_signed: {
-    label: "Đã ký",
+    label: "Đã hoàn tất",
     tone: "bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-200",
   },
 } as const;
@@ -147,19 +147,19 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
 
   const overviewCards = [
     {
-      label: isStudent ? "Hợp đồng của tôi" : "Tổng hợp hợp đồng",
+      label: isStudent ? "Hợp đồng cọc của tôi" : "Tổng hợp hợp đồng cọc",
       value: visibleContracts.length,
       hint: latestUpdatedAt ? `Cập nhật ${formatDateTime(latestUpdatedAt)}` : "Chưa có dữ liệu",
     },
     {
-      label: "Đang chờ ký",
+      label: "Đang chờ ký cọc",
       value: pendingContractsCount,
-      hint: isStudent ? "Những hợp đồng bạn cần xử lý" : "Đang chờ người thuê xác nhận",
+      hint: isStudent ? "Những hợp đồng cọc bạn cần xử lý" : "Đang chờ bên đặt cọc xác nhận",
     },
     {
       label: "Đã hoàn tất",
       value: completedContractsCount,
-      hint: "Các hợp đồng đã đủ chữ ký hai bên",
+      hint: "Các hợp đồng cọc đã đủ chữ ký hai bên",
     },
     {
       label: "Tổng tiền cọc",
@@ -170,30 +170,30 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
 
   return (
     <section className="space-y-6">
-      <div className="overflow-hidden rounded-[32px] border border-rose-100 bg-[linear-gradient(135deg,#fff8f8_0%,#ffffff_62%,#fffaf7_100%)] shadow-[0_24px_70px_-40px_rgba(159,18,57,0.28)]">
+      <div className="contracts-hero overflow-hidden rounded-[32px] border border-rose-100 bg-[linear-gradient(135deg,#fff8f8_0%,#ffffff_62%,#fffaf7_100%)] shadow-[0_24px_70px_-40px_rgba(159,18,57,0.28)]">
         <div className="grid gap-6 px-6 py-6 sm:px-8 lg:grid-cols-[minmax(0,1.35fr)_320px] lg:items-start">
           <div className="space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="max-w-2xl">
-                <div className="inline-flex rounded-full border border-rose-200 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-rose-700">
-                  Trung tâm hợp đồng
+                <div className="contracts-frost-chip inline-flex rounded-full border border-rose-200 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-rose-700">
+                  Trung tâm hợp đồng cọc
                 </div>
                 <h2 className="mt-4 text-2xl font-semibold tracking-tight text-gray-950 sm:text-[30px]">
-                  {isStudent ? "Theo dõi và ký hợp đồng trên một giao diện gọn hơn." : "Quản lý hợp đồng thuê theo một luồng rõ ràng."}
+                  {isStudent ? "Theo dõi và ký hợp đồng cọc trên một giao diện gọn hơn." : "Quản lý hợp đồng cọc theo một luồng rõ ràng."}
                 </h2>
                 <p className="mt-3 max-w-xl text-sm leading-6 text-gray-600">
                   {isStudent
-                    ? "Danh sách chờ ký, chi tiết hợp đồng và phần ký xác nhận được giữ trong cùng một màn hình."
-                    : "Xem nhanh danh sách, mở chi tiết và chuyển sang khu tạo hoặc gửi hợp đồng mà không phải đi qua nhiều bước thừa."}
+                    ? "Danh sách chờ ký, chi tiết hợp đồng cọc và phần ký xác nhận được giữ trong cùng một màn hình."
+                    : "Xem nhanh danh sách, mở chi tiết và chuyển sang khu tạo hoặc gửi hợp đồng cọc mà không phải đi qua nhiều bước thừa."}
                 </p>
               </div>
 
               {isLandlord ? (
                 <Link
-                  href="/contracts#rental-contract-workspace"
+                  href="/contracts#deposit-contract-workspace"
                   className="inline-flex items-center rounded-full bg-[#9f1239] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#881337]"
                 >
-                  Tạo hợp đồng mới
+                  Tạo hợp đồng cọc mới
                 </Link>
               ) : null}
             </div>
@@ -206,12 +206,12 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
             <div className="mt-4 text-3xl font-semibold">{visibleContracts.length}</div>
             <div className="mt-2 text-sm leading-6 text-white/70">
               {isStudent
-                ? "Chọn một hợp đồng bên dưới để mở chi tiết và ký."
+                ? "Chọn một hợp đồng cọc bên dưới để mở chi tiết và ký."
                 : "Danh sách đang hiển thị theo cập nhật mới nhất để theo dõi tiến độ."}
             </div>
             <div className="mt-6 grid gap-3 text-sm">
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <div className="text-white/60">Chờ ký</div>
+                <div className="text-white/60">Chờ ký cọc</div>
                 <div className="mt-2 text-2xl font-semibold">{pendingContractsCount}</div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -222,7 +222,7 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
           </div>
         </div>
 
-        <div className="grid gap-3 border-t border-white/70 bg-white/60 px-6 py-5 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="contracts-overview-strip grid gap-3 border-t border-white/70 bg-white/60 px-6 py-5 sm:grid-cols-2 xl:grid-cols-4">
           {overviewCards.map((item) => (
             <div
               key={item.label}
@@ -241,14 +241,14 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
           <div className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-[0_20px_48px_-36px_rgba(15,23,42,0.35)]">
             <div className="flex items-end justify-between gap-3">
               <div>
-                <div className="text-lg font-semibold text-gray-950">Danh sách hợp đồng</div>
+                <div className="text-lg font-semibold text-gray-950">Danh sách hợp đồng cọc</div>
               </div>
               <div className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">{visibleContracts.length} mục</div>
             </div>
             <div className="mt-3 text-sm leading-6 text-gray-600">
               {isStudent
-                ? "Hợp đồng chờ ký được đưa lên đầu danh sách để bạn xử lý trước."
-                : "Chọn một hợp đồng để xem nhanh thông tin thuê, trạng thái và chữ ký hai bên."}
+                ? "Hợp đồng cọc chờ ký được đưa lên đầu danh sách để bạn xử lý trước."
+                : "Chọn một hợp đồng cọc để xem nhanh thông tin cọc, trạng thái và chữ ký hai bên."}
             </div>
           </div>
 
@@ -256,8 +256,8 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
             {visibleContracts.length === 0 ? (
               <div className="rounded-[28px] border border-dashed border-gray-300 bg-white p-8 text-center text-sm leading-6 text-gray-500 shadow-sm">
                 {isStudent
-                  ? "Chưa có hợp đồng nào được giao cho bạn."
-                  : "Chưa có hợp đồng nào. Tạo hợp đồng mới ở khu thao tác bên dưới để bắt đầu."}
+                  ? "Chưa có hợp đồng cọc nào được giao cho bạn."
+                  : "Chưa có hợp đồng cọc nào. Tạo hợp đồng cọc mới ở khu thao tác bên dưới để bắt đầu."}
               </div>
             ) : null}
 
@@ -272,8 +272,8 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
                   onClick={() => setSelectedId(contract.id)}
                   className={`w-full rounded-[28px] border p-4 text-left transition ${
                     isSelected
-                      ? "border-rose-200 bg-[linear-gradient(145deg,#fff1f2_0%,#ffffff_55%,#fff7ed_100%)] shadow-[0_20px_45px_-32px_rgba(190,24,93,0.5)]"
-                      : "border-gray-200 bg-white hover:border-rose-100 hover:shadow-[0_18px_40px_-34px_rgba(15,23,42,0.35)]"
+                      ? "contracts-list-item contracts-list-item-active border-rose-200 bg-[linear-gradient(145deg,#fff1f2_0%,#ffffff_55%,#fff7ed_100%)] shadow-[0_20px_45px_-32px_rgba(190,24,93,0.5)]"
+                      : "contracts-list-item border-gray-200 bg-white hover:border-rose-100 hover:shadow-[0_18px_40px_-34px_rgba(15,23,42,0.35)]"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -287,9 +287,9 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
                   </div>
 
                   <div className="mt-4 grid gap-2 text-xs text-gray-600">
-                    <div>{isStudent ? `Chủ trọ: ${contract.landlordName}` : `Người thuê: ${contract.tenantName}`}</div>
+                    <div>{isStudent ? `Chủ trọ: ${contract.landlordName}` : `Người đặt cọc: ${contract.tenantName}`}</div>
                     <div>{currentStatus === "fully_signed" ? `Hoàn tất lúc ${formatDateTime(contract.signedAt)}` : `Đã gửi ${formatDateTime(contract.sentAt || contract.createdAt)}`}</div>
-                    <div>Giá thuê: {formatCurrency(contract.rent)}</div>
+                    <div>Giá thuê dự kiến: {formatCurrency(contract.rent)}</div>
                   </div>
 
                   {isSelected ? (
@@ -305,12 +305,12 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
 
         {!selectedContract ? (
           <div className="rounded-[32px] border border-dashed border-gray-300 bg-white p-10 text-center text-sm leading-6 text-gray-500 shadow-sm">
-            Chọn một hợp đồng ở cột bên trái để xem chi tiết theo từng phần.
+            Chọn một hợp đồng cọc ở cột bên trái để xem chi tiết theo từng phần.
           </div>
         ) : (
           <div className="space-y-5">
             <div className="overflow-hidden rounded-[32px] border border-gray-200 bg-white shadow-[0_24px_60px_-40px_rgba(15,23,42,0.4)]">
-              <div className="border-b border-gray-100 bg-[linear-gradient(135deg,#fffaf0_0%,#ffffff_60%,#f5fff9_100%)] px-6 py-6">
+              <div className="contracts-subhero border-b border-gray-100 bg-[linear-gradient(135deg,#fffaf0_0%,#ffffff_60%,#f5fff9_100%)] px-6 py-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="max-w-2xl">
                     <h3 className="text-2xl font-semibold tracking-tight text-gray-950">{selectedContract.propertyAddress}</h3>
@@ -333,11 +333,11 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
                     <div className="mt-2 text-sm font-semibold text-gray-950">{selectedContract.landlordName}</div>
                   </div>
                   <div className="rounded-2xl border border-white bg-white/90 p-4">
-                    <div className="text-xs text-gray-500">Người thuê</div>
+                    <div className="text-xs text-gray-500">Người đặt cọc</div>
                     <div className="mt-2 text-sm font-semibold text-gray-950">{selectedContract.tenantName}</div>
                   </div>
                   <div className="rounded-2xl border border-white bg-white/90 p-4">
-                    <div className="text-xs text-gray-500">Giá thuê</div>
+                    <div className="text-xs text-gray-500">Giá thuê dự kiến</div>
                     <div className="mt-2 text-sm font-semibold text-gray-950">{formatCurrency(selectedContract.rent)}</div>
                   </div>
                   <div className="rounded-2xl border border-white bg-white/90 p-4">
@@ -350,7 +350,7 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
               <div className="grid gap-6 px-6 py-6 lg:grid-cols-[minmax(0,1.2fr)_320px]">
                 <div className="space-y-5">
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div className="rounded-[24px] border border-gray-200 bg-[#fffdf8] p-5">
+                  <div className="contracts-soft-surface rounded-[24px] border border-gray-200 bg-[#fffdf8] p-5">
                       <div className="text-sm font-semibold text-gray-950">Thông tin chủ trọ</div>
                       <div className="mt-4 space-y-3 text-sm text-gray-700">
                         <div><span className="text-gray-500">CCCD/CMND:</span> {selectedContract.landlordId || "--"}</div>
@@ -360,8 +360,8 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
                       </div>
                     </div>
 
-                    <div className="rounded-[24px] border border-gray-200 bg-[#f8fffb] p-5">
-                      <div className="text-sm font-semibold text-gray-950">Thông tin người thuê</div>
+                    <div className="contracts-soft-surface rounded-[24px] border border-gray-200 bg-[#f8fffb] p-5">
+                      <div className="text-sm font-semibold text-gray-950">Thông tin người đặt cọc</div>
                       <div className="mt-4 space-y-3 text-sm text-gray-700">
                         <div><span className="text-gray-500">CCCD/CMND:</span> {selectedContract.tenantId || "--"}</div>
                         <div><span className="text-gray-500">Số điện thoại:</span> {selectedContract.tenantPhone || "--"}</div>
@@ -372,27 +372,27 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
                   </div>
 
                   <div className="rounded-[24px] border border-gray-200 bg-white p-5">
-                    <div className="text-sm font-semibold text-gray-950">Điều khoản và lịch thanh toán</div>
+                    <div className="text-sm font-semibold text-gray-950">Điều khoản cọc và lịch thanh toán dự kiến</div>
                     <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                      <div className="rounded-2xl bg-gray-50 p-4">
-                        <div className="text-xs text-gray-500">Ngày thanh toán</div>
+                      <div className="contracts-muted-panel rounded-2xl bg-gray-50 p-4">
+                        <div className="text-xs text-gray-500">Ngày thanh toán thuê dự kiến</div>
                         <div className="mt-2 text-sm font-semibold text-gray-950">{selectedContract.paymentDay || "--"}</div>
                       </div>
-                      <div className="rounded-2xl bg-gray-50 p-4">
+                      <div className="contracts-muted-panel rounded-2xl bg-gray-50 p-4">
                         <div className="text-xs text-gray-500">Ngày gửi</div>
                         <div className="mt-2 text-sm font-semibold text-gray-950">{formatDateTime(selectedContract.sentAt || selectedContract.createdAt)}</div>
                       </div>
-                      <div className="rounded-2xl bg-gray-50 p-4">
+                      <div className="contracts-muted-panel rounded-2xl bg-gray-50 p-4">
                         <div className="text-xs text-gray-500">{getRentalContractStatus(selectedContract) === "fully_signed" ? "Ngày hoàn tất" : "Tình trạng hiện tại"}</div>
                         <div className="mt-2 text-sm font-semibold text-gray-950">
                           {getRentalContractStatus(selectedContract) === "fully_signed"
                             ? formatDateTime(selectedContract.signedAt)
-                            : "Đang chờ người thuê ký"}
+                            : "Đang chờ bên đặt cọc ký"}
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-5 rounded-[22px] border border-dashed border-gray-200 bg-[#fcfcfc] p-4 text-sm leading-7 text-gray-700">
+                    <div className="contracts-muted-panel mt-5 rounded-[22px] border border-dashed border-gray-200 bg-[#fcfcfc] p-4 text-sm leading-7 text-gray-700">
                       {selectedContract.extraTerms || "Không có điều khoản bổ sung."}
                     </div>
                   </div>
@@ -403,15 +403,15 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
                     <div className="text-lg font-semibold">Trạng thái ký</div>
                     <div className="mt-2 text-sm leading-6 text-white/70">
                       {getRentalContractStatus(selectedContract) === "fully_signed"
-                        ? "Hợp đồng đã đủ chữ ký của hai bên và sẵn sàng để đối chiếu hoặc in PDF."
-                        : "Hợp đồng đã được gửi, đang chờ người thuê xác nhận và ký hoàn tất."}
+                        ? "Hợp đồng cọc đã đủ chữ ký của hai bên và sẵn sàng để đối chiếu hoặc in PDF."
+                        : "Hợp đồng cọc đã được gửi, đang chờ bên đặt cọc xác nhận và ký hoàn tất."}
                     </div>
                   </div>
 
                   <div className="rounded-[24px] border border-gray-200 bg-white p-5">
                     <div className="text-sm font-semibold text-gray-950">Chữ ký chủ trọ</div>
                     <div className="mt-4 flex flex-wrap items-center gap-4">
-                      <div className="relative h-24 w-52 overflow-hidden rounded-2xl border border-dashed border-gray-300 bg-gray-50">
+                      <div className="contracts-muted-panel relative h-24 w-52 overflow-hidden rounded-2xl border border-dashed border-gray-300 bg-gray-50">
                         {selectedContract.landlordSignatureDataUrl ? (
                           <Image
                             src={selectedContract.landlordSignatureDataUrl}
@@ -434,9 +434,9 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
                   </div>
 
                   <div className="rounded-[24px] border border-gray-200 bg-white p-5">
-                    <div className="text-sm font-semibold text-gray-950">Chữ ký người thuê</div>
+                    <div className="text-sm font-semibold text-gray-950">Chữ ký bên đặt cọc</div>
                     <div className="mt-4 flex flex-wrap items-center gap-4">
-                      <div className="relative h-24 w-52 overflow-hidden rounded-2xl border border-dashed border-gray-300 bg-gray-50">
+                      <div className="contracts-muted-panel relative h-24 w-52 overflow-hidden rounded-2xl border border-dashed border-gray-300 bg-gray-50">
                         {selectedContract.tenantSignatureDataUrl ? (
                           <Image
                             src={selectedContract.tenantSignatureDataUrl}
@@ -454,7 +454,7 @@ export default function RentalContractsPanel({ roleView }: { roleView: UserRole 
                       <div className="text-sm text-gray-700">
                         <div className="font-semibold text-gray-950">{selectedContract.tenantSignatureName || selectedContract.tenantName || "--"}</div>
                         <div className="mt-1 text-gray-500">
-                          {selectedContract.tenantSignedAt ? `Ký lúc ${formatDateTime(selectedContract.tenantSignedAt)}` : "Đang chờ người thuê ký"}
+                          {selectedContract.tenantSignedAt ? `Ký lúc ${formatDateTime(selectedContract.tenantSignedAt)}` : "Đang chờ bên đặt cọc ký"}
                         </div>
                       </div>
                     </div>
