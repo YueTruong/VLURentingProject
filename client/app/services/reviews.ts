@@ -1,5 +1,6 @@
 import api from "./api";
 import axios from "axios";
+import { createAuthHeaders, getBackendUrl } from "@/app/lib/backend";
 
 export type PublicReview = {
   id: number;
@@ -116,21 +117,17 @@ export async function getPostReviews(postId: number, limit = 10): Promise<PostRe
   );
 }
 
-
-const getBaseUrl = () => process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
-
-
 export async function getAdminReviews(token: string, limit = 100, q = "") {
-  const res = await axios.get<AdminReviewItem[]>(`${getBaseUrl()}/reviews/admin`, {
+  const res = await axios.get<AdminReviewItem[]>(`${getBackendUrl()}/reviews/admin`, {
     params: { limit, q },
-    headers: { Authorization: `Bearer ${token}` },
+    headers: createAuthHeaders(token),
   });
   return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function deleteAdminReview(reviewId: number, token: string) {
-  const res = await axios.delete(`${getBaseUrl()}/reviews/admin/${reviewId}`, {
-    headers: { Authorization: `Bearer ${token}` },
+  const res = await axios.delete(`${getBackendUrl()}/reviews/admin/${reviewId}`, {
+    headers: createAuthHeaders(token),
   });
   return res.data;
 }

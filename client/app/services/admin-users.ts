@@ -1,6 +1,7 @@
 "use client";
 
 import axios from "axios";
+import { createAuthHeaders, getBackendUrl } from "@/app/lib/backend";
 
 export type AdminUserRole = {
   id?: number;
@@ -25,14 +26,9 @@ export type AdminUser = {
   profile?: AdminUserProfile;
 };
 
-const getBaseUrl = () =>
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://localhost:3001";
-
 export async function getAdminUsers(token: string): Promise<AdminUser[]> {
-  const res = await axios.get<AdminUser[]>(`${getBaseUrl()}/admin/users`, {
-    headers: { Authorization: `Bearer ${token}` },
+  const res = await axios.get<AdminUser[]>(`${getBackendUrl()}/admin/users`, {
+    headers: createAuthHeaders(token),
   });
   return res.data ?? [];
 }
@@ -43,9 +39,9 @@ export async function updateAdminUserStatus(
   token: string,
 ) {
   const res = await axios.patch(
-    `${getBaseUrl()}/admin/users/${id}/status`,
+    `${getBackendUrl()}/admin/users/${id}/status`,
     { is_active: isActive },
-    { headers: { Authorization: `Bearer ${token}` } },
+    { headers: createAuthHeaders(token) },
   );
   return res.data;
 }

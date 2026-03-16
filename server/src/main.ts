@@ -1,8 +1,11 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
 import { Logger, ValidationPipe } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { DataSource } from 'typeorm';
+import { AppModule } from './app.module';
+import { buildHttpCorsOptions } from './common/config/cors.config';
+import { shouldUseSchemaSync } from './common/config/database.config';
 
 async function ensurePostsSchema(dataSource: DataSource) {
   const logger = new Logger('SchemaBootstrap');
@@ -28,33 +31,34 @@ async function ensurePostsSchema(dataSource: DataSource) {
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
+  const configService = app.get(ConfigService);
 
-  // Kích hoạt CORS (Quan trọng để ReactJS gọi được API)
-  app.enableCors({
-    origin: ['http://localhost:3000', 'https://vlu-renting-client.vercel.app'],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
-  });
-
-  // Kích hoạt Validation tự động
+  app.enableCors(buildHttpCorsOptions(configService));
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
 
   const dataSource = app.get(DataSource);
-  await ensurePostsSchema(dataSource);
+  if (
+    shouldUseSchemaSync(
+      configService.get<string>('NODE_ENV'),
+      configService.get<string>('DATABASE_URL'),
+    )
+  ) {
+    await ensurePostsSchema(dataSource);
+  }
 
-  // Cấu hình Swagger
   const config = new DocumentBuilder()
     .setTitle('VLU Renting APIs')
-    .setDescription('Tài liệu API cho ứng dụng VLU Renting')
+    .setDescription('Tai lieu API cho ung dung VLU Renting')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document); // Truy cập tại localhost:3000/api
+  SwaggerModule.setup('api', app, document);
 
   const port = Number(process.env.PORT || 3001);
   await app.listen(port);
   logger.log(`Server listening on port ${port}`);
 }
+
 bootstrap();

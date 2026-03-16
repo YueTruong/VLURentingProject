@@ -1,19 +1,20 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from './auth/auth.module';
-import { PostsModule } from './posts/posts.module';
 import { AdminModule } from './admin/admin.module';
-import { ReviewsModule } from './reviews/reviews.module';
-import { CloudinaryModule } from './cloudinary/cloudinary.module';
-import { UsersModule } from './users/user.module';
-import { ChatModule } from './chat/chat.module';
-import { NotificationsModule } from './notifications/notifications.module';
 import { AiModule } from './ai/ai.module';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import { AuthModule } from './auth/auth.module';
 import { BookingsModule } from './bookings/bookings.module';
+import { ChatModule } from './chat/chat.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { shouldUseSchemaSync } from './common/config/database.config';
+import { NotificationsModule } from './notifications/notifications.module';
+import { PostsModule } from './posts/posts.module';
+import { ReviewsModule } from './reviews/reviews.module';
 import { RoommateManagementModule } from './roommate-management/roommate-management.module';
+import { UsersModule } from './users/user.module';
 
 @Module({
   imports: [
@@ -21,7 +22,6 @@ import { RoommateManagementModule } from './roommate-management/roommate-managem
       isGlobal: true,
       envFilePath: '.env',
     }),
-
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -29,11 +29,10 @@ import { RoommateManagementModule } from './roommate-management/roommate-managem
         const databaseUrl = config.get<string>('DATABASE_URL');
         const nodeEnv = config.get<string>('NODE_ENV') || 'development';
         const isProd = nodeEnv === 'production';
+        const synchronize = shouldUseSchemaSync(nodeEnv, databaseUrl);
 
         return {
-          type: 'postgres',
-
-          // Nếu có DATABASE_URL -> dùng Neon
+          type: 'postgres' as const,
           ...(databaseUrl
             ? { url: databaseUrl }
             : {
@@ -43,24 +42,19 @@ import { RoommateManagementModule } from './roommate-management/roommate-managem
                 password: config.get<string>('DB_PASSWORD'),
                 database: config.get<string>('DB_DATABASE'),
               }),
-
           entities: [__dirname + '/**/*.entity{.ts,.js}'],
           autoLoadEntities: true,
-
-          // Neon cần SSL
+          migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+          migrationsTableName: 'typeorm_migrations',
           ssl: databaseUrl ? { rejectUnauthorized: false } : false,
           extra: databaseUrl
             ? { ssl: { rejectUnauthorized: false } }
             : undefined,
-
-          // Prod tuyệt đối không synchronize
-          // synchronize: !isProd && !databaseUrl, // local dev mới true
-          synchronize: !isProd,
+          synchronize,
           logging: !isProd,
         };
       },
     }),
-
     UsersModule,
     AuthModule,
     CloudinaryModule,
