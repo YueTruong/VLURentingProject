@@ -4,8 +4,13 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
-import UserPageShell from "@/app/homepage/components/UserPageShell";
+import UserPageShell from "@/app/_shared/layout/UserPageShell";
 import toast from "react-hot-toast";
+import {
+  cancelBooking,
+  getMyBookings,
+  type StudentBooking,
+} from "@/app/services/bookings";
 
 // Interface để tránh lỗi 'any' của ESLint
 interface CustomSession {
@@ -14,27 +19,7 @@ interface CustomSession {
   };
 }
 
-type Booking = {
-  id: number;
-  booking_date: string;
-  time_slot: string;
-  note: string | null;
-  status: "pending" | "approved" | "rejected" | "cancelled";
-  createdAt: string;
-  landlord: {
-    profile: {
-      full_name: string;
-      avatar_url: string;
-      phone_number: string;
-    };
-  };
-  post: {
-    id: number;
-    title: string;
-    address: string;
-    images?: { image_url: string }[];
-  };
-};
+type Booking = StudentBooking;
 
 // --- Component Skeleton ---
 function BookingSkeleton() {
@@ -66,14 +51,9 @@ export default function MyBookingsPage() {
     try {
       setLoading(true);
       const customSession = session as CustomSession;
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
-      const res = await fetch(`${apiUrl}/bookings/my-bookings`, {
-        headers: {
-          Authorization: `Bearer ${customSession?.user?.accessToken}`,
-        },
-      });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
+      const token = customSession?.user?.accessToken;
+      if (!token) throw new Error();
+      const data = await getMyBookings(token);
       setBookings(data);
     } catch {
       toast.error("Không thể tải lịch hẹn của bạn.");
@@ -92,16 +72,9 @@ export default function MyBookingsPage() {
 
     try {
       const customSession = session as CustomSession;
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
-      const res = await fetch(`${apiUrl}/bookings/${id}/cancel`, {
-        method: "PATCH", 
-        headers: { 
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${customSession?.user?.accessToken}` 
-        },
-      });
-
-      if (!res.ok) throw new Error();
+      const token = customSession?.user?.accessToken;
+      if (!token) throw new Error();
+      await cancelBooking(id, token);
 
       toast.success("Đã hủy lịch hẹn.");
       setBookings(prev => prev.map(b => b.id === id ? { ...b, status: 'cancelled' } : b));
