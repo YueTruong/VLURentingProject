@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import UserPageShell from "@/app/homepage/components/UserPageShell";
+import UserPageShell from "@/app/_shared/layout/UserPageShell";
 
 const policyBlocks = [
   {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import UserPageShell from "@/app/homepage/components/UserPageShell";
+import UserPageShell from "@/app/_shared/layout/UserPageShell";
 import ListingCard from "./components/ListingCard";
 import { getApprovedPosts, type Post } from "@/app/services/posts";
 import { askHousingAssistant } from "@/app/services/ai-assistant";

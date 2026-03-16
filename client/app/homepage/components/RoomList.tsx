@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getApprovedPosts, type Post } from "@/app/services/posts";
 import SectionRow from "./SectionRow";
-import type { RoomCardData } from "./RoomCard";
+import type { RoomCardData } from "@/app/_shared/listings/RoomCard";
 
 const toNumber = (value: number | string | undefined | null) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;

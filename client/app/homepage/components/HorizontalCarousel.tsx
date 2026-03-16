@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import RoomCard, { type RoomCardData } from "./RoomCard";
+import RoomCard, { type RoomCardData } from "@/app/_shared/listings/RoomCard";
 
 type CarouselProps = {
   items: RoomCardData[];

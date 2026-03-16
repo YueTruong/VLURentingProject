@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import UserPageShell from "@/app/homepage/components/UserPageShell";
+import UserPageShell from "@/app/_shared/layout/UserPageShell";
 import {
   createRoommateRequest,
   deleteRoommateRequest,

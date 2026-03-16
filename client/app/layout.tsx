@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import SessionProviderWrapper from "./homepage/components/SessionProviderWrapper";
+import SessionProviderWrapper from "./_shared/providers/SessionProviderWrapper";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import { Toaster } from "react-hot-toast";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -51,7 +51,7 @@ export default function RootLayout({
         <ThemeProvider>
           <SessionProviderWrapper>
             {children}
-            {/* 👇 2. Đặt Toaster ở đây để hiển thị thông báo toàn cầu */}
+            {/* Đặt Toaster ở đây để hiển thị thông báo toàn cầu */}
             <Toaster 
               position="top-right" 
               reverseOrder={false} 

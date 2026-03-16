@@ -3,8 +3,8 @@
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import RoomCard from "@/app/homepage/components/RoomCard";
-import UserPageShell from "@/app/homepage/components/UserPageShell";
+import RoomCard from "@/app/_shared/listings/RoomCard";
+import UserPageShell from "@/app/_shared/layout/UserPageShell";
 import { clearFavorites, getFavoriteScope, useFavoritesByScope } from "@/app/services/favorites";
 import toast from "react-hot-toast";
 

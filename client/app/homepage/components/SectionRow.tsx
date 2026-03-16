@@ -1,6 +1,6 @@
 import Link from "next/link";
 import HorizontalCarousel from "./HorizontalCarousel";
-import type { RoomCardData } from "./RoomCard";
+import type { RoomCardData } from "@/app/_shared/listings/RoomCard";
 
 type SectionRowProps = {
   title: string;

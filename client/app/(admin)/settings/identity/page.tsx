@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import UserMenu from "@/app/homepage/components/UserMenu";
+import UserMenu from "@/app/_shared/navigation/UserMenu";
 
 export default async function SettingsIdentityPage() {
   const session = await getServerSession(authOptions);
