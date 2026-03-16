@@ -5,11 +5,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import UserPageShell from "@/app/homepage/components/UserPageShell"; 
+import UserPageShell from "@/app/_shared/layout/UserPageShell"; 
 import { getMyPosts, type Post } from "@/app/services/posts"; 
 import { getFavoriteScope, useFavoritesByScope, toggleFavorite } from "@/app/services/favorites"; 
 import toast from "react-hot-toast";
-import { getMyProfile, updateMyProfile } from "@/app/services/auth";
+import { getMyProfile, getPublicProfile, updateMyProfile, type PublicProfile } from "@/app/services/auth";
 
 type Listing = {
   id: number;
@@ -128,6 +128,19 @@ const mapPostToListing = (post: Post): Listing => ({
 });
 
 const isApprovedPost = (status?: string | null) => status?.toLowerCase() === "approved";
+const getRoleKey = (role?: string | null) => (role || "student").toLowerCase();
+const getRoleLabel = (role?: string | null) => {
+  const roleKey = getRoleKey(role);
+  if (roleKey === "landlord") return "Chủ trọ";
+  if (roleKey === "admin") return "Admin";
+  return "Sinh viên";
+};
+const getRoleBadgeClassName = (role?: string | null) => {
+  const roleKey = getRoleKey(role);
+  if (roleKey === "landlord") return "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
+  if (roleKey === "admin") return "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+  return "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+};
 
 function Icon({ name }: { name: string }) {
   const icons: Record<string, React.ReactNode> = {
@@ -235,8 +248,18 @@ function ProfileContent() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [chatPreviewProfile, setChatPreviewProfile] = useState<ChatProfilePreview | null>(null);
   const [chatPreviewResolved, setChatPreviewResolved] = useState(false);
+  const [publicProfile, setPublicProfile] = useState<PublicProfile | null>(null);
+  const [loadingPublicProfile, setLoadingPublicProfile] = useState(false);
+  const [publicProfileError, setPublicProfileError] = useState("");
   const favoriteScope = getFavoriteScope(session?.user?.id);
   const favorites = useFavoritesByScope(favoriteScope); 
+
+  const publicProfileId = useMemo(() => {
+    const raw = searchParams.get("userId");
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }, [searchParams]);
 
   const chatProfileId = useMemo(() => {
     const raw = searchParams.get("chatUserId");
@@ -245,7 +268,8 @@ function ProfileContent() {
     return Number.isFinite(parsed) ? parsed : null;
   }, [searchParams]);
 
-  const isChatPreviewMode = chatProfileId !== null;
+  const isSharedProfileMode = publicProfileId !== null;
+  const isChatPreviewMode = !isSharedProfileMode && chatProfileId !== null;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -267,12 +291,7 @@ function ProfileContent() {
   const isStudent = roleKey === "student";
   const isLandlord = roleKey === "landlord";
   const isAdmin = roleKey === "admin";
-  const roleBadgeClassName =
-    roleKey === "landlord"
-      ? "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
-      : roleKey === "admin"
-        ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-        : "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+  const roleBadgeClassName = getRoleBadgeClassName(roleKey);
 
   const displayName = useMemo(() => {
     const rawFullName = (session?.user as { full_name?: string })?.full_name;
@@ -286,6 +305,38 @@ function ProfileContent() {
   }, [session]);
 
   const avatarUrl = session?.user?.image || "/images/Admins.png";
+
+  useEffect(() => {
+    if (!isSharedProfileMode || publicProfileId === null) {
+      setPublicProfile(null);
+      setPublicProfileError("");
+      setLoadingPublicProfile(false);
+      return;
+    }
+
+    let active = true;
+    setLoadingPublicProfile(true);
+    setPublicProfileError("");
+
+    getPublicProfile(publicProfileId)
+      .then((profile) => {
+        if (!active) return;
+        setPublicProfile(profile);
+      })
+      .catch((error) => {
+        if (!active) return;
+        const message =
+          error instanceof Error ? error.message : "Không thể tải hồ sơ công khai";
+        setPublicProfileError(message);
+      })
+      .finally(() => {
+        if (active) setLoadingPublicProfile(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [publicProfileId, isSharedProfileMode]);
 
   useEffect(() => {
     const token = session?.user?.accessToken;
@@ -355,6 +406,36 @@ function ProfileContent() {
     } finally {
       setSavingProfile(false);
     }
+  };
+
+  const copyProfileLink = async (targetUserId: number) => {
+    if (!targetUserId) {
+      toast.error("Không tìm thấy hồ sơ để chia sẻ.");
+      return;
+    }
+
+    if (typeof window === "undefined" || !navigator.clipboard?.writeText) {
+      toast.error("Trình duyệt hiện tại chưa hỗ trợ sao chép liên kết.");
+      return;
+    }
+
+    const profileUrl = `${window.location.origin}/profile?userId=${targetUserId}`;
+
+    try {
+      await navigator.clipboard.writeText(profileUrl);
+      toast.success("Đã sao chép link hồ sơ.");
+    } catch {
+      toast.error("Không thể sao chép link hồ sơ.");
+    }
+  };
+
+  const handleShareProfile = async () => {
+    const ownUserId = Number(session?.user?.id);
+    if (!Number.isFinite(ownUserId) || ownUserId <= 0) {
+      toast.error("Không tìm thấy hồ sơ để chia sẻ.");
+      return;
+    }
+    await copyProfileLink(ownUserId);
   };
 
   const studentListings: Listing[] = useMemo(() => {
@@ -463,6 +544,232 @@ function ProfileContent() {
     }
     return `Đang hiển thị ${activeListings.length} tin nổi bật.`;
   }, [filteredListings.length, listingError, listingSearch, loadingListings, activeListings.length, isStudent, isAdmin]);
+
+  const publicListings = useMemo(
+    () => (publicProfile?.posts ?? []).map(mapPostToListing),
+    [publicProfile],
+  );
+
+  const publicFilteredListings = useMemo(() => {
+    const keyword = listingSearch.trim().toLowerCase();
+    if (!keyword) return publicListings;
+    return publicListings.filter((listing) =>
+      [listing.title, listing.location, listing.category].join(" ").toLowerCase().includes(keyword),
+    );
+  }, [listingSearch, publicListings]);
+
+  const publicRoleKey = getRoleKey(publicProfile?.role);
+  const publicRoleLabel = getRoleLabel(publicProfile?.role);
+  const publicRoleBadgeClassName = getRoleBadgeClassName(publicProfile?.role);
+  const publicDisplayName =
+    publicProfile?.full_name?.trim() ||
+    (publicProfile?.userId ? `Người dùng #${publicProfile.userId}` : "Người dùng");
+  const publicAvatarUrl = publicProfile?.avatar_url?.trim() || "/images/Admins.png";
+  const publicJoinedLabel = useMemo(() => {
+    if (!publicProfile?.joinedAt) return "--/--";
+    const timestamp = new Date(publicProfile.joinedAt).getTime();
+    return formatMonthYear(Number.isNaN(timestamp) ? null : timestamp);
+  }, [publicProfile?.joinedAt]);
+  const publicProfileBio = useMemo(() => {
+    if (!publicProfile) return "";
+    if (publicRoleKey === "landlord") {
+      if (publicListings.length === 0) {
+        return "Hiện chưa có tin cho thuê được duyệt trên hệ thống.";
+      }
+      return `Hiện đang có ${publicListings.length} tin cho thuê đã được duyệt và hiển thị công khai.`;
+    }
+    if (publicRoleKey === "admin") {
+      return "Hồ sơ công khai của tài khoản quản trị viên trên VLU Renting.";
+    }
+    return "Hồ sơ công khai của người dùng trên VLU Renting.";
+  }, [publicListings.length, publicProfile, publicRoleKey]);
+
+  const handleOpenPublicChat = () => {
+    if (!publicProfile?.userId) return;
+
+    const currentUserId = Number(session?.user?.id);
+    if (Number.isFinite(currentUserId) && currentUserId === publicProfile.userId) {
+      router.push("/profile");
+      return;
+    }
+
+    if (!session?.user?.accessToken) {
+      toast.error("Vui lòng đăng nhập để nhắn tin.");
+      router.push("/login");
+      return;
+    }
+
+    router.push(`/chat?partnerId=${publicProfile.userId}`);
+  };
+
+  if (isSharedProfileMode) {
+    return (
+      <UserPageShell
+        title="Hồ sơ người dùng"
+        description="Xem hồ sơ công khai được chia sẻ từ liên kết."
+      >
+        <div className="space-y-6 lg:space-y-8">
+          <section className="relative overflow-hidden rounded-3xl border border-(--theme-border) bg-(--theme-surface) p-6 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+            {loadingPublicProfile ? (
+              <div className="space-y-3">
+                <div className="h-7 w-48 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />
+                <div className="h-4 w-32 animate-pulse rounded-lg bg-gray-100 dark:bg-gray-800" />
+                <div className="h-20 animate-pulse rounded-2xl bg-gray-100 dark:bg-gray-800" />
+              </div>
+            ) : publicProfile ? (
+              <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-wrap items-center gap-5">
+                  <div className="relative h-20 w-20 overflow-hidden rounded-full border-4 border-gray-50 shadow-sm dark:border-gray-800">
+                    <Image src={publicAvatarUrl} alt={publicDisplayName} fill className="object-cover" unoptimized />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h1 className="text-2xl font-bold text-gray-900 dark:text-white capitalize">{publicDisplayName}</h1>
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${publicRoleBadgeClassName}`}>
+                        {publicRoleLabel}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-sm text-(--theme-text-subtle) dark:text-(--theme-text-subtle)">
+                      Hồ sơ công khai qua liên kết chia sẻ
+                    </div>
+                    {publicProfile.address ? (
+                      <div className="mt-2 text-sm text-(--theme-text-muted) dark:text-(--theme-text-subtle)">
+                        {publicProfile.address}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => copyProfileLink(publicProfile.userId)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-(--theme-border) bg-(--theme-surface) px-4 py-2 text-sm font-semibold text-(--theme-text-muted) shadow-sm transition-colors hover:bg-(--theme-surface-muted) dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    <Icon name="share" />
+                    Sao chép link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenPublicChat}
+                    className="inline-flex items-center gap-2 rounded-xl bg-(--brand-accent) px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-(--brand-accent-strong) active:scale-95"
+                  >
+                    <Icon name="chat" />
+                    {Number(session?.user?.id) === publicProfile.userId ? "Về hồ sơ của tôi" : "Nhắn tin"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-red-200 p-5 text-sm text-red-500 dark:border-red-900/50 dark:text-red-400">
+                {publicProfileError || "Không tìm thấy hồ sơ công khai này."}
+              </div>
+            )}
+          </section>
+
+          {publicProfile ? (
+            <section className="grid gap-6 lg:grid-cols-12">
+              <div className="space-y-6 lg:col-span-4">
+                <div className="rounded-2xl border border-(--theme-border) bg-(--theme-surface) p-5 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-(--theme-text) dark:text-white">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                      <Icon name="user" />
+                    </span>
+                    Về {publicDisplayName}
+                  </div>
+                  <p className="mt-3 text-sm text-(--theme-text-muted) dark:text-(--theme-text-subtle)">{publicProfileBio}</p>
+
+                  <div className="mt-4 rounded-2xl border border-(--theme-border) bg-(--theme-surface-muted) p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-(--theme-text-subtle)">Thông tin công khai</p>
+                    <div className="mt-2 space-y-2 text-sm text-(--theme-text-muted) dark:text-(--theme-text-subtle)">
+                      <div>
+                        <span className="font-semibold text-(--theme-text) dark:text-white">Vai trò:</span> {publicRoleLabel}
+                      </div>
+                      <div>
+                        <span className="font-semibold text-(--theme-text) dark:text-white">Tham gia từ:</span> {publicJoinedLabel}
+                      </div>
+                      <div>
+                        <span className="font-semibold text-(--theme-text) dark:text-white">Khu vực:</span> {publicProfile.address || "Chưa cập nhật"}
+                      </div>
+                      {publicRoleKey === "landlord" ? (
+                        <div>
+                          <span className="font-semibold text-(--theme-text) dark:text-white">Tin đang hiển thị:</span> {publicListings.length}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6 lg:col-span-8">
+                <div className="rounded-3xl border border-(--theme-border) bg-(--theme-surface) p-6 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
+                  <div className="flex flex-col gap-4 border-b border-(--theme-border) pb-5 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-lg font-bold text-(--theme-text) dark:text-white">
+                        {publicRoleKey === "landlord" ? "Danh sách phòng đang cho thuê" : "Thông tin công khai"}
+                      </h2>
+                      <p className="mt-1 text-sm text-(--theme-text-subtle) dark:text-(--theme-text-subtle)">
+                        {publicRoleKey === "landlord"
+                          ? publicListings.length === 0
+                            ? "Người dùng này chưa có tin cho thuê công khai."
+                            : `Đang hiển thị ${publicListings.length} tin nổi bật.`
+                          : "Người dùng này hiện không có danh sách phòng công khai."}
+                      </p>
+                    </div>
+
+                    {publicRoleKey === "landlord" && publicListings.length > 0 ? (
+                      <div className="relative w-full sm:w-72">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-(--theme-text-subtle)">
+                          <Icon name="search" />
+                        </span>
+                        <input
+                          type="text"
+                          value={listingSearch}
+                          onChange={(e) => setListingSearch(e.target.value)}
+                          placeholder="Tìm kiếm nhanh..."
+                          className="h-10 w-full rounded-xl border border-(--theme-border) bg-(--theme-surface-muted) pl-10 pr-3 text-sm text-(--theme-text-muted) outline-none transition focus:border-[#d51f35] dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-5">
+                    {publicRoleKey !== "landlord" ? (
+                      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-(--theme-border) py-16 text-(--theme-text-subtle) dark:border-gray-700 dark:text-(--theme-text-subtle)">
+                        <span className="mb-3 text-4xl opacity-40">👤</span>
+                        <p>Người dùng này chưa chia sẻ danh sách phòng công khai.</p>
+                      </div>
+                    ) : publicListings.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-(--theme-border) py-16 text-(--theme-text-subtle) dark:border-gray-700 dark:text-(--theme-text-subtle)">
+                        <span className="mb-3 text-4xl opacity-40">📂</span>
+                        <p>Chưa có tin cho thuê công khai.</p>
+                      </div>
+                    ) : publicFilteredListings.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-(--theme-border) py-16 text-(--theme-text-subtle) dark:border-gray-700 dark:text-(--theme-text-subtle)">
+                        <span className="mb-3 text-4xl opacity-40">🔍</span>
+                        <p>Không tìm thấy tin phù hợp.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4">
+                        {publicFilteredListings.map((listing) => (
+                          <ListingCard
+                            key={listing.id}
+                            listing={listing}
+                            isSaved={favorites.some((f) => f.id === listing.id)}
+                            onToggleSave={() => handleToggleSave(listing)}
+                            canSave={isStudent}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
+        </div>
+      </UserPageShell>
+    );
+  }
 
   if (isChatPreviewMode) {
     const previewName =
@@ -630,13 +937,17 @@ function ProfileContent() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <button className="inline-flex items-center gap-2 rounded-xl border border-(--theme-border) bg-(--theme-surface) px-4 py-2 text-sm font-semibold text-(--theme-text-muted) shadow-sm transition-colors hover:bg-(--theme-surface-muted) dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
+              <button
+                type="button"
+                onClick={handleShareProfile}
+                className="inline-flex items-center gap-2 rounded-xl border border-(--theme-border) bg-(--theme-surface) px-4 py-2 text-sm font-semibold text-(--theme-text-muted) shadow-sm transition-colors hover:bg-(--theme-surface-muted) dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
                 <Icon name="share" />
                 Chia sẻ
               </button>
               <button onClick={() => router.push("/chat")} className="inline-flex items-center gap-2 rounded-xl bg-(--brand-accent) px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-(--brand-accent-strong) active:scale-95">
                 <Icon name="chat" />
-                Hộp thư
+                Nhắn tin
               </button>
             </div>
           </div>

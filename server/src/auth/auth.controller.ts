@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   Req,
@@ -99,6 +100,12 @@ export class AuthController {
   async getProfile(@Req() req: AuthenticatedRequest) {
     const userId = req.user?.userId;
     return this.authService.getProfile(userId);
+  }
+
+  @Get('public-profile/:userId')
+  @ApiOperation({ summary: 'Get public profile by user id' })
+  async getPublicProfile(@Param('userId', ParseIntPipe) userId: number) {
+    return this.authService.getPublicProfile(userId);
   }
 
   @Get('settings')

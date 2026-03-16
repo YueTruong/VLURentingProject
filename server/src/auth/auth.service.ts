@@ -17,6 +17,7 @@ import { RoleEntity } from 'src/database/entities/role.entity';
 import { UserProfileEntity } from 'src/database/entities/user-profile.entity';
 import { UserOauthAccountEntity } from 'src/database/entities/user-oauth-account.entity';
 import { UserSettingsEntity } from 'src/database/entities/user-settings.entity';
+import { PostEntity } from 'src/database/entities/post.entity';
 import { RegisterDto } from './dto/register.dto';
 import { OauthLoginDto } from './dto/oauth-login.dto';
 import { LinkProviderDto } from './dto/link-provider.dto';
@@ -24,6 +25,7 @@ import { UpdateSettingsPersonalDto } from './dto/update-settings-personal.dto';
 import { UpdateSettingsPreferencesDto } from './dto/update-settings-preferences.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { SubmitIdentityVerificationDto } from './dto/submit-identity-verification.dto';
+import { LoginResponse, ValidatedUser } from './types/auth.types';
 
 const SUPPORTED_OAUTH_PROVIDERS = ['google', 'facebook', 'apple'] as const;
 type OAuthProvider = (typeof SUPPORTED_OAUTH_PROVIDERS)[number];
@@ -33,7 +35,18 @@ const SUPPORTED_IDENTITY_DOCUMENT_TYPES = [
   'national-id',
 ] as const;
 type IdentityDocumentType = (typeof SUPPORTED_IDENTITY_DOCUMENT_TYPES)[number];
-type IdentityVerificationStatus = 'unverified' | 'pending' | 'verified';
+type IdentityVerificationStatus =
+  | 'unverified'
+  | 'pending'
+  | 'verified'
+  | 'rejected';
+type LoginUser = Pick<
+  ValidatedUser,
+  'id' | 'email' | 'username' | 'role' | 'profile'
+> & {
+  full_name?: string | null;
+  name?: string | null;
+};
 
 @Injectable()
 export class AuthService {
@@ -48,6 +61,8 @@ export class AuthService {
     private readonly oauthAccountRepository: Repository<UserOauthAccountEntity>,
     @InjectRepository(UserSettingsEntity)
     private readonly userSettingsRepository: Repository<UserSettingsEntity>,
+    @InjectRepository(PostEntity)
+    private readonly postRepository: Repository<PostEntity>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
@@ -63,7 +78,12 @@ export class AuthService {
     } = registerDto;
 
     const normalizedEmail = email.trim().toLowerCase();
+    const normalizedUsername = username.trim();
     const normalizedPhone = phoneNumber.trim();
+
+    if (!normalizedUsername) {
+      throw new BadRequestException('Username is required');
+    }
 
     const existingUser = await this.userRepository.findOne({
       where: { email: normalizedEmail },
@@ -80,7 +100,7 @@ export class AuthService {
     }
 
     const existingUsername = await this.userRepository.findOne({
-      where: { username },
+      where: { username: normalizedUsername },
     });
     if (existingUsername) {
       throw new ConflictException('Username already exists');
@@ -103,7 +123,7 @@ export class AuthService {
 
     const newUser = new UserEntity();
     newUser.email = normalizedEmail;
-    newUser.username = username;
+    newUser.username = normalizedUsername;
     newUser.password_hash = hashedPassword;
     newUser.role = userRole;
 
@@ -118,30 +138,19 @@ export class AuthService {
 
       // ✅ CÁCH GIẢI QUYẾT: Tự định nghĩa lại object trả về (DTO pattern)
       // Chỉ lấy những trường thực sự cần thiết, ngắt bỏ vòng lặp vô tận
-      return {
-        id: savedUser.id,
-        email: savedUser.email,
-        username: savedUser.username,
-        is_active: savedUser.is_active,
-        created_at: savedUser.createdAt,
-        role: {
-          id: savedUser.role?.id,
-          name: savedUser.role?.name,
-        },
-        profile: {
-          full_name: savedUser.profile?.full_name,
-          phone_number: savedUser.profile?.phone_number,
-          avatar_url: savedUser.profile?.avatar_url,
-          address: savedUser.profile?.address,
-        },
-      };
+      return this.buildRegisteredUserResponse(savedUser);
     } catch (error) {
-      console.error(error);
+      if (this.isUniqueConstraintViolation(error)) {
+        throw this.buildRegistrationConflictException(error);
+      }
       throw new InternalServerErrorException('Registration failed');
     }
   }
 
-  async validateUser(identifier: string, pass: string): Promise<any> {
+  async validateUser(
+    identifier: string,
+    pass: string,
+  ): Promise<ValidatedUser | null> {
     const normalizedIdentifier = identifier.trim();
     const user = await this.userRepository.findOne({
       where: [
@@ -167,13 +176,26 @@ export class AuthService {
     const isPasswordMatching = await bcrypt.compare(pass, user.password_hash);
     if (!isPasswordMatching) return null;
 
-    const result = { ...user };
-    delete result.password_hash;
-    delete result.is_active;
-    return result;
+    return {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      role: {
+        id: user.role?.id,
+        name: user.role?.name,
+      },
+      profile: user.profile
+        ? {
+            full_name: user.profile.full_name,
+            phone_number: user.profile.phone_number,
+            avatar_url: user.profile.avatar_url,
+            address: user.profile.address,
+          }
+        : null,
+    };
   }
 
-  async login(user: any) {
+  async login(user: LoginUser): Promise<LoginResponse> {
     const roleName = this.normalizeRoleName(user.role);
     const fullName =
       user.profile?.full_name ?? user.full_name ?? user.name ?? null;
@@ -183,7 +205,6 @@ export class AuthService {
       username: user.username ?? null,
       email: user.email ?? null,
       role: roleName,
-      roles: roleName,
       full_name: fullName,
     };
 
@@ -196,7 +217,6 @@ export class AuthService {
         email: user.email ?? null,
         username: user.username ?? null,
         role: roleName,
-        roles: roleName,
         full_name: fullName,
       },
     };
@@ -683,9 +703,9 @@ export class AuthService {
     settings.identity_front_image_name = frontImageName;
     settings.identity_back_image_name =
       documentType === 'passport' ? null : backImageName;
-    settings.identity_verification_status = 'verified';
+    settings.identity_verification_status = 'pending';
     settings.identity_submitted_at = now;
-    settings.identity_verified_at = now;
+    settings.identity_verified_at = null;
 
     await this.userSettingsRepository.save(settings);
 
@@ -698,6 +718,7 @@ export class AuthService {
   async getProfile(userId: number | undefined) {
     const settingsData = await this.getSettings(userId);
     return {
+      userId: this.requireUserId(userId),
       email: settingsData.personal.email,
       role: settingsData.account.role,
       full_name: settingsData.personal.legalName || null,
@@ -710,6 +731,47 @@ export class AuthService {
         settingsData.personal.emergencyContact.relationship || null,
       emergency_email: settingsData.personal.emergencyContact.email || null,
       emergency_phone: settingsData.personal.emergencyContact.phone || null,
+    };
+  }
+
+  async getPublicProfile(userId: number) {
+    if (!Number.isFinite(userId) || userId <= 0) {
+      throw new BadRequestException('ID người dùng không hợp lệ');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: {
+        id: userId,
+        is_active: true,
+      },
+      relations: ['role', 'profile'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy hồ sơ người dùng');
+    }
+
+    const posts = await this.postRepository.find({
+      where: {
+        userId: user.id,
+        status: 'approved',
+      },
+      relations: ['category', 'images', 'amenities'],
+      order: {
+        updatedAt: 'DESC',
+        createdAt: 'DESC',
+      },
+    });
+
+    return {
+      userId: user.id,
+      role: this.normalizeRoleName(user.role),
+      full_name: user.profile?.full_name ?? user.username ?? user.email ?? null,
+      avatar_url: user.profile?.avatar_url ?? null,
+      address: user.profile?.address ?? null,
+      joinedAt: user.createdAt,
+      listingCount: posts.length,
+      posts,
     };
   }
 
@@ -733,7 +795,14 @@ export class AuthService {
     return documentType;
   }
 
-  private normalizeRoleName(role: RoleEntity | string | null | undefined) {
+  private normalizeRoleName(
+    role:
+      | RoleEntity
+      | string
+      | { name?: string | null }
+      | null
+      | undefined,
+  ) {
     if (typeof role === 'string') {
       return role.toLowerCase();
     }
@@ -742,10 +811,14 @@ export class AuthService {
   }
 
   private assertOAuthBridgeSecret(secretFromHeader?: string) {
-    const expectedSecret = this.configService.get<string>(
-      'OAUTH_BRIDGE_SECRET',
-    );
-    if (!expectedSecret) return;
+    const expectedSecret = this.configService
+      .get<string>('OAUTH_BRIDGE_SECRET')
+      ?.trim();
+    if (!expectedSecret) {
+      throw new InternalServerErrorException(
+        'OAUTH_BRIDGE_SECRET is not configured',
+      );
+    }
     if (!secretFromHeader || secretFromHeader !== expectedSecret) {
       throw new UnauthorizedException('Invalid OAuth bridge secret');
     }
@@ -829,21 +902,35 @@ export class AuthService {
       email?.trim().toLowerCase() ??
       `${provider}_${providerAccountId}@oauth.local`;
 
-    const username = await this.generateUniqueUsername(normalizedEmail);
-    const user = this.userRepository.create({
-      email: normalizedEmail,
-      username,
-      password_hash: null,
-      role,
-      is_active: true,
-    });
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const username = await this.generateUniqueUsername(normalizedEmail);
+      const user = this.userRepository.create({
+        email: normalizedEmail,
+        username,
+        password_hash: null,
+        role,
+        is_active: true,
+      });
 
-    const profile = this.profileRepository.create({
-      full_name: this.normalizeOptionalText(fullName) ?? username,
-    });
-    user.profile = profile;
+      const profile = this.profileRepository.create({
+        full_name: this.normalizeOptionalText(fullName) ?? username,
+      });
+      user.profile = profile;
 
-    return this.userRepository.save(user);
+      try {
+        return await this.userRepository.save(user);
+      } catch (error) {
+        if (
+          this.isUniqueConstraintViolation(error) &&
+          this.getConstraintDetail(error).includes('(username)')
+        ) {
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    throw new InternalServerErrorException('Unable to create OAuth user');
   }
 
   private async generateUniqueUsername(source: string) {
@@ -852,18 +939,27 @@ export class AuthService {
       localPart
         .toLowerCase()
         .replace(/[^a-z0-9._-]+/g, '')
-        .replace(/^[._-]+|[._-]+$/g, '') || 'user';
+        .replace(/^[._-]+|[._-]+$/g, '')
+        .slice(0, 32) || 'user';
 
-    let candidate = base;
-    let attempt = 0;
-    while (attempt < 1000) {
-      const exists = await this.userRepository.findOne({
-        where: { username: candidate },
-        select: ['id'],
+    for (let batch = 0; batch < 5; batch += 1) {
+      const candidates = this.buildUsernameCandidates(base, 5);
+      const existingUsers = await this.userRepository.find({
+        where: { username: In(candidates) },
+        select: ['username'],
       });
-      if (!exists) return candidate;
-      attempt += 1;
-      candidate = `${base}${attempt}`;
+      const existingUsernames = new Set(
+        existingUsers
+          .map((user) => user.username)
+          .filter((candidate): candidate is string => Boolean(candidate)),
+      );
+
+      const availableUsername = candidates.find(
+        (candidate) => !existingUsernames.has(candidate),
+      );
+      if (availableUsername) {
+        return availableUsername;
+      }
     }
 
     throw new InternalServerErrorException('Unable to create unique username');
@@ -939,7 +1035,11 @@ export class AuthService {
   private normalizeIdentityVerificationStatus(
     statusRaw?: string | null,
   ): IdentityVerificationStatus {
-    if (statusRaw === 'pending' || statusRaw === 'verified') {
+    if (
+      statusRaw === 'pending' ||
+      statusRaw === 'verified' ||
+      statusRaw === 'rejected'
+    ) {
       return statusRaw;
     }
     return 'unverified';
@@ -987,5 +1087,68 @@ export class AuthService {
       },
       identity: this.buildIdentityVerificationResponse(settings),
     };
+  }
+
+  private buildRegisteredUserResponse(savedUser: UserEntity) {
+    return {
+      id: savedUser.id,
+      email: savedUser.email,
+      username: savedUser.username,
+      is_active: savedUser.is_active,
+      created_at: savedUser.createdAt,
+      role: {
+        id: savedUser.role?.id,
+        name: savedUser.role?.name,
+      },
+      profile: {
+        full_name: savedUser.profile?.full_name,
+        phone_number: savedUser.profile?.phone_number,
+        avatar_url: savedUser.profile?.avatar_url,
+        address: savedUser.profile?.address,
+      },
+    };
+  }
+
+  private isUniqueConstraintViolation(error: unknown) {
+    return this.getDatabaseErrorCode(error) === '23505';
+  }
+
+  private getDatabaseErrorCode(error: unknown) {
+    const candidate = error as {
+      code?: string;
+      driverError?: { code?: string };
+    };
+    return candidate?.driverError?.code ?? candidate?.code ?? null;
+  }
+
+  private getConstraintDetail(error: unknown) {
+    const candidate = error as {
+      detail?: string;
+      driverError?: { detail?: string };
+    };
+    return candidate?.driverError?.detail ?? candidate?.detail ?? '';
+  }
+
+  private buildRegistrationConflictException(error: unknown) {
+    const detail = this.getConstraintDetail(error);
+    if (detail.includes('(email)')) {
+      return new ConflictException('Email already exists');
+    }
+    if (detail.includes('(username)')) {
+      return new ConflictException('Username already exists');
+    }
+    if (detail.includes('(phone_number)')) {
+      return new ConflictException('Phone number already exists');
+    }
+    return new ConflictException('Registration data already exists');
+  }
+
+  private buildUsernameCandidates(base: string, count: number) {
+    const candidates = new Set<string>();
+    while (candidates.size < count) {
+      const suffix = Math.floor(1000 + Math.random() * 9000);
+      candidates.add(`${base}${suffix}`);
+    }
+    return Array.from(candidates);
   }
 }

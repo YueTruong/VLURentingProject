@@ -2,18 +2,18 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  ManyToOne,
   JoinColumn,
+  ManyToOne,
+  OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-  OneToMany,
 } from 'typeorm';
-import { RoleEntity } from './role.entity';
-import { UserProfileEntity } from './user-profile.entity';
-import { PostEntity } from './post.entity';
 import { NotificationEntity } from './notification.entity';
+import { PostEntity } from './post.entity';
+import { RoleEntity } from './role.entity';
 import { UserOauthAccountEntity } from './user-oauth-account.entity';
+import { UserProfileEntity } from './user-profile.entity';
 import { UserSettingsEntity } from './user-settings.entity';
 
 @Entity({ name: 'users' })
@@ -27,10 +27,9 @@ export class UserEntity {
   @Column({ type: 'varchar', length: 255, unique: true, nullable: true })
   username: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true, select: false })
   password_hash: string | null;
 
-  // Cột này sẽ lưu ID của vai trò
   @Column({ name: 'role_id' })
   roleId: number;
 
@@ -43,24 +42,18 @@ export class UserEntity {
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
   updatedAt: Date;
 
-  // Định nghĩa mối quan hệ Nhiều-Một
-  // Nhiều Người dùng (User) có thể có chung một Vai trò (Role)
   @ManyToOne(() => RoleEntity, (role) => role.users)
-  @JoinColumn({ name: 'role_id' }) // Chỉ định khóa ngoại
+  @JoinColumn({ name: 'role_id' })
   role: RoleEntity;
+
   @OneToOne(() => UserProfileEntity, (profile) => profile.user, {
-    cascade: true, // Tự động tạo/cập nhật profile khi tạo/cập nhật user
+    cascade: true,
   })
   profile: UserProfileEntity;
 
-  // Một User Chủ trọ có thể đăng nhiều Post
   @OneToMany(() => PostEntity, (post) => post.user)
   posts: PostEntity[];
 
-  // @Column({ nullable: true, default: 'local' }) // Cho phép null hoặc mặc định là local
-  // provider: string;
-
-  // Mối quan hệ với NotificationEntity
   @OneToMany(() => NotificationEntity, (notification) => notification.user)
   notifications: NotificationEntity[];
 
