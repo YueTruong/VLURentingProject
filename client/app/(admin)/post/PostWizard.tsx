@@ -651,7 +651,7 @@ function PreviewCard({
 export default function PostWizard() {
   const { data: session, status: sessionStatus } = useSession();
   const [verificationStatus, setVerificationStatus] = useState<
-    "loading" | "verified" | "pending" | "unverified"
+    "loading" | "verified" | "pending" | "unverified" | "rejected"
   >("loading");
   const [step, setStep] = useState(0);
 

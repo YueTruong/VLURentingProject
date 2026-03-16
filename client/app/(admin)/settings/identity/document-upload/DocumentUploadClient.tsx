@@ -4,11 +4,10 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { uploadImages } from "@/app/services/posts";
 import { submitIdentityVerification } from "@/app/services/security";
 
 const IDENTITY_IMAGE_KEY = "vlu.identity.document.images";
-const VERIFICATION_STORAGE_KEY = "vlu.landlord.verified";
-const VERIFICATION_PENDING_KEY = "vlu.landlord.pending";
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png"];
 
 type IdentityDocumentType = "driver-license" | "passport" | "national-id";
@@ -25,34 +24,34 @@ type DocumentUploadConfig = {
 
 const documentConfigMap: Record<IdentityDocumentType, DocumentUploadConfig> = {
   "driver-license": {
-    title: "Tải lên ảnh giấy phép lái xe của bạn",
+    title: "Tai len anh giay phep lai xe cua ban",
     description:
-      "Đảm bảo ảnh không bị nhòe, mờ và mặt trước giấy phép lái xe thể hiện rõ khuôn mặt bạn.",
+      "Dam bao anh khong bi nhoe, mo va mat truoc giay phep lai xe hien thi ro khuon mat ban.",
     requiresBackImage: true,
-    frontLabel: "Tải lên ảnh mặt trước",
-    backLabel: "Tải lên ảnh mặt sau",
-    previewAltFront: "Ảnh mặt trước giấy phép lái xe",
-    previewAltBack: "Ảnh mặt sau giấy phép lái xe",
+    frontLabel: "Tai len anh mat truoc",
+    backLabel: "Tai len anh mat sau",
+    previewAltFront: "Anh mat truoc giay phep lai xe",
+    previewAltBack: "Anh mat sau giay phep lai xe",
   },
   passport: {
-    title: "Tải lên ảnh hộ chiếu của bạn",
+    title: "Tai len anh ho chieu cua ban",
     description:
-      "Đảm bảo ảnh hộ chiếu của bạn không bị nhòe hoặc mờ và ảnh thể hiện rõ khuôn mặt bạn.",
+      "Dam bao anh ho chieu cua ban khong bi nhoe hoac mo va hien thi ro khuon mat ban.",
     requiresBackImage: false,
-    frontLabel: "Tải lên hộ chiếu",
+    frontLabel: "Tai len ho chieu",
     backLabel: "",
-    previewAltFront: "Ảnh hộ chiếu đã tải lên",
+    previewAltFront: "Anh ho chieu da tai len",
     previewAltBack: "",
   },
   "national-id": {
-    title: "Tải lên ảnh giấy tờ tùy thân của bạn",
+    title: "Tai len anh giay to tuy than cua ban",
     description:
-      "Đảm bảo ảnh không bị nhòe, mờ và mặt trước giấy tờ tùy thân thể hiện rõ khuôn mặt bạn.",
+      "Dam bao anh khong bi nhoe, mo va mat truoc giay to tuy than hien thi ro khuon mat ban.",
     requiresBackImage: true,
-    frontLabel: "Tải lên ảnh mặt trước",
-    backLabel: "Tải lên ảnh mặt sau",
-    previewAltFront: "Ảnh mặt trước giấy tờ tùy thân",
-    previewAltBack: "Ảnh mặt sau giấy tờ tùy thân",
+    frontLabel: "Tai len anh mat truoc",
+    backLabel: "Tai len anh mat sau",
+    previewAltFront: "Anh mat truoc giay to tuy than",
+    previewAltBack: "Anh mat sau giay to tuy than",
   },
 };
 
@@ -81,14 +80,24 @@ function UploadIcon() {
       strokeWidth="1.8"
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V5m0 0 4 4m-4-4-4 4" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 15.5v2A2.5 2.5 0 0 0 6.5 20h11A2.5 2.5 0 0 0 20 17.5v-2" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 15.5v2A2.5 2.5 0 0 0 6.5 20h11A2.5 2.5 0 0 0 20 17.5v-2"
+      />
     </svg>
   );
 }
 
 function LockIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <rect x="5" y="11" width="14" height="10" rx="2" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V8a4 4 0 1 1 8 0v3" />
     </svg>
@@ -127,7 +136,7 @@ function UploadCard({
             <UploadIcon />
           </span>
           <p className="text-base font-semibold text-[#111827]">{label}</p>
-          <p className="mt-1 text-sm text-[#6b7280]">Chỉ định dạng JPEG hoặc PNG</p>
+          <p className="mt-1 text-sm text-[#6b7280]">Chi dinh dang JPEG hoac PNG</p>
         </label>
       ) : (
         <div className="rounded-xl border border-[#d1d5db] bg-white p-3 transition-all duration-300">
@@ -139,22 +148,24 @@ function UploadCard({
               className="h-40 w-full object-cover transition-transform duration-300 hover:scale-[1.01]"
             />
           </div>
-          <div className="mt-3 flex items-center justify-between">
-            <p className="line-clamp-1 text-sm font-medium text-[#111827]">{file?.name}</p>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <p className="line-clamp-1 text-sm font-medium text-[#111827]">
+              {file?.name}
+            </p>
             <div className="flex items-center gap-3 text-xs">
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
                 className="font-medium text-[#374151] underline underline-offset-2 hover:text-[#111827]"
               >
-                Thay đổi
+                Thay doi
               </button>
               <button
                 type="button"
                 onClick={onRemove}
                 className="font-medium text-[#6b7280] underline underline-offset-2 hover:text-[#111827]"
               >
-                Xóa ảnh
+                Xoa anh
               </button>
             </div>
           </div>
@@ -178,23 +189,35 @@ export default function DocumentUploadClient() {
 
   const rawType = searchParams.get("type");
   const documentType: IdentityDocumentType =
-    rawType === "driver-license" || rawType === "passport" || rawType === "national-id"
+    rawType === "driver-license" ||
+    rawType === "passport" ||
+    rawType === "national-id"
       ? rawType
       : "national-id";
   const config = documentConfigMap[documentType];
 
-  const frontPreviewUrl = useMemo(() => (frontFile ? URL.createObjectURL(frontFile) : ""), [frontFile]);
-  const backPreviewUrl = useMemo(() => (backFile ? URL.createObjectURL(backFile) : ""), [backFile]);
+  const frontPreviewUrl = useMemo(
+    () => (frontFile ? URL.createObjectURL(frontFile) : ""),
+    [frontFile],
+  );
+  const backPreviewUrl = useMemo(
+    () => (backFile ? URL.createObjectURL(backFile) : ""),
+    [backFile],
+  );
 
   useEffect(() => {
     return () => {
-      if (frontPreviewUrl) URL.revokeObjectURL(frontPreviewUrl);
+      if (frontPreviewUrl) {
+        URL.revokeObjectURL(frontPreviewUrl);
+      }
     };
   }, [frontPreviewUrl]);
 
   useEffect(() => {
     return () => {
-      if (backPreviewUrl) URL.revokeObjectURL(backPreviewUrl);
+      if (backPreviewUrl) {
+        URL.revokeObjectURL(backPreviewUrl);
+      }
     };
   }, [backPreviewUrl]);
 
@@ -211,7 +234,7 @@ export default function DocumentUploadClient() {
     if (!file) return;
 
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-      setErrorMessage("Vui lòng chọn ảnh định dạng JPEG hoặc PNG.");
+      setErrorMessage("Vui long chon anh dinh dang JPEG hoac PNG.");
       return;
     }
 
@@ -221,51 +244,66 @@ export default function DocumentUploadClient() {
 
   async function handleContinue() {
     if (!canContinue || isSubmitting) return;
+
     if (!accessToken) {
-      setErrorMessage("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
+      setErrorMessage("Phien dang nhap het han. Vui long dang nhap lai.");
       return;
-    }
-
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(
-        IDENTITY_IMAGE_KEY,
-        JSON.stringify({
-          frontImageName: frontFile?.name ?? "",
-          backImageName: backFile?.name ?? "",
-          savedAt: new Date().toISOString(),
-        }),
-      );
-
     }
 
     setIsSubmitting(true);
     setErrorMessage("");
 
     try {
+      const filesToUpload = config.requiresBackImage
+        ? [frontFile, backFile]
+        : [frontFile];
+      const uploadedImageUrls = await uploadImages(
+        filesToUpload.filter((file): file is File => Boolean(file)),
+      );
+      const [frontImageUrl, backImageUrl] = uploadedImageUrls;
+
+      if (!frontImageUrl) {
+        throw new Error("Khong the tai len anh mat truoc.");
+      }
+
+      if (config.requiresBackImage && !backImageUrl) {
+        throw new Error("Khong the tai len anh mat sau.");
+      }
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          IDENTITY_IMAGE_KEY,
+          JSON.stringify({
+            frontImageName: frontImageUrl,
+            backImageName: backImageUrl ?? "",
+            savedAt: new Date().toISOString(),
+          }),
+        );
+      }
+
       await submitIdentityVerification(
         {
           documentType,
-          frontImageName: frontFile?.name ?? "",
-          backImageName: config.requiresBackImage ? backFile?.name ?? "" : undefined,
+          frontImageName: frontImageUrl,
+          backImageName: config.requiresBackImage ? backImageUrl : undefined,
         },
         accessToken,
       );
 
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(VERIFICATION_STORAGE_KEY, "true");
-        window.localStorage.removeItem(VERIFICATION_PENDING_KEY);
-      }
-
       router.push("/settings/identity");
     } catch (error) {
-      const message =
+      const responseMessage =
         typeof error === "object" &&
         error !== null &&
         "response" in error &&
-        (error as { response?: { data?: { message?: string } } }).response?.data?.message
-          ? String((error as { response?: { data?: { message?: string } } }).response?.data?.message)
-          : "Không thể gửi xác minh. Vui lòng thử lại.";
-      setErrorMessage(message);
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message;
+
+      setErrorMessage(
+        error instanceof Error && error.message
+          ? error.message
+          : responseMessage || "Khong the gui xac minh. Vui long thu lai.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -278,7 +316,12 @@ export default function DocumentUploadClient() {
         <p className="text-sm text-[#6b7280]">{config.description}</p>
       </section>
 
-      <section className={cn("grid gap-6", config.requiresBackImage ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1")}>
+      <section
+        className={cn(
+          "grid gap-6",
+          config.requiresBackImage ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1",
+        )}
+      >
         <UploadCard
           inputId="identity-front-upload"
           label={config.frontLabel}
@@ -289,7 +332,9 @@ export default function DocumentUploadClient() {
           onPick={(files) => validateAndSetFile(files, setFrontFile)}
           onRemove={() => {
             setFrontFile(null);
-            if (frontInputRef.current) frontInputRef.current.value = "";
+            if (frontInputRef.current) {
+              frontInputRef.current.value = "";
+            }
           }}
         />
 
@@ -304,7 +349,9 @@ export default function DocumentUploadClient() {
             onPick={(files) => validateAndSetFile(files, setBackFile)}
             onRemove={() => {
               setBackFile(null);
-              if (backInputRef.current) backInputRef.current.value = "";
+              if (backInputRef.current) {
+                backInputRef.current.value = "";
+              }
             }}
           />
         ) : null}
@@ -321,8 +368,8 @@ export default function DocumentUploadClient() {
           href="/settings/identity/document-type"
           className="inline-flex items-center gap-2 -ml-1 text-base font-medium text-[#111827] hover:text-black"
         >
-          <span aria-hidden>←</span>
-          <span className="underline underline-offset-4 decoration-1">Quay lại</span>
+          <span aria-hidden>&larr;</span>
+          <span className="underline underline-offset-4 decoration-1">Quay lai</span>
         </Link>
 
         <button
@@ -337,7 +384,7 @@ export default function DocumentUploadClient() {
           )}
         >
           {!canContinue || isSubmitting ? <LockIcon /> : null}
-          {isSubmitting ? "Đang xác minh..." : "Tiếp tục"}
+          {isSubmitting ? "Dang xac minh..." : "Tiep tuc"}
         </button>
       </div>
     </div>

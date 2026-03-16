@@ -1,7 +1,12 @@
 import axios from "axios";
+import { createAuthHeaders, getBackendUrl } from "@/app/lib/backend";
 
 export type SecurityProvider = "google" | "facebook" | "apple";
-export type IdentityVerificationStatus = "unverified" | "pending" | "verified";
+export type IdentityVerificationStatus =
+  | "unverified"
+  | "pending"
+  | "verified"
+  | "rejected";
 export type IdentityDocumentType = "driver-license" | "passport" | "national-id";
 
 export type SecurityProviderItem = {
@@ -89,15 +94,6 @@ export const VERIFICATION_STORAGE_KEY = "vlu.landlord.verified";
 export const VERIFICATION_PENDING_KEY = "vlu.landlord.pending";
 export const VERIFICATION_STATUS_EVENT = "vlu:verification-status-changed";
 
-const getBaseUrl = () =>
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://localhost:3001";
-
-const getAuthHeaders = (token: string) => ({
-  Authorization: `Bearer ${token}`,
-});
-
 export function readVerificationStatusFromStorage(): IdentityVerificationStatus {
   if (typeof window === "undefined") {
     return "unverified";
@@ -132,29 +128,29 @@ export function syncVerificationStorage(status: IdentityVerificationStatus) {
 }
 
 export async function getSecurityOverview(token: string): Promise<SecurityOverview> {
-  const res = await axios.get<SecurityOverview>(`${getBaseUrl()}/me/security`, {
-    headers: getAuthHeaders(token),
+  const res = await axios.get<SecurityOverview>(`${getBackendUrl()}/me/security`, {
+    headers: createAuthHeaders(token),
   });
   return res.data;
 }
 
 export async function unlinkSecurityProvider(provider: SecurityProvider, token: string) {
-  const res = await axios.delete(`${getBaseUrl()}/auth/link/${provider}`, {
-    headers: getAuthHeaders(token),
+  const res = await axios.delete(`${getBackendUrl()}/auth/link/${provider}`, {
+    headers: createAuthHeaders(token),
   });
   return res.data;
 }
 
 export async function changePassword(input: ChangePasswordInput, token: string) {
-  const res = await axios.patch(`${getBaseUrl()}/me/settings/password`, input, {
-    headers: getAuthHeaders(token),
+  const res = await axios.patch(`${getBackendUrl()}/me/settings/password`, input, {
+    headers: createAuthHeaders(token),
   });
   return res.data;
 }
 
 export async function getSettingsOverview(token: string): Promise<SettingsOverview> {
-  const res = await axios.get<SettingsOverview>(`${getBaseUrl()}/me/settings`, {
-    headers: getAuthHeaders(token),
+  const res = await axios.get<SettingsOverview>(`${getBackendUrl()}/me/settings`, {
+    headers: createAuthHeaders(token),
   });
   return res.data;
 }
@@ -164,10 +160,10 @@ export async function updateSettingsPreferences(
   token: string,
 ): Promise<SettingsPreferences> {
   const res = await axios.patch<{ message: string; preferences: SettingsPreferences }>(
-    `${getBaseUrl()}/me/settings/preferences`,
+    `${getBackendUrl()}/me/settings/preferences`,
     input,
     {
-      headers: getAuthHeaders(token),
+      headers: createAuthHeaders(token),
     },
   );
   return res.data.preferences;
@@ -177,9 +173,9 @@ export async function getIdentityVerificationOverview(
   token: string,
 ): Promise<IdentityVerificationOverview> {
   const res = await axios.get<IdentityVerificationOverview>(
-    `${getBaseUrl()}/me/verification`,
+    `${getBackendUrl()}/me/verification`,
     {
-      headers: getAuthHeaders(token),
+      headers: createAuthHeaders(token),
     },
   );
   syncVerificationStorage(res.data.status);
@@ -190,8 +186,8 @@ export async function submitIdentityVerification(
   input: SubmitIdentityVerificationInput,
   token: string,
 ) {
-  const res = await axios.patch(`${getBaseUrl()}/me/verification`, input, {
-    headers: getAuthHeaders(token),
+  const res = await axios.patch(`${getBackendUrl()}/me/verification`, input, {
+    headers: createAuthHeaders(token),
   });
 
   const verification = (res.data?.verification ?? res.data) as

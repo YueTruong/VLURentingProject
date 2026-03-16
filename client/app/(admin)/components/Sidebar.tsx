@@ -3,7 +3,7 @@
 import {
   ArrowLeftIcon,
   BarChartIcon,
-  FileTextIcon,
+  CheckCircledIcon,
   HomeIcon,
   PersonIcon,
   PieChartIcon,
@@ -20,9 +20,9 @@ const nav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: <BarChartIcon className="h-4 w-4" /> },
   { href: "/dashboard/analytics", label: "Analytics", icon: <PieChartIcon className="h-4 w-4" /> },
   { href: "/dashboard/users", label: "Users", icon: <PersonIcon className="h-4 w-4" /> },
+  { href: "/dashboard/identity-verifications", label: "Identity Checks", icon: <CheckCircledIcon className="h-4 w-4" /> },
   { href: "/dashboard/listings", label: "Listings", icon: <HomeIcon className="h-4 w-4" /> },
   { href: "/dashboard/roommate-requests", label: "Ở ghép", icon: <HomeIcon className="h-4 w-4" /> },
-  { href: "/dashboard/properties", label: "Properties", icon: <FileTextIcon className="h-4 w-4" /> },
   { href: "/dashboard/reviews", label: "Reviews", icon: <StarIcon className="h-4 w-4" /> },
   { href: "/dashboard/catalog", label: "Catalog", icon: <RowsIcon className="h-4 w-4" /> },
 ];
