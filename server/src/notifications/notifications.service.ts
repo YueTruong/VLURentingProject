@@ -1,38 +1,43 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThan, Repository } from 'typeorm';
 import { NotificationEntity } from 'src/database/entities/notification.entity';
 
 @Injectable()
 export class NotificationsService {
   constructor(
     @InjectRepository(NotificationEntity)
-    private repo: Repository<NotificationEntity>,
+    private readonly repo: Repository<NotificationEntity>,
+    private readonly configService: ConfigService,
   ) {}
 
   private normalizeNotificationText(text: string) {
-    if (!text) return text;
+    if (!text) {
+      return text;
+    }
 
     return text
-      .replace(/Yeu cau o ghep moi can duyet/gi, 'Yêu cầu ở ghép mới cần duyệt')
-      .replace(/Yeu cau o ghep da duoc duyet/gi, 'Yêu cầu ở ghép đã được duyệt')
-      .replace(/Yeu cau o ghep bi tu choi/gi, 'Yêu cầu ở ghép bị từ chối')
-      .replace(/Yeu cau o ghep dang cho duyet/gi, 'Yêu cầu ở ghép đang chờ duyệt')
-      .replace(/Yeu cau o ghep cho phong/gi, 'Yêu cầu ở ghép cho phòng')
-      .replace(/da duoc admin chap nhan va da hien thi trong listings/gi, 'đã được quản trị viên chấp nhận và đã hiển thị công khai')
-      .replace(/da duoc admin chap nhan/gi, 'đã được quản trị viên chấp nhận')
-      .replace(/da bi admin tu choi/gi, 'đã bị quản trị viên từ chối')
-      .replace(/dang cho admin xac nhan/gi, 'đang chờ quản trị viên duyệt')
-      .replace(/da duoc chuyen ve trang thai cho duyet/gi, 'đã được chuyển về trạng thái chờ duyệt')
-      .replace(/Tin nhan moi tu/gi, 'Tin nhắn mới từ')
-      .replace(/Dang cho ban phan hoi/gi, 'Đang chờ bạn phản hồi')
-      .replace(/Yeu cau xem phong moi/gi, 'Yêu cầu xem phòng mới')
-      .replace(/Cap nhat lich xem phong/gi, 'Cập nhật lịch xem phòng')
-      .replace(/Lich hen da bi huy/gi, 'Lịch hẹn đã bị hủy')
-      .replace(/lich hen xem phong/gi, 'lịch hẹn xem phòng')
-      .replace(/bai dang/gi, 'bài đăng')
-      .replace(/Nha tro/gi, 'Nhà trọ')
-      .replace(/Can ho/gi, 'Căn hộ');
+      .replace(/Yeu cau xac nhan o ghep/gi, 'Yeu cau xac nhan o ghep')
+      .replace(/Yeu cau o ghep moi can duyet/gi, 'Yeu cau o ghep moi can duyet')
+      .replace(/Yeu cau o ghep da duoc duyet/gi, 'Yeu cau o ghep da duoc duyet')
+      .replace(/Yeu cau o ghep bi tu choi/gi, 'Yeu cau o ghep bi tu choi')
+      .replace(/Yeu cau o ghep dang cho duyet/gi, 'Yeu cau o ghep dang cho duyet')
+      .replace(/Yeu cau o ghep cho phong/gi, 'Yeu cau o ghep cho phong')
+      .replace(/Mot sinh vien da tao nhu cau o ghep/gi, 'Mot sinh vien da tao nhu cau o ghep')
+      .replace(
+        /da duoc admin chap nhan va da hien thi trong listings/gi,
+        'da duoc admin chap nhan va da hien thi trong listings',
+      )
+      .replace(/da duoc admin chap nhan/gi, 'da duoc admin chap nhan')
+      .replace(/da bi admin tu choi/gi, 'da bi admin tu choi')
+      .replace(/dang cho admin xac nhan/gi, 'dang cho admin xac nhan')
+      .replace(/da duoc chuyen ve trang thai cho duyet/gi, 'da duoc chuyen ve trang thai cho duyet')
+      .replace(/Tin nhan moi tu/gi, 'Tin nhan moi tu')
+      .replace(/Dang cho ban phan hoi/gi, 'Dang cho ban phan hoi')
+      .replace(/Yeu cau xem phong moi/gi, 'Yeu cau xem phong moi')
+      .replace(/Cap nhat lich xem phong/gi, 'Cap nhat lich xem phong')
+      .replace(/Lich hen da bi huy/gi, 'Lich hen da bi huy');
   }
 
   private normalizeNotificationEntity(notification: NotificationEntity) {
@@ -49,11 +54,17 @@ export class NotificationsService {
     return { notification, changed };
   }
 
-  // Lấy danh sách thông báo của user
+  private getThrottleWindowMs() {
+    const rawWindow = Number(
+      this.configService.get<string>('NOTIFICATION_RATE_LIMIT_MS') || '30000',
+    );
+    return Number.isFinite(rawWindow) && rawWindow >= 0 ? rawWindow : 30000;
+  }
+
   async findMyNotifications(userId: number) {
     const notifications = await this.repo.find({
       where: { userId },
-      order: { createdAt: 'DESC' }, // Mới nhất lên đầu
+      order: { createdAt: 'DESC' },
     });
 
     const changedNotifications = notifications
@@ -68,56 +79,72 @@ export class NotificationsService {
     return notifications;
   }
 
-  // Đánh dấu 1 thông báo là đã đọc
   async markAsRead(id: number, userId: number) {
     const notif = await this.repo.findOneBy({ id, userId });
-    if (!notif) throw new NotFoundException('Thông báo không tồn tại');
+    if (!notif) {
+      throw new NotFoundException('Thong bao khong ton tai');
+    }
 
     notif.isRead = true;
     return this.repo.save(notif);
   }
 
-  // Đánh dấu tất cả là đã đọc
   async markAllAsRead(userId: number) {
     await this.repo.update({ userId, isRead: false }, { isRead: true });
     return { success: true };
   }
 
-  // Hàm nội bộ để các module khác gọi khi cần bắn thông báo
   async createNotification(
     userId: number,
     title: string,
     message: string,
     type: string,
     relatedId?: number,
-    ) {
-    // 1. Nếu là tin nhắn chat, kiểm tra xem có thông báo nào CÙNG NGƯỜI GỬI (relatedId) và CHƯA ĐỌC không?
+  ) {
+    const normalizedTitle = this.normalizeNotificationText(title);
+    const normalizedMessage = this.normalizeNotificationText(message);
+
     if (type === 'message') {
-      const existingNotif = await this.repo.findOne({
+      const existingMessageNotification = await this.repo.findOne({
         where: {
-          userId: userId, // Người nhận
-          type: 'message', // Loại tin nhắn
-          relatedId: relatedId, // ID người gửi
-          isRead: false, // Chưa đọc
+          userId,
+          type: 'message',
+          relatedId: relatedId ?? null,
+          isRead: false,
         },
+        order: { createdAt: 'DESC' },
       });
 
-      // 2. Nếu đã có -> Chỉ cập nhật thời gian và nội dung chung chung
-      if (existingNotif) {
-        existingNotif.message = message; // Cập nhật lại nội dung (VD: "5 tin nhắn đang chờ")
-        // Hack: Update lại createdAt bằng cách xóa đi tạo lại hoặc dùng QueryBuilder,
-        // nhưng đơn giản nhất ở đây là ta save lại, TypeORM sẽ update 'updatedAt' nếu em có cột đó.
-        // Để đẩy lên đầu danh sách, ta có thể xóa cái cũ và tạo cái mới, hoặc chấp nhận thứ tự cũ.
-        // Cách tốt nhất: Xóa cái cũ, tạo cái mới để nó nhảy lên đầu.
-        await this.repo.remove(existingNotif);
+      if (existingMessageNotification) {
+        existingMessageNotification.title = normalizedTitle;
+        existingMessageNotification.message = normalizedMessage;
+        return this.repo.save(existingMessageNotification);
       }
     }
 
-    // 3. Tạo thông báo mới (hoặc tái tạo cái vừa xóa để nó mới nhất)
+    const throttleWindowMs = this.getThrottleWindowMs();
+    if (throttleWindowMs > 0) {
+      const recentNotification = await this.repo.findOne({
+        where: {
+          userId,
+          type,
+          relatedId: relatedId ?? null,
+          title: normalizedTitle,
+          createdAt: MoreThan(new Date(Date.now() - throttleWindowMs)),
+        },
+        order: { createdAt: 'DESC' },
+      });
+
+      if (recentNotification) {
+        recentNotification.message = normalizedMessage;
+        return this.repo.save(recentNotification);
+      }
+    }
+
     const notif = this.repo.create({
       userId,
-      title: this.normalizeNotificationText(title),
-      message: this.normalizeNotificationText(message),
+      title: normalizedTitle,
+      message: normalizedMessage,
       type,
       relatedId,
     });
@@ -127,7 +154,7 @@ export class NotificationsService {
   async countUnread(userId: number) {
     const count = await this.repo.count({
       where: {
-        userId: userId,
+        userId,
         isRead: false,
       },
     });

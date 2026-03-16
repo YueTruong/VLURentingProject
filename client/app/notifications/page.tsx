@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation"; 
-import UserTopBar from "@/app/homepage/components/UserTopBar";
+import UserTopBar from "@/app/_shared/layout/UserTopBar";
 import { 
   getNotifications, 
   markNotificationAsRead, 
@@ -47,6 +47,7 @@ function TypeBadge({ type }: { type: string }) {
     message: { label: "Tin nhắn", color: "bg-(--brand-primary-soft) text-(--brand-primary-text)" },
     listing: { label: "Tin đăng", color: "bg-(--brand-accent-soft) text-(--brand-accent)" },
     booking: { label: "Lịch hẹn", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" },
+    roommate: { label: "Ở ghép", color: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300" },
   };
   const chosen = map[type] || map.system;
   return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${chosen.color}`}>{chosen.label}</span>;
@@ -183,6 +184,10 @@ export default function NotificationsPage() {
     else if (item.type === 'message') {
       const chatUrl = item.relatedId ? `/chat?partnerId=${item.relatedId}` : '/chat';
       router.push(chatUrl);
+    }
+    else if (item.type === 'roommate') {
+      const userRole = session?.user?.role?.toLowerCase();
+      router.push(userRole === 'admin' ? '/dashboard/roommate-requests' : '/roommate-management');
     }
     else {
       alert(item.message); 

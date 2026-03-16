@@ -5,7 +5,8 @@ import { Suspense } from "react";
 import { useEffect, useState, useRef, FormEvent, useMemo, useCallback, ChangeEvent } from "react";
 import io, { Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
-import UserTopBar from "@/app/homepage/components/UserTopBar";
+import { createAuthHeaders, getBackendUrl } from "@/app/lib/backend";
+import UserTopBar from "@/app/_shared/layout/UserTopBar";
 import { uploadImages } from "@/app/services/posts";
 import { useSearchParams, useRouter } from 'next/navigation';
 
@@ -21,7 +22,7 @@ import {
 } from "@radix-ui/react-icons";
 
 // --- CẤU HÌNH ---
-const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+const SOCKET_URL = getBackendUrl();
 const IMAGE_PREFIX = "[[image]]";
 let socket: Socket | null = null;
 const CHAT_PROFILE_PREVIEW_KEY = "vlu.chat.profile.preview";
@@ -405,7 +406,7 @@ function ChatPageContent() {
     if (!currentUserId || !accessToken) return;
 
     fetch(`${SOCKET_URL}/chat/my-conversations`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
+        headers: createAuthHeaders(accessToken)
     })
     .then(res => res.ok ? res.json() : [])
     .then(async (data: RawConversation[]) => {
@@ -421,7 +422,9 @@ function ChatPageContent() {
                 try {
                     const initRes = await fetch(`${SOCKET_URL}/chat/init`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+                        headers: createAuthHeaders(accessToken, {
+                          'Content-Type': 'application/json',
+                        }),
                         body: JSON.stringify({ partnerId: pId })
                     });
                     const newRaw = await initRes.json();
@@ -437,10 +440,13 @@ function ChatPageContent() {
     }).catch(console.error);
 
     // --- SETUP SOCKET ---
-    const socketInstance = io(SOCKET_URL, { transports: ["websocket", "polling"] });
+    const socketInstance = io(SOCKET_URL, {
+      transports: ["websocket", "polling"],
+      auth: {
+        token: accessToken,
+      },
+    });
     socket = socketInstance;
-    
-    socketInstance.emit("user_connected", currentUserId);
 
     socketInstance.on("user_online", (userId: number) => {
       setOnlineUsers(prev => {
@@ -501,7 +507,7 @@ function ChatPageContent() {
       socket?.emit("join_conversation", selectedId);
 
       fetch(`${SOCKET_URL}/chat/${selectedId}/messages`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
+        headers: createAuthHeaders(accessToken)
       })
       .then(res => res.json())
       .then(setMessages)
@@ -557,7 +563,6 @@ function ChatPageContent() {
 
       const payload = {
           conversationId: selectedId,
-          senderId: currentUserId,
           content: buildMessageContent(inputVal, pendingImageUrl)
       };
       if (!socket) return;
