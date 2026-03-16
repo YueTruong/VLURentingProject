@@ -16,6 +16,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '../auth/dto/register.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { CreatePostDto } from './dto/create-post.dto';
@@ -105,8 +106,9 @@ export class PostsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get post by id' })
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.postsService.findOne(id);
+  @UseGuards(OptionalJwtAuthGuard)
+  async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.postsService.findOne(id, req.user);
   }
 
   @Patch(':id')
