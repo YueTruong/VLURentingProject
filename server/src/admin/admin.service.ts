@@ -4,10 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { access } from 'fs/promises';
+import { v2 as cloudinary } from 'cloudinary';
 import { constants as fsConstants } from 'fs';
-import { resolve, sep } from 'path';
+import { access, readdir } from 'fs/promises';
+import { basename, extname, resolve, sep } from 'path';
 import { FindManyOptions, Not, Repository } from 'typeorm';
 import { AmenityEntity } from 'src/database/entities/amenity.entity';
 import { CategoryEntity } from 'src/database/entities/category.entity';
@@ -20,9 +22,14 @@ import { ReviewIdentityVerificationDto } from './dto/review-identity-verificatio
 import { UpdatePostStatusDto } from './dto/update-post-status.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 
+type IdentityVerificationDocumentSource =
+  | { kind: 'file'; path: string }
+  | { kind: 'url'; url: string };
+
 @Injectable()
 export class AdminService {
   private readonly uploadsDirectory = resolve(__dirname, '..', '..', 'uploads');
+  private readonly cloudinaryFolder = 'vlu-renting';
 
   constructor(
     @InjectRepository(PostEntity)
@@ -35,6 +42,7 @@ export class AdminService {
     private readonly categoryRepository: Repository<CategoryEntity>,
     @InjectRepository(AmenityEntity)
     private readonly amenityRepository: Repository<AmenityEntity>,
+    private readonly configService: ConfigService,
   ) {}
 
   private sanitizeUser(user: UserEntity | null) {
@@ -137,27 +145,27 @@ export class AdminService {
     }));
   }
 
-  async getIdentityVerificationDocumentPath(referenceRaw: string) {
+  async resolveIdentityVerificationDocumentSource(
+    referenceRaw: string,
+  ): Promise<IdentityVerificationDocumentSource> {
     const reference = this.normalizeIdentityDocumentReference(referenceRaw);
-    const filePath = resolve(this.uploadsDirectory, reference);
-    const uploadsDirectoryPrefix = `${this.uploadsDirectory}${sep}`;
-
-    if (
-      filePath !== this.uploadsDirectory &&
-      !filePath.startsWith(uploadsDirectoryPrefix)
-    ) {
-      throw new BadRequestException(
-        'Tham chieu tep xac minh danh tinh khong hop le',
-      );
+    if (this.isHttpUrl(reference)) {
+      return { kind: 'url', url: reference };
     }
 
-    try {
-      await access(filePath, fsConstants.R_OK);
-    } catch {
-      throw new NotFoundException('Khong tim thay tep xac minh danh tinh');
+    const localFilePath =
+      await this.resolveLocalIdentityDocumentPath(reference);
+    if (localFilePath) {
+      return { kind: 'file', path: localFilePath };
     }
 
-    return filePath;
+    const cloudinaryUrl =
+      await this.resolveCloudinaryIdentityDocumentUrl(reference);
+    if (cloudinaryUrl) {
+      return { kind: 'url', url: cloudinaryUrl };
+    }
+
+    throw new NotFoundException('Khong tim thay tep xac minh danh tinh');
   }
 
   async reviewIdentityVerification(
@@ -197,22 +205,169 @@ export class AdminService {
       throw new BadRequestException('Thieu tham chieu tep xac minh danh tinh');
     }
 
-    const normalizedReference = reference.replace(/\\/g, '/').replace(/^\/+/, '');
+    if (this.isHttpUrl(reference)) {
+      return reference;
+    }
+
+    const normalizedReference = reference
+      .replace(/\\/g, '/')
+      .replace(/^\/+/, '');
     const withoutUploadsPrefix = normalizedReference.startsWith('uploads/')
       ? normalizedReference.slice('uploads/'.length)
       : normalizedReference;
+    const segments = withoutUploadsPrefix.split('/').filter(Boolean);
 
     if (
-      !withoutUploadsPrefix ||
-      withoutUploadsPrefix.includes('/') ||
-      withoutUploadsPrefix.includes('..')
+      segments.length === 0 ||
+      segments.some((segment) => segment === '.' || segment === '..')
     ) {
       throw new BadRequestException(
         'Tham chieu tep xac minh danh tinh khong hop le',
       );
     }
 
-    return withoutUploadsPrefix;
+    return segments.join('/');
+  }
+
+  private isHttpUrl(reference: string) {
+    try {
+      const parsed = new URL(reference);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
+  private async resolveLocalIdentityDocumentPath(reference: string) {
+    const directPath = resolve(this.uploadsDirectory, reference);
+    if (!this.isWithinUploadsDirectory(directPath)) {
+      throw new BadRequestException(
+        'Tham chieu tep xac minh danh tinh khong hop le',
+      );
+    }
+
+    if (await this.isReadableFile(directPath)) {
+      return directPath;
+    }
+
+    return this.findUploadFileByName(basename(reference));
+  }
+
+  private isWithinUploadsDirectory(candidatePath: string) {
+    const uploadsDirectoryPrefix = `${this.uploadsDirectory}${sep}`;
+    return (
+      candidatePath === this.uploadsDirectory ||
+      candidatePath.startsWith(uploadsDirectoryPrefix)
+    );
+  }
+
+  private async isReadableFile(filePath: string) {
+    try {
+      await access(filePath, fsConstants.R_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async findUploadFileByName(fileName: string, directory?: string) {
+    if (!fileName) {
+      return null;
+    }
+
+    const currentDirectory = directory ?? this.uploadsDirectory;
+    let entries;
+    try {
+      entries = await readdir(currentDirectory, { withFileTypes: true });
+    } catch {
+      return null;
+    }
+
+    for (const entry of entries) {
+      const entryPath = resolve(currentDirectory, entry.name);
+      if (entry.isFile() && entry.name === fileName) {
+        return entryPath;
+      }
+
+      if (entry.isDirectory()) {
+        const nestedPath = await this.findUploadFileByName(fileName, entryPath);
+        if (nestedPath) {
+          return nestedPath;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private async resolveCloudinaryIdentityDocumentUrl(reference: string) {
+    const cloudName = this.configService.get<string>('CLOUDINARY_NAME')?.trim();
+    const apiKey = this.configService.get<string>('CLOUDINARY_API_KEY')?.trim();
+    const apiSecret = this.configService
+      .get<string>('CLOUDINARY_API_SECRET')
+      ?.trim();
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      return null;
+    }
+
+    cloudinary.config({
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
+    });
+
+    const fileName = basename(reference);
+    const baseName = fileName
+      ? fileName.slice(0, fileName.length - extname(fileName).length)
+      : reference;
+    const publicIdCandidates = Array.from(
+      new Set(
+        [
+          reference,
+          baseName,
+          `${this.cloudinaryFolder}/${reference}`,
+          `${this.cloudinaryFolder}/${baseName}`,
+          fileName ? `${this.cloudinaryFolder}/${fileName}` : null,
+        ].filter((candidate): candidate is string => Boolean(candidate)),
+      ),
+    );
+    const filenameCandidates = Array.from(
+      new Set(
+        [fileName, baseName].filter((candidate): candidate is string =>
+          Boolean(candidate),
+        ),
+      ),
+    );
+    const queryTerms = [
+      ...publicIdCandidates.map(
+        (candidate) => `public_id="${this.escapeCloudinarySearch(candidate)}"`,
+      ),
+      ...filenameCandidates.map(
+        (candidate) => `filename="${this.escapeCloudinarySearch(candidate)}"`,
+      ),
+    ];
+
+    if (queryTerms.length === 0) {
+      return null;
+    }
+
+    try {
+      const result = await cloudinary.search
+        .expression(`resource_type:image AND (${queryTerms.join(' OR ')})`)
+        .max_results(1)
+        .execute();
+      const secureUrl = result.resources?.[0]?.secure_url;
+      return typeof secureUrl === 'string' && secureUrl.length > 0
+        ? secureUrl
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private escapeCloudinarySearch(value: string) {
+    return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   }
 
   async updateUserStatus(id: number, updateUserStatusDto: UpdateUserStatusDto) {
