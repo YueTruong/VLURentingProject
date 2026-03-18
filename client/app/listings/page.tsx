@@ -6,7 +6,7 @@ import ListingCard from "./components/ListingCard";
 import { getApprovedPosts, type Post } from "@/app/services/posts";
 import { askHousingAssistant } from "@/app/services/ai-assistant";
 import {
-  Listing,
+  type Listing,
   formatArea,
   formatPrice,
 } from "./data/listings";

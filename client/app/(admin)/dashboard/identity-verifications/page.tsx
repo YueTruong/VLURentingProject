@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   useCallback,
@@ -7,12 +7,12 @@ import {
   useMemo,
   useRef,
   useState,
-} from "react";
-import { useSession } from "next-auth/react";
-import SectionCard from "../../components/SectionCard";
-import FiltersBar from "../../components/FiltersBar";
-import DataTable, { type Column } from "../../components/DataTable";
-import StatusBadge from "../../components/StatusBadge";
+} from 'react';
+import { useSession } from 'next-auth/react';
+import SectionCard from '../../components/SectionCard';
+import FiltersBar from '../../components/FiltersBar';
+import DataTable, { type Column } from '../../components/DataTable';
+import StatusBadge from '../../components/StatusBadge';
 import {
   getAdminIdentityVerifications,
   getAdminIdentityVerificationDocumentPreview,
@@ -20,10 +20,10 @@ import {
   type AdminIdentityVerificationDocumentType,
   type AdminIdentityVerificationRecord,
   type AdminIdentityVerificationStatus,
-} from "@/app/services/admin-identity-verifications";
+} from '@/app/services/admin-identity-verifications';
 
-type VerificationStatusFilter = "all" | AdminIdentityVerificationStatus;
-type LoadErrorType = "auth_failed" | "forbidden" | "load_failed" | null;
+type VerificationStatusFilter = 'all' | AdminIdentityVerificationStatus;
+type LoadErrorType = 'auth_failed' | 'forbidden' | 'load_failed' | null;
 
 type VerificationRow = {
   userId: number;
@@ -44,18 +44,18 @@ type VerificationRow = {
 };
 
 const actionButtonBase =
-  "inline-flex h-8 min-w-[88px] items-center justify-center rounded-lg border px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60";
+  'inline-flex h-8 min-w-[88px] items-center justify-center rounded-lg border px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60';
 
 const formatDateTime = (value?: string | null) => {
-  if (!value) return "-";
+  if (!value) return '-';
   const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "-";
-  return date.toLocaleString("vi-VN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
+  if (!Number.isFinite(date.getTime())) return '-';
+  return date.toLocaleString('vi-VN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 };
 
@@ -66,30 +66,28 @@ const toTimestamp = (value?: string | null) => {
 };
 
 const normalizeRole = (value?: string | null) =>
-  value?.trim().toUpperCase() || "UNKNOWN";
+  value?.trim().toUpperCase() || 'UNKNOWN';
 
 const formatDocumentType = (
   value?: AdminIdentityVerificationDocumentType | null,
 ) => {
-  if (value === "driver-license") return "Driver license";
-  if (value === "national-id") return "National ID";
-  if (value === "passport") return "Passport";
-  return value || "Unknown";
+  if (value === 'driver-license') return 'Driver license';
+  if (value === 'national-id') return 'National ID';
+  if (value === 'passport') return 'Passport';
+  return value || 'Unknown';
 };
 
 const formatStatusLabel = (status: AdminIdentityVerificationStatus) => {
-  if (status === "verified") return "Verified";
-  if (status === "rejected") return "Rejected";
-  return "Pending";
+  if (status === 'verified') return 'Verified';
+  if (status === 'rejected') return 'Rejected';
+  return 'Pending';
 };
 
 const statusTone = (status: AdminIdentityVerificationStatus) => {
-  if (status === "verified") return "green" as const;
-  if (status === "rejected") return "red" as const;
-  return "yellow" as const;
+  if (status === 'verified') return 'green' as const;
+  if (status === 'rejected') return 'red' as const;
+  return 'yellow' as const;
 };
-
-const isUrl = (value?: string | null) => /^https?:\/\//i.test(value ?? "");
 
 const mapRecordToRow = (
   record: AdminIdentityVerificationRecord,
@@ -103,11 +101,11 @@ const mapRecordToRow = (
   return {
     userId: record.userId,
     fullName,
-    email: record.user?.email?.trim() || "-",
-    username: record.user?.username?.trim() || "-",
+    email: record.user?.email?.trim() || '-',
+    username: record.user?.username?.trim() || '-',
     role: normalizeRole(record.user?.role?.name),
-    phone: record.user?.profile?.phone_number?.trim() || "-",
-    address: record.user?.profile?.address?.trim() || "-",
+    phone: record.user?.profile?.phone_number?.trim() || '-',
+    address: record.user?.profile?.address?.trim() || '-',
     documentType: formatDocumentType(record.documentType),
     status: record.status,
     submittedAt: formatDateTime(record.submittedAt),
@@ -128,13 +126,14 @@ function DocumentReference({
   token?: string;
   value?: string | null;
 }) {
-  const normalizedValue = value?.trim() ?? "";
-  const directPreviewUrl = isUrl(normalizedValue) ? normalizedValue : "";
+  const normalizedValue = value?.trim() ?? '';
   const hasValue = Boolean(normalizedValue);
-  const previewObjectUrlRef = useRef("");
-  const [legacyPreviewReference, setLegacyPreviewReference] = useState("");
-  const [legacyPreviewUrl, setLegacyPreviewUrl] = useState("");
-  const [failedReference, setFailedReference] = useState("");
+  const previewObjectUrlRef = useRef('');
+  const [previewReference, setPreviewReference] = useState('');
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [failureReason, setFailureReason] = useState<
+    'auth' | 'invalid' | 'missing' | 'load_failed' | null
+  >(null);
 
   useEffect(() => {
     return () => {
@@ -145,13 +144,20 @@ function DocumentReference({
   }, []);
 
   useEffect(() => {
-    if (!normalizedValue || directPreviewUrl || !token) {
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current);
+      previewObjectUrlRef.current = '';
+    }
+
+    setPreviewReference('');
+    setPreviewUrl('');
+    setFailureReason(null);
+
+    if (!normalizedValue) {
       return () => undefined;
     }
-    if (
-      legacyPreviewReference === normalizedValue ||
-      failedReference === normalizedValue
-    ) {
+    if (!token) {
+      setFailureReason('auth');
       return () => undefined;
     }
 
@@ -162,48 +168,60 @@ function DocumentReference({
           return;
         }
 
-        if (previewObjectUrlRef.current) {
-          URL.revokeObjectURL(previewObjectUrlRef.current);
-        }
-
         const nextObjectUrl = URL.createObjectURL(blob);
         previewObjectUrlRef.current = nextObjectUrl;
-        setLegacyPreviewReference(normalizedValue);
-        setLegacyPreviewUrl(nextObjectUrl);
-        setFailedReference("");
+        setPreviewReference(normalizedValue);
+        setPreviewUrl(nextObjectUrl);
       })
-      .catch(() => {
+      .catch((error) => {
         if (!isActive) {
           return;
         }
 
-        setFailedReference(normalizedValue);
+        const statusCode =
+          typeof error === 'object' && error !== null && 'response' in error
+            ? (error as { response?: { status?: number } }).response?.status
+            : undefined;
+
+        if (statusCode === 400) {
+          setFailureReason('invalid');
+          return;
+        }
+        if (statusCode === 401 || statusCode === 403) {
+          setFailureReason('auth');
+          return;
+        }
+        if (statusCode === 404) {
+          setFailureReason('missing');
+          return;
+        }
+
+        setFailureReason('load_failed');
       });
 
     return () => {
       isActive = false;
     };
-  }, [
-    directPreviewUrl,
-    failedReference,
-    legacyPreviewReference,
-    normalizedValue,
-    token,
-  ]);
+  }, [normalizedValue, token]);
 
-  const previewUrl =
-    directPreviewUrl ||
-    (legacyPreviewReference === normalizedValue ? legacyPreviewUrl : "");
-  const hasPreview = Boolean(previewUrl);
+  const hasPreview = Boolean(
+    previewReference === normalizedValue && previewUrl,
+  );
   const previewStatus = !hasValue
-    ? "idle"
+    ? 'idle'
     : hasPreview
-      ? "ready"
-      : !token
-        ? "failed"
-        : failedReference === normalizedValue
-          ? "failed"
-          : "loading";
+      ? 'ready'
+      : failureReason
+        ? 'failed'
+        : 'loading';
+  const failureMessage =
+    failureReason === 'auth'
+      ? 'Admin authentication is required to load this protected document.'
+      : failureReason === 'invalid'
+        ? 'The stored document reference is invalid.'
+        : failureReason === 'missing'
+          ? 'The stored file was not found in server storage or Cloudinary.'
+          : 'The document could not be loaded from the configured storage provider.';
 
   return (
     <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3">
@@ -234,7 +252,7 @@ function DocumentReference({
             Open full image
           </a>
         </div>
-      ) : previewStatus === "loading" ? (
+      ) : previewStatus === 'loading' ? (
         <div className="mt-3 rounded-xl border border-gray-200 bg-white px-4 py-6 text-center">
           <div className="text-sm font-medium text-gray-700">
             Loading preview...
@@ -246,12 +264,12 @@ function DocumentReference({
       ) : (
         <div className="mt-3 rounded-xl border border-dashed border-gray-200 bg-white px-4 py-6 text-center">
           <div className="text-sm font-medium text-gray-700">
-            {hasValue ? "Preview unavailable" : "No document submitted"}
+            {hasValue ? 'Preview unavailable' : 'No document submitted'}
           </div>
           <p className="mt-1 text-xs leading-5 text-gray-500">
             {hasValue
-              ? "The referenced document file could not be loaded from storage."
-              : "The user has not submitted this side of the document."}
+              ? failureMessage
+              : 'The user has not submitted this side of the document.'}
           </p>
         </div>
       )}
@@ -260,8 +278,8 @@ function DocumentReference({
 }
 
 export default function IdentityVerificationsPage() {
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState<VerificationStatusFilter>("pending");
+  const [q, setQ] = useState('');
+  const [status, setStatus] = useState<VerificationStatusFilter>('pending');
   const [records, setRecords] = useState<AdminIdentityVerificationRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<LoadErrorType>(null);
@@ -273,21 +291,22 @@ export default function IdentityVerificationsPage() {
   const { data: session, status: sessionStatus } = useSession();
   const accessToken = session?.user?.accessToken;
   const role = session?.user?.role;
-  const normalizedRole = typeof role === "string" ? role.toLowerCase() : undefined;
+  const normalizedRole =
+    typeof role === 'string' ? role.toLowerCase() : undefined;
   const qDeferred = useDeferredValue(q);
 
   const authError = useMemo(() => {
-    if (sessionStatus === "loading") return null;
-    if (!accessToken) return "auth_failed";
-    if (normalizedRole && normalizedRole !== "admin") return "forbidden";
+    if (sessionStatus === 'loading') return null;
+    if (!accessToken) return 'auth_failed';
+    if (normalizedRole && normalizedRole !== 'admin') return 'forbidden';
     return null;
   }, [accessToken, normalizedRole, sessionStatus]);
 
   const fetchRecords = useCallback(async () => {
-    if (sessionStatus === "loading") return;
+    if (sessionStatus === 'loading') return;
     if (!accessToken) {
       setRecords([]);
-      setLoadError("auth_failed");
+      setLoadError('auth_failed');
       setIsLoading(false);
       return;
     }
@@ -298,22 +317,22 @@ export default function IdentityVerificationsPage() {
     try {
       const data = await getAdminIdentityVerifications(
         accessToken,
-        status === "all" ? undefined : status,
+        status === 'all' ? undefined : status,
       );
       setRecords(data);
     } catch (err) {
       const statusCode =
-        typeof err === "object" && err !== null && "response" in err
+        typeof err === 'object' && err !== null && 'response' in err
           ? (err as { response?: { status?: number } }).response?.status
           : undefined;
 
       if (statusCode === 403) {
-        setLoadError("forbidden");
+        setLoadError('forbidden');
       } else if (statusCode === 401) {
-        setLoadError("auth_failed");
+        setLoadError('auth_failed');
       } else {
-        console.error("Failed to load identity verifications:", err);
-        setLoadError("load_failed");
+        console.error('Failed to load identity verifications:', err);
+        setLoadError('load_failed');
       }
     } finally {
       setIsLoading(false);
@@ -351,7 +370,7 @@ export default function IdentityVerificationsPage() {
         row.role,
         formatStatusLabel(row.status),
       ]
-        .join(" ")
+        .join(' ')
         .toLowerCase();
 
       return haystack.includes(term);
@@ -375,7 +394,7 @@ export default function IdentityVerificationsPage() {
     () =>
       selectedUserId === null
         ? null
-        : records.find((record) => record.userId === selectedUserId) ?? null,
+        : (records.find((record) => record.userId === selectedUserId) ?? null),
     [records, selectedUserId],
   );
 
@@ -386,10 +405,10 @@ export default function IdentityVerificationsPage() {
 
   const handleStatusFilterChange = useCallback((value: string) => {
     if (
-      value === "all" ||
-      value === "pending" ||
-      value === "verified" ||
-      value === "rejected"
+      value === 'all' ||
+      value === 'pending' ||
+      value === 'verified' ||
+      value === 'rejected'
     ) {
       setStatus(value);
     }
@@ -398,7 +417,7 @@ export default function IdentityVerificationsPage() {
   const handleReview = useCallback(
     async (userId: number, nextStatus: AdminIdentityVerificationStatus) => {
       if (!accessToken) {
-        setLoadError("auth_failed");
+        setLoadError('auth_failed');
         return;
       }
 
@@ -409,8 +428,10 @@ export default function IdentityVerificationsPage() {
         await reviewAdminIdentityVerification(userId, nextStatus, accessToken);
         await fetchRecords();
       } catch (err) {
-        console.error("Failed to review identity verification:", err);
-        setActionError("Could not update verification status. Please try again.");
+        console.error('Failed to review identity verification:', err);
+        setActionError(
+          'Could not update verification status. Please try again.',
+        );
       } finally {
         setActionKey(null);
       }
@@ -421,10 +442,10 @@ export default function IdentityVerificationsPage() {
   const columns = useMemo<Column<VerificationRow>[]>(
     () => [
       {
-        key: "fullName",
-        header: "User",
+        key: 'fullName',
+        header: 'User',
         sortable: true,
-        width: "24%",
+        width: '24%',
         render: (row) => (
           <div className="space-y-0.5">
             <div className="font-semibold text-gray-900">{row.fullName}</div>
@@ -434,16 +455,16 @@ export default function IdentityVerificationsPage() {
         sortValue: (row) => row.fullName,
       },
       {
-        key: "documentType",
-        header: "Document",
+        key: 'documentType',
+        header: 'Document',
         sortable: true,
-        width: "16%",
+        width: '16%',
       },
       {
-        key: "status",
-        header: "Status",
+        key: 'status',
+        header: 'Status',
         sortable: true,
-        width: "12%",
+        width: '12%',
         render: (row) => (
           <StatusBadge
             label={formatStatusLabel(row.status)}
@@ -453,57 +474,57 @@ export default function IdentityVerificationsPage() {
         sortValue: (row) => row.status,
       },
       {
-        key: "submittedAt",
-        header: "Submitted",
+        key: 'submittedAt',
+        header: 'Submitted',
         sortable: true,
-        width: "16%",
+        width: '16%',
         sortValue: (row) => row.submittedAtValue,
       },
       {
-        key: "verifiedAt",
-        header: "Reviewed",
+        key: 'verifiedAt',
+        header: 'Reviewed',
         sortable: true,
-        width: "16%",
+        width: '16%',
         sortValue: (row) => row.verifiedAtValue,
       },
       {
-        key: "actions",
-        header: "Actions",
-        align: "right",
-        width: "16%",
+        key: 'actions',
+        header: 'Actions',
+        align: 'right',
+        width: '16%',
         render: (row) => (
           <div className="flex flex-col items-end gap-2">
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                void handleReview(row.userId, "verified");
+                void handleReview(row.userId, 'verified');
               }}
               disabled={
-                row.status === "verified" ||
+                row.status === 'verified' ||
                 actionKey === `${row.userId}:verified`
               }
               className={`${actionButtonBase} border-emerald-200 text-emerald-700 hover:bg-emerald-50`}
             >
               {actionKey === `${row.userId}:verified`
-                ? "Approving..."
-                : "Approve"}
+                ? 'Approving...'
+                : 'Approve'}
             </button>
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation();
-                void handleReview(row.userId, "rejected");
+                void handleReview(row.userId, 'rejected');
               }}
               disabled={
-                row.status === "rejected" ||
+                row.status === 'rejected' ||
                 actionKey === `${row.userId}:rejected`
               }
               className={`${actionButtonBase} border-rose-200 text-rose-700 hover:bg-rose-50`}
             >
               {actionKey === `${row.userId}:rejected`
-                ? "Rejecting..."
-                : "Reject"}
+                ? 'Rejecting...'
+                : 'Reject'}
             </button>
           </div>
         ),
@@ -514,10 +535,10 @@ export default function IdentityVerificationsPage() {
 
   const statusOptions = useMemo(
     () => [
-      { value: "all", label: "All status" },
-      { value: "pending", label: "Pending" },
-      { value: "verified", label: "Verified" },
-      { value: "rejected", label: "Rejected" },
+      { value: 'all', label: 'All status' },
+      { value: 'pending', label: 'Pending' },
+      { value: 'verified', label: 'Verified' },
+      { value: 'rejected', label: 'Rejected' },
     ],
     [],
   );
@@ -525,14 +546,14 @@ export default function IdentityVerificationsPage() {
   const resolvedLoadError = authError ?? loadError;
 
   const emptyText = isLoading
-    ? "Loading identity verifications..."
-    : resolvedLoadError === "auth_failed"
-      ? "Please sign in again."
-      : resolvedLoadError === "forbidden"
-        ? "You do not have permission to access this page."
-        : resolvedLoadError === "load_failed"
-          ? "Failed to load identity verifications."
-          : "No identity verification records found.";
+    ? 'Loading identity verifications...'
+    : resolvedLoadError === 'auth_failed'
+      ? 'Please sign in again.'
+      : resolvedLoadError === 'forbidden'
+        ? 'You do not have permission to access this page.'
+        : resolvedLoadError === 'load_failed'
+          ? 'Failed to load identity verifications.'
+          : 'No identity verification records found.';
 
   return (
     <div className="space-y-6">
@@ -543,7 +564,7 @@ export default function IdentityVerificationsPage() {
           <button
             type="button"
             onClick={() => setRefreshKey((prev) => prev + 1)}
-            disabled={isLoading || sessionStatus === "loading"}
+            disabled={isLoading || sessionStatus === 'loading'}
             className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Reload
@@ -558,17 +579,17 @@ export default function IdentityVerificationsPage() {
           statusOptions={statusOptions}
           placeholder="Search by user, email, document type"
         />
-        {resolvedLoadError === "auth_failed" ? (
+        {resolvedLoadError === 'auth_failed' ? (
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             Your session has expired. Please sign in again.
           </div>
         ) : null}
-        {resolvedLoadError === "forbidden" ? (
+        {resolvedLoadError === 'forbidden' ? (
           <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
             You do not have permission to review identity verifications.
           </div>
         ) : null}
-        {resolvedLoadError === "load_failed" ? (
+        {resolvedLoadError === 'load_failed' ? (
           <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
             Could not load verification records. Use Reload to try again.
           </div>
@@ -593,7 +614,7 @@ export default function IdentityVerificationsPage() {
           emptyText={emptyText}
           onRowClick={(row) => setSelectedUserId(row.userId)}
           getRowClassName={(row) =>
-            row.userId === selectedUserId ? "bg-gray-50/80" : ""
+            row.userId === selectedUserId ? 'bg-gray-50/80' : ''
           }
         />
       </SectionCard>
@@ -603,7 +624,7 @@ export default function IdentityVerificationsPage() {
         subtitle={
           selectedRow
             ? `User #${selectedRow.userId}`
-            : "Select a submission to inspect details"
+            : 'Select a submission to inspect details'
         }
         right={
           selectedRow ? (
@@ -747,29 +768,33 @@ export default function IdentityVerificationsPage() {
                 <div className="mt-3 grid gap-2">
                   <button
                     type="button"
-                    onClick={() => void handleReview(selectedRow.userId, "verified")}
+                    onClick={() =>
+                      void handleReview(selectedRow.userId, 'verified')
+                    }
                     disabled={
-                      selectedRow.status === "verified" ||
+                      selectedRow.status === 'verified' ||
                       actionKey === `${selectedRow.userId}:verified`
                     }
                     className={`${actionButtonBase} w-full border-emerald-200 text-emerald-700 hover:bg-emerald-50`}
                   >
                     {actionKey === `${selectedRow.userId}:verified`
-                      ? "Approving..."
-                      : "Approve"}
+                      ? 'Approving...'
+                      : 'Approve'}
                   </button>
                   <button
                     type="button"
-                    onClick={() => void handleReview(selectedRow.userId, "rejected")}
+                    onClick={() =>
+                      void handleReview(selectedRow.userId, 'rejected')
+                    }
                     disabled={
-                      selectedRow.status === "rejected" ||
+                      selectedRow.status === 'rejected' ||
                       actionKey === `${selectedRow.userId}:rejected`
                     }
                     className={`${actionButtonBase} w-full border-rose-200 text-rose-700 hover:bg-rose-50`}
                   >
                     {actionKey === `${selectedRow.userId}:rejected`
-                      ? "Rejecting..."
-                      : "Reject"}
+                      ? 'Rejecting...'
+                      : 'Reject'}
                   </button>
                 </div>
                 <p className="mt-3 text-xs leading-5 text-gray-500">
