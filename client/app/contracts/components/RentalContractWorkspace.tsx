@@ -695,7 +695,7 @@ export default function RentalContractWorkspace({ roleView }: { roleView: UserRo
     return (
       <div
         id="rental-contract-workspace"
-        className="overflow-hidden rounded-[32px] border border-gray-200 bg-[linear-gradient(135deg,#fff8f1_0%,#ffffff_58%,#f6fff9_100%)] shadow-[0_24px_60px_-40px_rgba(15,23,42,0.4)]"
+        className="overflow-hidden rounded-4xl border border-gray-200 bg-[linear-gradient(135deg,#fff8f1_0%,#ffffff_58%,#f6fff9_100%)] shadow-[0_24px_60px_-40px_rgba(15,23,42,0.4)]"
       >
         <div className="grid gap-6 px-6 py-6 lg:grid-cols-[minmax(0,1.3fr)_300px]">
           <div>
@@ -723,7 +723,7 @@ export default function RentalContractWorkspace({ roleView }: { roleView: UserRo
 
   return (
     <div id="rental-contract-workspace" className="space-y-6">
-      <div className="overflow-hidden rounded-[32px] border border-rose-100 bg-[linear-gradient(135deg,#fff8f8_0%,#ffffff_62%,#fffaf7_100%)] shadow-[0_24px_60px_-40px_rgba(159,18,57,0.24)]">
+      <div className="overflow-hidden rounded-4xl border border-rose-100 bg-[linear-gradient(135deg,#fff8f8_0%,#ffffff_62%,#fffaf7_100%)] shadow-[0_24px_60px_-40px_rgba(159,18,57,0.24)]">
         <div className="grid gap-6 px-6 py-6 lg:grid-cols-[minmax(0,1.35fr)_320px] lg:items-start">
           <div className="space-y-4">
             <div>
@@ -784,7 +784,7 @@ export default function RentalContractWorkspace({ roleView }: { roleView: UserRo
                 </div>
               </div>
               <div className="mt-4 space-y-4">
-                <div className="rounded-[24px] border border-stone-200 bg-[#fffaf5] p-4">
+                <div className="rounded-3xl border border-stone-200 bg-[#fffaf5] p-4">
                   <label className="text-sm font-semibold text-gray-800">ID tài khoản hoặc email người thuê</label>
                   <div className="mt-2 flex flex-col gap-3 sm:flex-row">
                     <input
@@ -829,7 +829,7 @@ export default function RentalContractWorkspace({ roleView }: { roleView: UserRo
                 </div>
 
                 {selectedTenant ? (
-                  <div className="grid gap-3 rounded-[24px] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-950 sm:grid-cols-3">
+                  <div className="grid gap-3 rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-950 sm:grid-cols-3">
                     <div>
                       <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-rose-700">Người thuê</div>
                       <div className="mt-2 font-semibold">{selectedTenant.fullName}</div>
@@ -853,7 +853,7 @@ export default function RentalContractWorkspace({ roleView }: { roleView: UserRo
               <div className="mt-2 text-sm leading-6 text-gray-600">
                 Điền đầy đủ thông tin chủ trọ, giấy tờ người thuê và các điều khoản thuê trước khi ký gửi.
               </div>
-              <div className="mt-5 rounded-[24px] border border-stone-200 bg-[#fffdf8] p-5">
+              <div className="mt-5 rounded-3xl border border-stone-200 bg-[#fffdf8] p-5">
                 <h3 className="text-sm font-semibold text-gray-950">Thông tin chủ trọ</h3>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <input className={inputClass} placeholder="Họ tên chủ trọ" value={form.landlordName} onChange={(event) => updateFormField("landlordName", event.target.value)} />
@@ -1093,12 +1093,12 @@ export default function RentalContractWorkspace({ roleView }: { roleView: UserRo
             )}
           </div>
           {!activeIncomingContract ? (
-            <div className="rounded-[32px] border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
+            <div className="rounded-4xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
               Chọn một hợp đồng đang chờ ký để xem chi tiết và ký.
             </div>
           ) : (
             <div className="space-y-5">
-              <div className="overflow-hidden rounded-[32px] border border-gray-200 bg-white shadow-[0_24px_60px_-40px_rgba(15,23,42,0.4)]">
+              <div className="overflow-hidden rounded-4xl border border-gray-200 bg-white shadow-[0_24px_60px_-40px_rgba(15,23,42,0.4)]">
                 <div className="border-b border-gray-100 bg-[linear-gradient(135deg,#fffaf0_0%,#ffffff_60%,#f5fff9_100%)] p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
