@@ -24,34 +24,34 @@ type DocumentUploadConfig = {
 
 const documentConfigMap: Record<IdentityDocumentType, DocumentUploadConfig> = {
   "driver-license": {
-    title: "Tai len anh giay phep lai xe cua ban",
+    title: "Tải lên ảnh giấy phép lái xe của bạn",
     description:
-      "Dam bao anh khong bi nhoe, mo va mat truoc giay phep lai xe hien thi ro khuon mat ban.",
+      "Đảm bảo ảnh không bị nhòe, mờ và mặt trước giấy phép lái xe hiển thị rõ khuôn mặt của bạn.",
     requiresBackImage: true,
-    frontLabel: "Tai len anh mat truoc",
-    backLabel: "Tai len anh mat sau",
-    previewAltFront: "Anh mat truoc giay phep lai xe",
-    previewAltBack: "Anh mat sau giay phep lai xe",
+    frontLabel: "Tải lên ảnh mặt trước",
+    backLabel: "Tải lên ảnh mặt sau",
+    previewAltFront: "Ảnh mặt trước giấy phép lái xe",
+    previewAltBack: "Ảnh mặt sau giấy phép lái xe",
   },
   passport: {
-    title: "Tai len anh ho chieu cua ban",
+    title: "Tải lên ảnh hộ chiếu của bạn",
     description:
-      "Dam bao anh ho chieu cua ban khong bi nhoe hoac mo va hien thi ro khuon mat ban.",
+      "Đảm bảo ảnh hộ chiếu của bạn không bị nhòe hoặc mờ và hiển thị rõ khuôn mặt của bạn.",
     requiresBackImage: false,
-    frontLabel: "Tai len ho chieu",
+    frontLabel: "Tải lên hộ chiếu",
     backLabel: "",
-    previewAltFront: "Anh ho chieu da tai len",
+    previewAltFront: "Ảnh hộ chiếu đã tải lên",
     previewAltBack: "",
   },
   "national-id": {
-    title: "Tai len anh giay to tuy than cua ban",
+    title: "Tải lên ảnh giấy tờ tùy thân của bạn",
     description:
-      "Dam bao anh khong bi nhoe, mo va mat truoc giay to tuy than hien thi ro khuon mat ban.",
+      "Đảm bảo ảnh không bị nhòe, mờ và mặt trước giấy tờ tùy thân hiển thị rõ khuôn mặt của bạn.",
     requiresBackImage: true,
-    frontLabel: "Tai len anh mat truoc",
-    backLabel: "Tai len anh mat sau",
-    previewAltFront: "Anh mat truoc giay to tuy than",
-    previewAltBack: "Anh mat sau giay to tuy than",
+    frontLabel: "Tải lên ảnh mặt trước",
+    backLabel: "Tải lên ảnh mặt sau",
+    previewAltFront: "Ảnh mặt trước giấy tờ tùy thân",
+    previewAltBack: "Ảnh mặt sau giấy tờ tùy thân",
   },
 };
 
@@ -136,7 +136,7 @@ function UploadCard({
             <UploadIcon />
           </span>
           <p className="text-base font-semibold text-[#111827]">{label}</p>
-          <p className="mt-1 text-sm text-[#6b7280]">Chi dinh dang JPEG hoac PNG</p>
+          <p className="mt-1 text-sm text-[#6b7280]">Chỉ chấp nhận định dạng JPEG hoặc PNG</p>
         </label>
       ) : (
         <div className="rounded-xl border border-[#d1d5db] bg-white p-3 transition-all duration-300">
@@ -148,24 +148,21 @@ function UploadCard({
               className="h-40 w-full object-cover transition-transform duration-300 hover:scale-[1.01]"
             />
           </div>
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <p className="line-clamp-1 text-sm font-medium text-[#111827]">
-              {file?.name}
-            </p>
+          <div className="mt-3 flex items-center justify-end gap-3">
             <div className="flex items-center gap-3 text-xs">
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
                 className="font-medium text-[#374151] underline underline-offset-2 hover:text-[#111827]"
               >
-                Thay doi
+                Thay đổi
               </button>
               <button
                 type="button"
                 onClick={onRemove}
                 className="font-medium text-[#6b7280] underline underline-offset-2 hover:text-[#111827]"
               >
-                Xoa anh
+                Xóa ảnh
               </button>
             </div>
           </div>
@@ -234,7 +231,7 @@ export default function DocumentUploadClient() {
     if (!file) return;
 
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type)) {
-      setErrorMessage("Vui long chon anh dinh dang JPEG hoac PNG.");
+      setErrorMessage("Vui lòng chọn ảnh định dạng JPEG hoặc PNG.");
       return;
     }
 
@@ -246,7 +243,7 @@ export default function DocumentUploadClient() {
     if (!canContinue || isSubmitting) return;
 
     if (!accessToken) {
-      setErrorMessage("Phien dang nhap het han. Vui long dang nhap lai.");
+      setErrorMessage("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
       return;
     }
 
@@ -263,11 +260,11 @@ export default function DocumentUploadClient() {
       const [frontImageUrl, backImageUrl] = uploadedImageUrls;
 
       if (!frontImageUrl) {
-        throw new Error("Khong the tai len anh mat truoc.");
+        throw new Error("Không thể tải lên ảnh mặt trước.");
       }
 
       if (config.requiresBackImage && !backImageUrl) {
-        throw new Error("Khong the tai len anh mat sau.");
+        throw new Error("Không thể tải lên ảnh mặt sau.");
       }
 
       if (typeof window !== "undefined") {
@@ -302,7 +299,7 @@ export default function DocumentUploadClient() {
       setErrorMessage(
         error instanceof Error && error.message
           ? error.message
-          : responseMessage || "Khong the gui xac minh. Vui long thu lai.",
+          : responseMessage || "Không thể gửi yêu cầu xác minh. Vui lòng thử lại.",
       );
     } finally {
       setIsSubmitting(false);
@@ -369,7 +366,7 @@ export default function DocumentUploadClient() {
           className="inline-flex items-center gap-2 -ml-1 text-base font-medium text-[#111827] hover:text-black"
         >
           <span aria-hidden>&larr;</span>
-          <span className="underline underline-offset-4 decoration-1">Quay lai</span>
+          <span className="underline underline-offset-4 decoration-1">Quay lại</span>
         </Link>
 
         <button
@@ -384,7 +381,7 @@ export default function DocumentUploadClient() {
           )}
         >
           {!canContinue || isSubmitting ? <LockIcon /> : null}
-          {isSubmitting ? "Dang xac minh..." : "Tiep tuc"}
+          {isSubmitting ? "Đang gửi xác minh..." : "Tiếp tục"}
         </button>
       </div>
     </div>
