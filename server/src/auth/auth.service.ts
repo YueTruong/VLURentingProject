@@ -687,8 +687,12 @@ export class AuthService {
     }
 
     const documentType = this.normalizeIdentityDocumentType(dto.documentType);
-    const frontImageName = this.normalizeOptionalText(dto.frontImageName);
-    const backImageName = this.normalizeOptionalText(dto.backImageName);
+    const frontImageName = this.normalizeIdentityDocumentReference(
+      dto.frontImageName,
+    );
+    const backImageName = this.normalizeIdentityDocumentReference(
+      dto.backImageName,
+    );
 
     if (!frontImageName) {
       throw new BadRequestException('Vui lòng tải lên ảnh mặt trước');
@@ -796,12 +800,7 @@ export class AuthService {
   }
 
   private normalizeRoleName(
-    role:
-      | RoleEntity
-      | string
-      | { name?: string | null }
-      | null
-      | undefined,
+    role: RoleEntity | string | { name?: string | null } | null | undefined,
   ) {
     if (typeof role === 'string') {
       return role.toLowerCase();
@@ -1043,6 +1042,32 @@ export class AuthService {
       return statusRaw;
     }
     return 'unverified';
+  }
+
+  private normalizeIdentityDocumentReference(value?: string | null) {
+    const normalizedValue = this.normalizeOptionalText(value);
+    if (!normalizedValue) {
+      return null;
+    }
+
+    if (/^https?:\/\//i.test(normalizedValue)) {
+      return normalizedValue;
+    }
+
+    const normalizedPath = normalizedValue
+      .replace(/\\/g, '/')
+      .replace(/^\/+/, '');
+    const pathSegments = normalizedPath.split('/').filter(Boolean);
+    if (
+      pathSegments.length === 0 ||
+      pathSegments.some((segment) => segment === '.' || segment === '..')
+    ) {
+      throw new BadRequestException(
+        'Tham chieu tep xac minh danh tinh khong hop le',
+      );
+    }
+
+    return pathSegments.join('/');
   }
 
   private buildIdentityVerificationResponse(settings: UserSettingsEntity) {

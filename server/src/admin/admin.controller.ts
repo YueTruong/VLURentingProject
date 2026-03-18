@@ -1,4 +1,5 @@
 import {
+  BadGatewayException,
   Body,
   Controller,
   Delete,
@@ -11,6 +12,7 @@ import {
   Post,
   Query,
   Res,
+  NotFoundException,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -84,9 +86,34 @@ export class AdminController {
     @Query('reference') reference: string,
     @Res() res: Response,
   ) {
-    const filePath =
-      await this.adminService.getIdentityVerificationDocumentPath(reference);
-    return res.sendFile(filePath);
+    const source =
+      await this.adminService.resolveIdentityVerificationDocumentSource(
+        reference,
+      );
+
+    if (source.kind === 'file') {
+      return res.sendFile(source.path);
+    }
+
+    const remoteResponse = await fetch(source.url);
+    if (!remoteResponse.ok) {
+      if (remoteResponse.status === 404) {
+        throw new NotFoundException('Khong tim thay tep xac minh danh tinh');
+      }
+      throw new BadGatewayException('Khong the tai tep xac minh danh tinh');
+    }
+
+    const contentType = remoteResponse.headers.get('content-type');
+    const contentLength = remoteResponse.headers.get('content-length');
+    if (contentType) {
+      res.setHeader('Content-Type', contentType);
+    }
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
+
+    const body = Buffer.from(await remoteResponse.arrayBuffer());
+    return res.send(body);
   }
 
   @Patch('/users/:id/identity-verification')
