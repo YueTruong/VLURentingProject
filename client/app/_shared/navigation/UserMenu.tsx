@@ -221,7 +221,7 @@ export default function UserMenu({ variant = "default" }: UserMenuProps) {
   };
 
   const allowedDashboard = filterByRole(menuConfig.dashboard);
-  const allowedUtilities = filterByRole(menuConfig.utilities);
+  const allowedUtilities = filterByRole(menuConfig.utilities).filter((item) => item.href !== "/contracts");
   const allowedOthers = filterByRole(menuConfig.others);
 
   return (
