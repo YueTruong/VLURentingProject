@@ -1,6 +1,7 @@
 "use client";
 
 import axios from "axios";
+import { createAuthHeaders, getBackendUrl } from "@/app/lib/backend";
 
 export type TenantDirectoryStudent = {
   id: number;
@@ -10,14 +11,9 @@ export type TenantDirectoryStudent = {
   address?: string | null;
 };
 
-const getBaseUrl = () =>
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://localhost:3001";
-
 export async function getStudentDirectory(token: string): Promise<TenantDirectoryStudent[]> {
-  const res = await axios.get<TenantDirectoryStudent[]>(`${getBaseUrl()}/users/students`, {
-    headers: { Authorization: `Bearer ${token}` },
+  const res = await axios.get<TenantDirectoryStudent[]>(`${getBackendUrl()}/users/students`, {
+    headers: createAuthHeaders(token),
   });
 
   return res.data ?? [];

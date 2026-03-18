@@ -57,12 +57,12 @@ const MISSING_VALUE = "Chưa được cung cấp";
 const IDENTITY_NAVIGATION_DELAY_MS = 1000;
 
 function MenuIcon({ children }: { children: ReactNode }) {
-  return <span className="inline-flex h-5 w-5 items-center justify-center text-gray-500">{children}</span>;
+  return <span className="settings-muted-icon inline-flex h-5 w-5 items-center justify-center text-gray-500 dark:text-slate-400">{children}</span>;
 }
 
 function HelpCardItem({ title, description }: HelpItem) {
   return (
-    <div className="flex gap-3 border-b border-[#e5e7eb] py-4 last:border-b-0">
+    <div className="settings-help-item flex gap-3 border-b border-[#e5e7eb] py-4 last:border-b-0 dark:border-white/12">
       <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#f43f5e] text-[#f43f5e]">
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="9" />
@@ -70,8 +70,8 @@ function HelpCardItem({ title, description }: HelpItem) {
         </svg>
       </span>
       <div>
-        <p className="text-[16px] font-semibold text-[#111827]">{title}</p>
-        <p className="mt-1 text-[13px] leading-5 text-[#6b7280]">{description}</p>
+        <p className="text-[16px] font-semibold text-[#111827] dark:text-slate-100">{title}</p>
+        <p className="mt-1 text-[13px] leading-5 text-[#6b7280] dark:text-slate-300">{description}</p>
       </div>
     </div>
   );
@@ -91,16 +91,16 @@ function RowDisplay({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex items-start justify-between gap-5 border-b border-[#e5e7eb] py-5">
+    <div className="settings-row flex items-start justify-between gap-5 border-b border-[#e5e7eb] py-5 dark:border-white/12">
       <div className="min-w-0 flex-1 pr-3">
-        <p className="text-[17px] font-semibold leading-6 text-[#111827]">{title}</p>
-        <p className="mt-1 text-[14px] leading-6 text-[#6b7280]">{value}</p>
+        <p className="text-[17px] font-semibold leading-6 text-[#111827] dark:text-slate-100">{title}</p>
+        <p className="mt-1 text-[14px] leading-6 text-[#6b7280] dark:text-slate-300">{value}</p>
       </div>
       <button
         type="button"
         onClick={onAction}
         disabled={disabled}
-        className="shrink-0 pt-1 text-[14px] font-semibold text-[#374151] underline underline-offset-4 hover:text-[#111827] disabled:cursor-not-allowed disabled:text-[#9ca3af] disabled:no-underline"
+        className="settings-row-action shrink-0 pt-1 text-[14px] font-semibold text-[#374151] underline underline-offset-4 hover:text-[#111827] disabled:cursor-not-allowed disabled:text-[#9ca3af] disabled:no-underline dark:text-slate-200 dark:hover:text-white dark:disabled:text-slate-500"
       >
         {action}
       </button>
@@ -279,7 +279,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
             <button
               type="button"
               onClick={() => setEditingKey(null)}
-              className="text-[14px] font-semibold underline underline-offset-4"
+              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
             >
               Hủy
             </button>
@@ -307,7 +307,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
           <button
             type="button"
             onClick={() => setEditingKey(null)}
-            className="mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
+            className="settings-primary-button mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
           >
             Lưu
           </button>
@@ -326,7 +326,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
             <button
               type="button"
               onClick={() => setEditingKey(null)}
-              className="text-[14px] font-semibold underline underline-offset-4"
+              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
             >
               Hủy
             </button>
@@ -340,7 +340,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
           <button
             type="button"
             onClick={() => setEditingKey(null)}
-            className="mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
+            className="settings-primary-button mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
           >
             Lưu
           </button>
@@ -359,7 +359,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
             <button
               type="button"
               onClick={() => setEditingKey(null)}
-              className="text-[14px] font-semibold underline underline-offset-4"
+              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
             >
               Hủy
             </button>
@@ -373,7 +373,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
           <button
             type="button"
             onClick={() => setEditingKey(null)}
-            className="mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
+            className="settings-primary-button mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
           >
             Lưu
           </button>
@@ -394,7 +394,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
             <button
               type="button"
               onClick={() => setEditingKey(null)}
-              className="text-[14px] font-semibold underline underline-offset-4"
+              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
             >
               Đóng
             </button>
@@ -405,7 +405,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
             <button
               type="button"
               onClick={() => setEditingKey(null)}
-              className="text-[14px] font-semibold underline underline-offset-4"
+              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
             >
               Hủy
             </button>
@@ -431,7 +431,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
           <button
             type="button"
             onClick={() => setEditingKey(null)}
-            className="mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
+            className="settings-primary-button mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
           >
             Xác minh
           </button>
@@ -457,7 +457,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
                 <button
                   type="button"
                   onClick={() => setEditingKey(null)}
-                  className="shrink-0 text-[14px] font-semibold underline underline-offset-4"
+                  className="settings-inline-action shrink-0 text-[14px] font-semibold underline underline-offset-4"
                 >
                   Hủy
                 </button>
@@ -467,7 +467,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
                 <button
                   type="button"
                   onClick={() => setEditingKey(null)}
-                  className="rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
+                  className="settings-primary-button rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
                 >
                   Thêm giấy tờ tùy thân
                 </button>
@@ -480,7 +480,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
                 Chúng tôi muốn đảm bảo sự riêng tư, an toàn và bảo mật cho dữ liệu bạn chia sẻ trong quá trình này. Tìm hiểu thêm trong Chính sách
                 quyền riêng tư của chúng tôi.
               </p>
-              <button type="button" className="mt-4 text-left text-[16px] font-semibold text-[#111827] underline underline-offset-4">
+              <button type="button" className="settings-inline-action mt-4 text-left text-[16px] font-semibold text-[#111827] underline underline-offset-4">
                 Quy trình xác minh danh tính
               </button>
             </div>
@@ -497,7 +497,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
             <button
               type="button"
               onClick={() => setEditingKey(null)}
-              className="text-[14px] font-semibold underline underline-offset-4"
+              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
             >
               Hủy
             </button>
@@ -537,7 +537,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
             <button
               type="button"
               onClick={() => setEditingKey(null)}
-              className="text-[14px] font-semibold underline underline-offset-4"
+              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
             >
               Hủy
             </button>
@@ -569,7 +569,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
           <button
             type="button"
             onClick={() => setEditingKey(null)}
-            className="mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
+            className="settings-primary-button mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
           >
             Lưu
           </button>
@@ -588,7 +588,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
             <button
               type="button"
               onClick={() => setEditingKey(null)}
-              className="text-[14px] font-semibold underline underline-offset-4"
+              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
             >
               Hủy
             </button>
@@ -621,7 +621,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
           <button
             type="button"
             onClick={() => setEditingKey(null)}
-            className="mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
+            className="settings-primary-button mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
           >
             Lưu
           </button>
@@ -639,18 +639,18 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
           <button
             type="button"
             onClick={() => setEditingKey(null)}
-            className="text-[14px] font-semibold underline underline-offset-4"
+            className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
           >
             Đóng
           </button>
         </div>
-        <p className="mt-4 rounded-2xl border border-[#d1d5db] bg-[#f9fafb] px-4 py-3 text-[14px] text-[#4b5563]">
+        <p className="settings-note-surface mt-4 rounded-2xl border border-[#d1d5db] bg-[#f9fafb] px-4 py-3 text-[14px] text-[#4b5563]">
           Đang chỉnh sửa ngay tại mục này. Bạn có thể cập nhật nội dung cho {row.title.toLowerCase()} ở đây.
         </p>
         <button
           type="button"
           onClick={() => setEditingKey(null)}
-          className="mt-4 rounded-xl border border-[#111827] px-6 py-3 text-[16px] font-semibold text-[#111827]"
+          className="settings-ghost-button mt-4 rounded-xl border border-[#111827] px-6 py-3 text-[16px] font-semibold text-[#111827]"
         >
           Hoàn tất
         </button>
@@ -659,25 +659,25 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
   };
 
   return (
-    <div className="min-h-screen bg-white text-[#222222]">
+    <div className="settings-shell min-h-screen bg-white text-[#222222] dark:text-slate-100">
       {isEditing ? (
         <button
           type="button"
           aria-label="Đóng chế độ chỉnh sửa"
           onClick={() => setEditingKey(null)}
-          className="fixed inset-0 z-10 cursor-default bg-white/70 backdrop-blur-[1px]"
+          className="settings-overlay fixed inset-0 z-10 cursor-default bg-white/70 backdrop-blur-[1px]"
         />
       ) : null}
 
-      <header className="border-b border-[#e5e7eb]">
+      <header className="settings-header border-b border-[#e5e7eb] dark:border-white/12">
         <div className="mx-auto flex h-[88px] w-full items-center justify-between px-6 lg:px-16">
-          <Link href="/" className="inline-flex items-center text-[#222222]">
+          <Link href="/" className="inline-flex items-center text-[#222222] dark:text-slate-100">
             <Image src="/images/VLU-Renting-Logo.svg" alt="VLU Renting" width={140} height={52} className="object-contain" priority />
           </Link>
           <button
             type="button"
             onClick={() => router.push("/")}
-            className="rounded-full border border-[#e5e7eb] bg-white px-5 py-2 text-[14px] font-semibold text-[#222222] transition hover:bg-[#f7f7f7]"
+            className="settings-secondary-button rounded-full border border-[#e5e7eb] bg-white px-5 py-2 text-[14px] font-semibold text-[#222222] transition hover:bg-[#f7f7f7] dark:border-white/15 dark:bg-white/5 dark:text-slate-100 dark:hover:bg-white/10"
           >
             Hoàn tất
           </button>
@@ -685,8 +685,8 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
       </header>
 
       <main className="grid min-h-[calc(100vh-88px)] grid-cols-1 lg:grid-cols-[296px_minmax(0,1fr)]">
-        <aside className="border-r border-[#e5e7eb] px-6 py-8 lg:px-8">
-          <h1 className="text-xl font-semibold leading-tight text-[#111827]">Cài đặt tài khoản</h1>
+        <aside className="settings-sidebar border-r border-[#e5e7eb] px-6 py-8 lg:px-8 dark:border-white/12">
+          <h1 className="text-xl font-semibold leading-tight text-[#111827] dark:text-slate-50">Cài đặt tài khoản</h1>
 
           <div className="mt-6 space-y-1">
             {menuItems.map((item) => (
@@ -713,10 +713,10 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
                   }
                   if (item.href) router.push(item.href);
                 }}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[15px] leading-6 text-[#4b5563] transition ${
+                className={`settings-menu-item flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[15px] leading-6 text-[#4b5563] transition dark:text-slate-300 ${
                   (item.panelKey ? item.panelKey === activePanel : item.active)
-                    ? "bg-gray-100 font-medium text-[#111827]"
-                    : "hover:bg-[#f7f7f7]"
+                    ? "settings-menu-item-active bg-gray-100 font-medium text-[#111827] dark:bg-white/10 dark:text-white"
+                    : "hover:bg-[#f7f7f7] dark:hover:bg-white/5"
                 }`}
               >
                 {item.icon}
@@ -727,14 +727,14 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
         </aside>
 
         <section
-          className={`px-6 py-8 lg:px-14 ${isLoginSecurityPanel ? "lg:flex lg:flex-col lg:justify-center" : ""}`}
+          className={`settings-content-panel px-6 py-8 lg:px-14 ${isLoginSecurityPanel ? "lg:flex lg:flex-col lg:justify-center" : ""}`}
         >
           <div className={`mx-auto w-full ${isLoginSecurityPanel ? "max-w-[720px]" : "max-w-[680px]"}`}>
             {activePanel === "personal" ? (
               <>
-            <h2 className="text-[40px] font-semibold leading-[1.1]">Thông tin cá nhân</h2>
+            <h2 className="text-[40px] font-semibold leading-[1.1] dark:text-slate-50">Thông tin cá nhân</h2>
 
-            <div className="mt-3 border-b border-[#e5e7eb]">
+            <div className="mt-3 border-b border-[#e5e7eb] dark:border-white/12">
               {infoRows.map((row) => {
                 const rowIsEditing = editingKey === row.key;
 
@@ -769,7 +769,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
               })}
             </div>
 
-            <div className={`mt-6 rounded-2xl border border-[#d1d5db] px-5 py-2 ${isEditing ? "opacity-40" : ""}`}>
+            <div className={`settings-help-card mt-6 rounded-2xl border border-[#d1d5db] px-5 py-2 dark:border-white/12 dark:bg-white/5 ${isEditing ? "opacity-40" : ""}`}>
               {helpItems.map((item) => (
                 <HelpCardItem key={item.title} {...item} />
               ))}
@@ -790,7 +790,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
 
       {isIdentityNavigating ? (
         <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-white/80 backdrop-blur-[1px]"
+          className="settings-overlay fixed inset-0 z-40 flex items-center justify-center bg-white/80 backdrop-blur-[1px]"
           role="status"
           aria-live="polite"
           aria-label="Đang tải trang xác minh danh tính"
@@ -799,7 +799,7 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
             {[0, 120, 240].map((delay) => (
               <span
                 key={delay}
-                className="h-3 w-3 rounded-full bg-[#111827] animate-bounce"
+                className="settings-spinner-dot h-3 w-3 rounded-full bg-[#111827] animate-bounce"
                 style={{ animationDelay: `${delay}ms` }}
               />
             ))}

@@ -1,10 +1,10 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
-  ManyToOne,
-  JoinColumn,
   CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 import { ConversationEntity } from './conversation.entity';
 import { UserEntity } from './user.entity';
@@ -14,11 +14,16 @@ export class MessageEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ name: 'conversation_id' })
+  conversationId: number;
+
   @ManyToOne(() => ConversationEntity, (conversation) => conversation.messages)
   @JoinColumn({ name: 'conversation_id' })
   conversation: ConversationEntity;
 
-  // Người gửi (có thể là Student hoặc Landlord)
+  @Column({ name: 'sender_id' })
+  senderId: number;
+
   @ManyToOne(() => UserEntity)
   @JoinColumn({ name: 'sender_id' })
   sender: UserEntity;
@@ -26,6 +31,6 @@ export class MessageEntity {
   @Column('text')
   content: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   created_at: Date;
 }

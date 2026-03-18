@@ -3,8 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
-import UserPageShell from "@/app/homepage/components/UserPageShell";
+import UserPageShell from "@/app/_shared/layout/UserPageShell";
 import toast from "react-hot-toast";
+import {
+  getLandlordBookings,
+  updateBookingStatus,
+  type BookingStatus,
+  type LandlordBooking,
+} from "@/app/services/bookings";
 
 interface CustomSession {
   user?: {
@@ -14,28 +20,7 @@ interface CustomSession {
 }
 
 // --- Types ---
-type Booking = {
-  id: number;
-  booking_date: string;
-  time_slot: string;
-  note: string | null;
-  status: "pending" | "approved" | "rejected" | "cancelled";
-  createdAt: string;
-  student: {
-    id: number;
-    email: string;
-    profile: {
-      full_name: string;
-      avatar_url: string;
-      phone_number: string;
-    };
-  };
-  post: {
-    id: number;
-    title: string;
-    address: string;
-  };
-};
+type Booking = LandlordBooking;
 
 export default function ManageBookingsPage() {
     const { data: session } = useSession();
@@ -44,14 +29,9 @@ export default function ManageBookingsPage() {
     const fetchBookings = useCallback(async () => {
         try {
             const customSession = session as CustomSession;
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
-            const res = await fetch(`${apiUrl}/bookings/landlord-bookings`, {
-                headers: {
-                Authorization: `Bearer ${customSession?.user?.accessToken}`,
-                },
-            });
-            if (!res.ok) throw new Error();
-            const data = await res.json();
+            const token = customSession?.user?.accessToken;
+            if (!token) throw new Error();
+            const data = await getLandlordBookings(token);
             setBookings(data);
         } catch {
             toast.error("Không thể tải danh sách lịch hẹn.");
@@ -64,20 +44,15 @@ export default function ManageBookingsPage() {
         if (session?.user) fetchBookings();
     }, [session, fetchBookings]);
 
-    const handleUpdateStatus = async (id: number, newStatus: string) => {
+    const handleUpdateStatus = async (
+        id: number,
+        newStatus: Exclude<BookingStatus, "cancelled">,
+    ) => {
         try {
             const customSession = session as CustomSession;
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
-            const res = await fetch(`${apiUrl}/bookings/${id}/status`, {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${customSession?.user?.accessToken}`,
-                },
-                body: JSON.stringify({ status: newStatus }),
-            });
-
-            if (!res.ok) throw new Error();
+            const token = customSession?.user?.accessToken;
+            if (!token) throw new Error();
+            await updateBookingStatus(id, newStatus, token);
 
             toast.success(newStatus === "approved" ? "Đã duyệt lịch hẹn!" : "Đã từ chối lịch hẹn.");
             // Cập nhật lại state tại chỗ để UI thay đổi ngay lập tức

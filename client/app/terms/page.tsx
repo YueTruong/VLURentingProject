@@ -1,6 +1,6 @@
 "use client";
 
-import UserPageShell from "@/app/homepage/components/UserPageShell";
+import UserPageShell from "@/app/_shared/layout/UserPageShell";
 
 const sections = [
   {

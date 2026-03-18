@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 type Theme = "light" | "dark";
@@ -12,7 +12,7 @@ type ThemeContextValue = {
 };
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
-const STORAGE_KEY = "vlu.theme";
+export const STORAGE_KEY = "vlu.theme";
 
 function getInitialTheme(): Theme {
   if (typeof window === "undefined") {
@@ -29,8 +29,19 @@ function getInitialTheme(): Theme {
 
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
+  const body = document.body;
+
   root.dataset.theme = theme;
   root.style.colorScheme = theme;
+  root.classList.toggle("dark", theme === "dark");
+  root.classList.toggle("light", theme === "light");
+
+  if (body) {
+    body.dataset.theme = theme;
+    body.style.colorScheme = theme;
+    body.classList.toggle("dark", theme === "dark");
+    body.classList.toggle("light", theme === "light");
+  }
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -53,9 +64,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [theme]);
 
-  const value = useMemo(() => ({ theme, setTheme, toggleTheme }), [theme, setTheme, toggleTheme]);
-
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
 }
 
 export function useTheme() {

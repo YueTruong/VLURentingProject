@@ -1,56 +1,51 @@
 import {
-  Controller,
-  Patch,
-  Param,
   Body,
-  UseGuards,
-  ParseIntPipe,
+  Controller,
+  Delete,
+  Get,
   HttpCode,
   HttpStatus,
-  Get,
-  Query,
+  Param,
+  ParseIntPipe,
+  Patch,
   Post,
-  Delete,
+  Query,
+  Res,
+  UseGuards,
 } from '@nestjs/common';
-import { AdminService } from './admin.service';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { AdminService } from './admin.service';
+import { ManageAmenityDto } from './dto/manage-amenity.dto';
+import { ManageCategoryDto } from './dto/manage-category.dto';
+import { ReviewIdentityVerificationDto } from './dto/review-identity-verification.dto';
 import { UpdatePostStatusDto } from './dto/update-post-status.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
-import { ManageCategoryDto } from './dto/manage-category.dto';
-import { ManageAmenityDto } from './dto/manage-amenity.dto';
 
 @ApiTags('Admin Management')
 @ApiBearerAuth()
-@Controller('admin') // Tiền tố chung /admin
+@Controller('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
-  // API lấy tất cả bài đăng
-  // Có thể lọc theo trạng thái bằng query param ?status=
-  // GET /admin/posts
   @Get('/posts')
-  @Roles('admin') // Chỉ cho phép role 'admin'
+  @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Lấy tất cả bài đăng với tùy chọn lọc theo trạng thái',
+    summary: 'Lay tat ca bai dang voi tuy chon loc theo trang thai',
   })
-  async getAllPosts(@Query('status') status: string) {
-    // Dùng @Query để lấy tham số truy vấn 'status'
+  async getAllPosts(@Query('status') status?: string) {
     return this.adminService.getAllPosts(status);
   }
 
-  // API cập nhật trạng thái tin đăng
-  // PATCH /admin/posts/:id/status
   @Patch('/posts/:id/status')
   @HttpCode(HttpStatus.OK)
-  @Roles('admin') // CChỉ cho phép role 'admin'
+  @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Cập nhật trạng thái của một bài đăng' })
+  @ApiOperation({ summary: 'Cap nhat trang thai cua mot bai dang' })
   async updatePostStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePostStatusDto: UpdatePostStatusDto,
@@ -60,28 +55,55 @@ export class AdminController {
       updatePostStatusDto,
     );
     return {
-      message: 'Cập nhật trạng thái tin đăng thành công',
+      message: 'Cap nhat trang thai tin dang thanh cong',
       data: updatedPost,
     };
   }
 
-  // API cho phép Admin xem tất cả người dùng
-  // GET /admin/users
   @Get('/users')
-  @Roles('admin') // Chỉ cho phép role 'admin'
+  @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Lấy tất cả người dùng' })
+  @ApiOperation({ summary: 'Lay tat ca nguoi dung' })
   async getAllUsers() {
     return this.adminService.getAllUsers();
   }
 
+  @Get('/identity-verifications')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Lay danh sach ho so xac minh danh tinh' })
+  async getIdentityVerifications(@Query('status') status?: string) {
+    return this.adminService.getIdentityVerifications(status);
+  }
 
+  @Get('/identity-verifications/file')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Lay tep xac minh danh tinh de admin xem truoc' })
+  async getIdentityVerificationDocument(
+    @Query('reference') reference: string,
+    @Res() res: Response,
+  ) {
+    const filePath =
+      await this.adminService.getIdentityVerificationDocumentPath(reference);
+    return res.sendFile(filePath);
+  }
+
+  @Patch('/users/:id/identity-verification')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Duyet ho so xac minh danh tinh cua nguoi dung' })
+  async reviewIdentityVerification(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() payload: ReviewIdentityVerificationDto,
+  ) {
+    return this.adminService.reviewIdentityVerification(id, payload);
+  }
 
   @Get('/categories')
   @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiOperation({ summary: 'Lấy danh sách danh mục' })
+  @ApiOperation({ summary: 'Lay danh sach danh muc' })
   async getAllCategories() {
     return this.adminService.getAllCategories();
   }
@@ -89,7 +111,7 @@ export class AdminController {
   @Post('/categories')
   @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiOperation({ summary: 'Tạo danh mục mới' })
+  @ApiOperation({ summary: 'Tao danh muc moi' })
   async createCategory(@Body() payload: ManageCategoryDto) {
     return this.adminService.createCategory(payload);
   }
@@ -97,7 +119,7 @@ export class AdminController {
   @Patch('/categories/:id')
   @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiOperation({ summary: 'Cập nhật danh mục' })
+  @ApiOperation({ summary: 'Cap nhat danh muc' })
   async updateCategory(
     @Param('id', ParseIntPipe) id: number,
     @Body() payload: ManageCategoryDto,
@@ -108,7 +130,7 @@ export class AdminController {
   @Delete('/categories/:id')
   @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiOperation({ summary: 'Xóa danh mục' })
+  @ApiOperation({ summary: 'Xoa danh muc' })
   async deleteCategory(@Param('id', ParseIntPipe) id: number) {
     return this.adminService.deleteCategory(id);
   }
@@ -116,7 +138,7 @@ export class AdminController {
   @Get('/amenities')
   @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiOperation({ summary: 'Lấy danh sách tiện ích' })
+  @ApiOperation({ summary: 'Lay danh sach tien ich' })
   async getAllAmenities() {
     return this.adminService.getAllAmenities();
   }
@@ -124,7 +146,7 @@ export class AdminController {
   @Post('/amenities')
   @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiOperation({ summary: 'Tạo tiện ích mới' })
+  @ApiOperation({ summary: 'Tao tien ich moi' })
   async createAmenity(@Body() payload: ManageAmenityDto) {
     return this.adminService.createAmenity(payload);
   }
@@ -132,7 +154,7 @@ export class AdminController {
   @Patch('/amenities/:id')
   @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiOperation({ summary: 'Cập nhật tiện ích' })
+  @ApiOperation({ summary: 'Cap nhat tien ich' })
   async updateAmenity(
     @Param('id', ParseIntPipe) id: number,
     @Body() payload: ManageAmenityDto,
@@ -143,28 +165,25 @@ export class AdminController {
   @Delete('/amenities/:id')
   @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiOperation({ summary: 'Xóa tiện ích' })
+  @ApiOperation({ summary: 'Xoa tien ich' })
   async deleteAmenity(@Param('id', ParseIntPipe) id: number) {
     return this.adminService.deleteAmenity(id);
   }
 
-  // API cho phép Admin mở/khoá người dùng
-  // PATCH /admin/users/:id/status
   @Patch('/users/:id/status')
-  @Roles('admin') // Chỉ cho phép role 'admin'
+  @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Cập nhật trạng thái của một người dùng' })
+  @ApiOperation({ summary: 'Cap nhat trang thai cua mot nguoi dung' })
   async updateUserStatus(
     @Param('id', ParseIntPipe) id: number,
-    @Body() UpdateUserStatusDto: UpdateUserStatusDto,
+    @Body() updateUserStatusDto: UpdateUserStatusDto,
   ) {
     const updatedUser = await this.adminService.updateUserStatus(
       id,
-      UpdateUserStatusDto,
+      updateUserStatusDto,
     );
     return {
-      message: 'Cập nhật trạng thái người dùng thành công',
+      message: 'Cap nhat trang thai nguoi dung thanh cong',
       data: updatedUser,
     };
   }

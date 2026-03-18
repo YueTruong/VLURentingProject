@@ -1,114 +1,266 @@
+import { Logger, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import {
-  WebSocketGateway,
-  WebSocketServer,
-  SubscribeMessage,
-  MessageBody,
   ConnectedSocket,
+  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
 } from '@nestjs/websockets';
+import { WsException } from '@nestjs/websockets/errors/ws-exception';
 import { Server, Socket } from 'socket.io';
+import { JwtPayload } from 'src/auth/types/auth.types';
+import { buildSocketCorsOptions } from 'src/common/config/cors.config';
 import { ChatService } from './chat.service';
 
+type SocketAuthData = {
+  userId?: number;
+  role?: string;
+};
+
+type AuthenticatedSocket = Socket & {
+  data: SocketAuthData;
+  handshake: {
+    auth?: Record<string, unknown>;
+    headers: Record<string, string | string[] | undefined>;
+  };
+  disconnect(close?: boolean): AuthenticatedSocket;
+};
+
+type SendMessagePayload = {
+  conversationId: number;
+  content: string;
+  senderId?: number;
+};
+
 @WebSocketGateway({
-  cors: { origin: '*' },
   transports: ['websocket', 'polling'],
 })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
-  // 👇 MẢNG LƯU TRỮ USER ĐANG ONLINE (Mapping giữa socket.id và userId)
-  private onlineUsers = new Map<string, number>();
+  private readonly logger = new Logger(ChatGateway.name);
+  private readonly socketIdToUserId = new Map<string, number>();
+  private readonly userSockets = new Map<number, Set<string>>();
 
-  constructor(private chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+  ) {}
 
-  // 1. KHI CÓ NGƯỜI KẾT NỐI (Mới mở web, chưa biết là ai)
-  handleConnection(client: Socket) {
-    console.log(`Client connected: ${client.id}`);
-  }
+  afterInit() {
+    const socketServer = this.server as Server & {
+      engine?: { opts: { cors?: unknown } };
+      use: (
+        callback: (
+          client: AuthenticatedSocket,
+          next: (error?: Error) => void,
+        ) => void | Promise<void>,
+      ) => void;
+    };
 
-  // 2. KHI CÓ NGƯỜI NGẮT KẾT NỐI (Tắt trình duyệt, mất mạng)
-  handleDisconnect(client: Socket) {
-    const userId = this.onlineUsers.get(client.id);
-    if (userId) {
-      // Xóa khỏi danh sách online
-      this.onlineUsers.delete(client.id);
-      console.log(`User offline: ${userId}`);
-
-      // Phát thông báo cho tất cả mọi người là user này vừa offline
-      this.server.emit('user_offline', userId);
+    if (socketServer.engine?.opts) {
+      socketServer.engine.opts.cors = buildSocketCorsOptions(
+        this.configService,
+      );
     }
-    console.log(`Client disconnected: ${client.id}`);
+
+    socketServer.use(async (client: AuthenticatedSocket, next) => {
+      try {
+        const payload = await this.verifyClientToken(client);
+        client.data.userId = Number(payload.sub);
+        client.data.role = payload.role;
+        next();
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Unauthorized socket';
+        this.logger.warn(`Socket authentication failed: ${message}`);
+        next(new Error(message));
+      }
+    });
   }
 
-  // 3. EVENT: NHẬN DIỆN USER KHI VỪA ĐĂNG NHẬP / VÀO TRANG CHAT
+  handleConnection(client: AuthenticatedSocket) {
+    const userId = client.data.userId;
+    if (!userId) {
+      this.logger.warn('Socket connection rejected because userId is missing');
+      client.disconnect(true);
+      return;
+    }
+
+    const isFirstConnection = this.trackSocket(userId, client.id);
+    if (isFirstConnection) {
+      this.server.emit('user_online', userId);
+    }
+  }
+
+  handleDisconnect(client: AuthenticatedSocket) {
+    const status = this.untrackSocket(client.id);
+    if (status && status.isOffline) {
+      this.server.emit('user_offline', status.userId);
+    }
+  }
+
   @SubscribeMessage('user_connected')
-  handleUserConnected(
-    @MessageBody() userId: number,
-    @ConnectedSocket() client: Socket,
-  ) {
-    // Lưu user vào Map
-    this.onlineUsers.set(client.id, userId);
-    console.log(`User online: ${userId} with socket ${client.id}`);
-
-    // Báo cho tất cả client khác biết user này vừa online
-    this.server.emit('user_online', userId);
+  handleUserConnected(@ConnectedSocket() client: AuthenticatedSocket) {
+    return { userId: this.getSocketUserId(client) };
   }
 
-  // 4. EVENT: KIỂM TRA TRẠNG THÁI ONLINE CỦA 1 USER CỤ THỂ
   @SubscribeMessage('check_online_status')
   handleCheckOnlineStatus(
     @MessageBody() targetUserId: number,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: AuthenticatedSocket,
   ) {
-    // Kiểm tra xem ID người kia có nằm trong danh sách đang online không
-    const isOnline = Array.from(this.onlineUsers.values()).includes(
-      targetUserId,
+    this.getSocketUserId(client);
+
+    const userSockets = this.userSockets.get(Number(targetUserId));
+    const isOnline = Boolean(userSockets && userSockets.size > 0);
+    client.emit('online_status_result', {
+      userId: Number(targetUserId),
+      isOnline,
+    });
+  }
+
+  @SubscribeMessage('join_conversation')
+  async handleJoinRoom(
+    @MessageBody() conversationId: number,
+    @ConnectedSocket() client: AuthenticatedSocket,
+  ) {
+    const userId = this.getSocketUserId(client);
+    await this.chatService.ensureConversationParticipant(
+      Number(conversationId),
+      userId,
     );
 
-    // Gửi kết quả về lại đúng cho client vừa hỏi
-    client.emit('online_status_result', { userId: targetUserId, isOnline });
+    await client.join(this.getRoomId(Number(conversationId)));
   }
 
-  // 5. THAM GIA PHÒNG CHAT TỪNG CẶP
-  @SubscribeMessage('join_conversation')
-  handleJoinRoom(
-    @MessageBody() conversationId: number,
-    @ConnectedSocket() client: Socket,
-  ) {
-    const roomId = `room_${conversationId}`;
-    client.join(roomId);
-  }
-
-  // 6. GỬI TIN NHẮN
   @SubscribeMessage('send_message')
   async handleSendMessage(
-    @MessageBody()
-    payload: {
-      conversationId: number;
-      senderId: number;
-      content: string;
-    },
+    @MessageBody() payload: SendMessagePayload,
+    @ConnectedSocket() client: AuthenticatedSocket,
   ) {
-    const roomId = `room_${payload.conversationId}`;
+    const userId = this.getSocketUserId(client);
+    const conversationId = Number(payload?.conversationId);
+    if (!conversationId) {
+      throw new WsException('conversationId is required');
+    }
 
-    // Lấy danh sách socket đang ở trong phòng chat này
-    const roomSockets = this.server.sockets.adapter.rooms.get(roomId);
-    const numClients = roomSockets ? roomSockets.size : 0;
+    const roomId = this.getRoomId(conversationId);
+    const isReceiverWatching = this.isOtherParticipantWatching(roomId, userId);
 
-    // Nếu có từ 2 người trở lên trong phòng -> Người kia đang xem trực tiếp
-    const isReceiverWatching = numClients > 1;
-
-    // Gọi Service lưu tin nhắn và truyền cờ này vào (Để quyết định có tạo Notification không)
-    const savedMsg = await this.chatService.saveMessage(
-      payload.conversationId,
-      payload.senderId,
-      payload.content,
+    const savedMessage = await this.chatService.saveMessage(
+      conversationId,
+      userId,
+      payload?.content ?? '',
       isReceiverWatching,
     );
 
-    // Bắn tin nhắn mới qua Socket cho những ai đang ở trong phòng
-    this.server.to(roomId).emit('new_message', savedMsg);
+    this.server.to(roomId).emit('new_message', savedMessage);
+    return savedMessage;
+  }
+
+  private getRoomId(conversationId: number) {
+    return `room_${conversationId}`;
+  }
+
+  private getSocketUserId(client: AuthenticatedSocket) {
+    const userId = Number(client.data?.userId);
+    if (!userId) {
+      throw new WsException('Unauthorized socket');
+    }
+
+    return userId;
+  }
+
+  private async verifyClientToken(client: AuthenticatedSocket) {
+    const rawToken =
+      typeof client.handshake.auth?.token === 'string'
+        ? client.handshake.auth.token
+        : typeof client.handshake.headers.authorization === 'string'
+          ? client.handshake.headers.authorization
+          : null;
+
+    const token = rawToken?.replace(/^Bearer\s+/i, '').trim();
+    if (!token) {
+      throw new UnauthorizedException('Missing socket token');
+    }
+
+    const payload = await this.jwtService.verifyAsync<
+      JwtPayload & { roles?: string; id?: number; userId?: number }
+    >(token);
+    const userId = Number(payload.sub || payload.userId || payload.id);
+    if (!userId) {
+      throw new UnauthorizedException('Invalid socket token payload');
+    }
+
+    return {
+      ...payload,
+      sub: userId,
+      role:
+        typeof payload.role === 'string'
+          ? payload.role.toLowerCase()
+          : typeof payload.roles === 'string'
+            ? payload.roles.toLowerCase()
+            : undefined,
+    };
+  }
+
+  private trackSocket(userId: number, socketId: string) {
+    this.socketIdToUserId.set(socketId, userId);
+
+    let sockets = this.userSockets.get(userId);
+    const isFirstConnection = !sockets || sockets.size === 0;
+    if (!sockets) {
+      sockets = new Set<string>();
+      this.userSockets.set(userId, sockets);
+    }
+
+    sockets.add(socketId);
+    return isFirstConnection;
+  }
+
+  private untrackSocket(socketId: string) {
+    const userId = this.socketIdToUserId.get(socketId);
+    if (!userId) {
+      return null;
+    }
+
+    this.socketIdToUserId.delete(socketId);
+    const sockets = this.userSockets.get(userId);
+    if (!sockets) {
+      return { userId, isOffline: true };
+    }
+
+    sockets.delete(socketId);
+    if (sockets.size === 0) {
+      this.userSockets.delete(userId);
+      return { userId, isOffline: true };
+    }
+
+    return { userId, isOffline: false };
+  }
+
+  private isOtherParticipantWatching(roomId: string, senderUserId: number) {
+    const roomSockets = this.server.sockets.adapter.rooms.get(roomId);
+    if (!roomSockets || roomSockets.size === 0) {
+      return false;
+    }
+
+    for (const socketId of roomSockets) {
+      const roomUserId = this.socketIdToUserId.get(socketId);
+      if (roomUserId && roomUserId !== senderUserId) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }

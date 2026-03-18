@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import UserTopBar from "@/app/homepage/components/UserTopBar";
+import UserTopBar from "@/app/_shared/layout/UserTopBar";
 
 type UserPageShellProps = {
   title: string;

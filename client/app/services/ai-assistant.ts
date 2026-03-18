@@ -1,9 +1,5 @@
 import axios from "axios";
-
-const getBaseUrl = () =>
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://localhost:3001";
+import { getBackendUrl } from "@/app/lib/backend";
 
 export type AiHousingCriteria = {
   priceMin?: number;
@@ -23,7 +19,7 @@ export type AiHousingCriteria = {
 };
 
 export async function askHousingAssistant(message: string, districtOptions: string[]) {
-  const res = await axios.post(`${getBaseUrl()}/ai/housing-query`, {
+  const res = await axios.post(`${getBackendUrl()}/ai/housing-query`, {
     message,
     districtOptions,
   });

@@ -1,67 +1,65 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Body,
   Param,
+  ParseIntPipe,
+  Post,
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AuthenticatedRequestUser } from '../auth/types/auth.types';
 import { ChatService } from './chat.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; // Đảm bảo đường dẫn này đúng với dự án của em
+
+type AuthenticatedRequest = Request & {
+  user: AuthenticatedRequestUser;
+};
 
 @Controller('chat')
-@UseGuards(JwtAuthGuard) // 🔒 Bảo vệ toàn bộ API chat, bắt buộc phải có Token hợp lệ
+@UseGuards(JwtAuthGuard)
 export class ChatController {
-  constructor(private chatService: ChatService) {}
+  constructor(private readonly chatService: ChatService) {}
 
-  // API bắt đầu chat
   @Post('init')
-  async startChat(@Req() req, @Body() body: { partnerId: number }) {
-    // Tự động lấy ID người đang đăng nhập từ Token (không sợ bị fake ID)
-    const currentUserId = Number(
-      req.user.id || req.user.sub || req.user.userId,
-    );
+  async startChat(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { partnerId: number },
+  ) {
+    const currentUserId = Number(req.user.userId || req.user.id);
     const role = req.user.role?.toLowerCase();
 
+    const partnerId = Number(body.partnerId);
     let studentId: number;
     let landlordId: number;
 
-    // Phân loại ai là Student, ai là Landlord
     if (role === 'student') {
       studentId = currentUserId;
-      landlordId = Number(body.partnerId);
+      landlordId = partnerId;
     } else {
       landlordId = currentUserId;
-      studentId = Number(body.partnerId);
+      studentId = partnerId;
     }
 
     return this.chatService.getConversation(studentId, landlordId);
   }
 
-  // API lấy tin nhắn cũ
   @Get(':conversationId/messages')
   async getMessages(
-    @Param('conversationId') conversationId: number,
-    @Req() req,
+    @Param('conversationId', ParseIntPipe) conversationId: number,
+    @Req() req: AuthenticatedRequest,
   ) {
-    const currentUserId = Number(
-      req.user.id || req.user.sub || req.user.userId,
-    );
     return this.chatService.getMessagesForUser(
-      Number(conversationId),
-      currentUserId,
+      conversationId,
+      Number(req.user.userId || req.user.id),
     );
   }
 
-  // API lấy danh sách chat của user (cho sidebar)
   @Get('my-conversations')
-  async getMyConversations(@Req() req) {
-    // 🛡️ LẤY USER ID TỪ TOKEN (Giải quyết dứt điểm lỗi hiển thị nhầm chat)
-    const currentUserId = Number(
-      req.user.id || req.user.sub || req.user.userId,
+  async getMyConversations(@Req() req: AuthenticatedRequest) {
+    return this.chatService.getUserConversations(
+      Number(req.user.userId || req.user.id),
     );
-
-    return this.chatService.getUserConversations(currentUserId);
   }
 }

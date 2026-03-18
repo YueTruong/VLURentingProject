@@ -1,26 +1,31 @@
 import {
+  Column,
+  CreateDateColumn,
   Entity,
-  PrimaryGeneratedColumn,
+  JoinColumn,
   ManyToOne,
   OneToMany,
-  JoinColumn,
-  CreateDateColumn,
+  PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { UserEntity } from './user.entity';
 import { MessageEntity } from './message.entity';
+import { UserEntity } from './user.entity';
 
 @Entity('conversations')
 export class ConversationEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
-  // Người thuê (Sinh viên)
+  @Column({ name: 'student_id' })
+  studentId: number;
+
   @ManyToOne(() => UserEntity)
   @JoinColumn({ name: 'student_id' })
   student: UserEntity;
 
-  // Chủ trọ (Landlord)
+  @Column({ name: 'landlord_id' })
+  landlordId: number;
+
   @ManyToOne(() => UserEntity)
   @JoinColumn({ name: 'landlord_id' })
   landlord: UserEntity;
@@ -28,9 +33,9 @@ export class ConversationEntity {
   @OneToMany(() => MessageEntity, (message) => message.conversation)
   messages: MessageEntity[];
 
-  @CreateDateColumn()
+  @CreateDateColumn({ name: 'created_at' })
   created_at: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updated_at: Date;
 }

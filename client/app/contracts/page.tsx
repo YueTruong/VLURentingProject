@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import RentalContractWorkspace from "@/app/contracts/components/RentalContractWorkspace";
 import RentalContractsPanel from "@/app/contracts/components/RentalContractsPanel";
-import UserPageShell from "@/app/homepage/components/UserPageShell";
+import UserPageShell from "@/app/_shared/layout/UserPageShell";
 
 type UserRole = "admin" | "landlord" | "student";
 

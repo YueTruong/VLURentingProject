@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getApprovedPosts, type Post } from "@/app/services/posts";
 import SectionRow from "./SectionRow";
-import type { RoomCardData } from "./RoomCard";
+import type { RoomCardData } from "@/app/_shared/listings/RoomCard";
 
 const toNumber = (value: number | string | undefined | null) => {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -72,6 +72,7 @@ const normalizeText = (value: string) =>
     .toLowerCase();
 
 const isApprovedPost = (status?: string | null) => status?.toLowerCase() === "approved";
+
 const padSectionItems = (filtered: RoomCardData[], allItems: RoomCardData[]) => {
   if (filtered.length >= MIN_ITEMS_PER_SECTION) {
     return filtered;
@@ -175,25 +176,29 @@ export default function RoomListBody() {
   return (
     <section className="w-full bg-transparent py-10">
       <div className="w-full space-y-8 overflow-hidden px-4 md:px-6">
-        
         {!loaded ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 px-4 text-center shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-800">
-            <span className="mb-4 animate-spin text-4xl text-gray-900 dark:text-white">⏳</span>
-            <p className="text-lg font-semibold text-gray-900 dark:text-white">Đang tải dữ liệu phòng...</p>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Vui lòng đợi trong giây lát.</p>
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-(--theme-border-strong) bg-(--theme-surface) px-4 py-16 text-center shadow-sm">
+            <span className="mb-4 animate-spin text-4xl text-(--theme-text)">⏳</span>
+            <p className="text-lg font-semibold text-(--theme-text)">Đang tải dữ liệu phòng...</p>
+            <p className="mt-2 text-sm text-(--theme-text-muted)">Vui lòng đợi trong giây lát.</p>
           </div>
         ) : loadError ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 px-4 text-center shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-(--theme-border-strong) bg-(--theme-surface) px-4 py-16 text-center shadow-sm">
             <span className="mb-4 text-4xl opacity-50">❌</span>
-            <p className="text-lg font-semibold text-red-600 dark:text-red-400">Không thể tải danh sách phòng</p>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Hệ thống đang gặp sự cố. Vui lòng thử lại sau.</p>
-            <button onClick={() => window.location.reload()} className="mt-4 text-sm font-semibold text-[#D51F35] underline hover:text-red-700 dark:text-red-400">Tải lại trang</button>
+            <p className="text-lg font-semibold text-(--brand-accent)">Không thể tải danh sách phòng</p>
+            <p className="mt-2 text-sm text-(--theme-text-muted)">Hệ thống đang gặp sự cố. Vui lòng thử lại sau.</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 text-sm font-semibold text-(--brand-accent) underline hover:text-(--brand-accent-strong)"
+            >
+              Tải lại trang
+            </button>
           </div>
         ) : items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-white py-16 px-4 text-center shadow-sm transition-colors dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-(--theme-border-strong) bg-(--theme-surface) px-4 py-16 text-center shadow-sm">
             <span className="mb-4 text-5xl opacity-50">📂</span>
-            <p className="text-lg font-bold text-gray-800 dark:text-white">Chưa có dữ liệu phòng</p>
-            <p className="mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-lg font-bold text-(--theme-text)">Chưa có dữ liệu phòng</p>
+            <p className="mt-2 max-w-md text-sm text-(--theme-text-subtle)">
               Hiện tại chưa có bài đăng nào được duyệt trên hệ thống.
             </p>
           </div>

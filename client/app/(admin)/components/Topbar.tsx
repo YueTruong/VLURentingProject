@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import UserMenu from "@/app/homepage/components/UserMenu";
+import UserMenu from "@/app/_shared/navigation/UserMenu";
 import ThemeToggleButton from "@/app/theme/ThemeToggleButton";
 
 export default function Topbar() {

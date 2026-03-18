@@ -1,14 +1,29 @@
-import { IsOptional, IsNumber, IsString, IsArray } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
+import {
+  IsArray,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class SearchPostDto {
   @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') {
+      return undefined;
+    }
+
+    const keyword = value.trim();
+    return keyword.length > 0 ? keyword : undefined;
+  })
   @IsString()
-  keyword?: string; // Cho tìm kiếm cơ bản (theo title, address)
+  @MaxLength(100)
+  keyword?: string;
 
   @IsOptional()
   @IsNumber()
-  @Type(() => Number) // Tự động chuyển query param (string) thành number
+  @Type(() => Number)
   price_min?: number;
 
   @IsOptional()
@@ -29,36 +44,35 @@ export class SearchPostDto {
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
-  category_id?: number; // Lọc theo loại phòng
+  category_id?: number;
 
-  // Lọc theo danh sách ID tiện ích (ví dụ: ?amenity_ids=1,2,3)
   @IsOptional()
   @Transform(({ value }) => {
-    // Chuyển chuỗi '1,2,3' thành mảng ['1', '2', '3']
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
     return String(value)
-      .split(',') // Tách theo dấu phẩy
-      .map((id) => Number(id.trim())); // Chuyển từng phần tử sang số
+      .split(',')
+      .map((id) => Number(id.trim()));
   })
   @IsArray()
   @IsNumber({}, { each: true })
   amenity_ids?: number[];
 
-  // Các trường lọc bản đồ
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
-  lat?: number; // Vĩ độ
+  lat?: number;
 
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
-  lng?: number; // Kinh độ
+  lng?: number;
 
   @IsOptional()
   @IsNumber()
   @Type(() => Number)
-  radius?: number; // Bán kính tìm kiếm (tính bằng km)
-
+  radius?: number;
 
   @IsOptional()
   @IsString()

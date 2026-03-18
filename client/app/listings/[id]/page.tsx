@@ -4,8 +4,10 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation"; 
 import Image from "next/image";
 import Link from "next/link";
+import { createAuthHeaders, getBackendUrl } from "@/app/lib/backend";
 import { useSession } from "next-auth/react"; 
-import UserPageShell from "@/app/homepage/components/UserPageShell"; // ✅ Dùng chung Shell với Listings & Favorites
+import { createBooking } from "@/app/services/bookings";
+import UserPageShell from "@/app/_shared/layout/UserPageShell"; // ✅ Dùng chung Shell với Listings & Favorites
 import { getPostById, type Post } from "@/app/services/posts";
 import { createReview, getPostReviews, updateReview, type PublicReview } from "@/app/services/reviews";
 import toast from "react-hot-toast"; 
@@ -29,7 +31,6 @@ type Listing = {
   baths: number;
   parking: string;
   wifi: boolean;
-  utilities: { label: string; value: string }[];
   amenities: string[];
   description: string;
   videoUrl?: string;
@@ -212,16 +213,6 @@ const mapPostToListing = (post: Post): Listing => {
     baths: 1,
     parking: hasParkingAmenity ? "Có chỗ gửi xe" : "Chưa rõ",
     wifi: amenityText.includes("wifi"),
-    utilities: [
-      { label: "Mức giá", value: formatPriceText(post.price) },
-      { label: "Diện tích", value: formatAreaText(post.area) },
-      { label: "Sức chứa", value: `${Math.max(1, Math.round(toNumberValue(post.max_occupancy ?? 1)))} người` },
-      { label: "Danh mục", value: post.category?.name?.trim() || "Chưa phân loại" },
-      { label: "Trạng thái duyệt", value: mapPostStatusLabel(post.status) },
-      { label: "Tình trạng phòng", value: post.availability === "rented" ? "Đã cho thuê" : "Còn phòng" },
-      { label: "Đăng lúc", value: formatDateTime(post.createdAt) },
-      { label: "Cập nhật", value: formatDateTime(post.updatedAt) },
-    ],
     amenities: amenityNames,
     description: post.description || "",
     videoUrl: post.videoUrl ?? undefined,
@@ -378,22 +369,12 @@ export default function ListingDetailPage() {
   }
 
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
-    const res = await fetch(`${apiUrl}/bookings`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${session.user.accessToken}`
-      },
-      body: JSON.stringify({
+    await createBooking(session.user.accessToken, {
         postId: Number(listing?.id),
-        landlordId: listing?.landlord.id,
+        landlordId: listing?.landlord.id ?? 0,
         // Backend sẽ tự lấy studentId từ JWT Token (req.user.id)
-        ...bookingData
-      }),
+        ...bookingData,
     });
-
-    if (!res.ok) throw new Error();
 
     toast.success("Đã gửi yêu cầu đặt lịch đến chủ trọ!");
     setIsBookingModalOpen(false);
@@ -482,8 +463,6 @@ export default function ListingDetailPage() {
 
     setIsChatting(true);
     try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
-        
         interface ExtendedSession {
           accessToken?: string;
           user?: {
@@ -494,12 +473,11 @@ export default function ListingDetailPage() {
         const extendedSession = session as ExtendedSession;
         const token = extendedSession?.accessToken || extendedSession?.user?.accessToken || "";
 
-        const res = await fetch(`${apiUrl}/chat/init`, {
+        const res = await fetch(`${getBackendUrl()}/chat/init`, {
             method: "POST",
-            headers: { 
+            headers: createAuthHeaders(token, {
               "Content-Type": "application/json",
-              "Authorization": `Bearer ${token}` 
-            },
+            }),
             body: JSON.stringify({
                 partnerId: listing.landlord.id 
             }),
@@ -792,15 +770,7 @@ export default function ListingDetailPage() {
             </section>
 
             <section className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100 space-y-4 transition-colors dark:border-gray-800 dark:bg-gray-900">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tiện ích & Chi phí</h2>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {listing.utilities.map((item) => (
-                  <div key={item.label} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 transition-colors dark:border-gray-700 dark:bg-gray-800">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{item.label}</p>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white">{item.value}</p>
-                  </div>
-                ))}
-              </div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Tiện ích nổi bật</h2>
               <div className="flex flex-wrap gap-2">
                 {listing.amenities.length > 0 ? (
                   listing.amenities.map((a) => <AmenityTag key={a} text={a} />)

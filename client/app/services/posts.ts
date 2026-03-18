@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { createAuthHeaders, getBackendUrl } from '@/app/lib/backend';
 import api from './api';
 
 export type CreatePostPayload = {
@@ -91,11 +92,6 @@ type UploadResult = {
   public_id?: string;
 };
 
-const getBaseUrl = () =>
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  'http://localhost:3001';
-
 export async function uploadImages(files: File[]): Promise<string[]> {
   if (!files || files.length === 0) return [];
 
@@ -124,9 +120,9 @@ export async function getApprovedPosts(): Promise<Post[]> {
 }
 
 export async function getAdminPosts(status: string | undefined, token: string) {
-  const res = await axios.get(`${getBaseUrl()}/posts/admin`, {
+  const res = await axios.get(`${getBackendUrl()}/posts/admin`, {
     params: status ? { status } : undefined,
-    headers: { Authorization: `Bearer ${token}` },
+    headers: createAuthHeaders(token),
   });
   return res.data ?? [];
 }
@@ -141,9 +137,9 @@ export async function updatePostStatus(
   if (rejectionReason) payload.rejectionReason = rejectionReason;
 
   const res = await axios.patch(
-    `${getBaseUrl()}/posts/admin/${id}/approve`,
+    `${getBackendUrl()}/posts/admin/${id}/approve`,
     payload,
-    { headers: { Authorization: `Bearer ${token}` } },
+    { headers: createAuthHeaders(token) },
   );
   return res.data;
 }
@@ -154,33 +150,31 @@ export async function getPostById(id: number | string): Promise<Post> {
 }
 
 export async function getMyPosts(token: string): Promise<Post[]> {
-  const res = await axios.get<Post[]>(`${getBaseUrl()}/posts/me`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  const res = await axios.get<Post[]>(`${getBackendUrl()}/posts/me`, {
+    headers: createAuthHeaders(token),
   });
   return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function getMySavedPostIds(token: string): Promise<number[]> {
-  const res = await axios.get<number[]>(`${getBaseUrl()}/posts/saved/ids`, {
-    headers: { Authorization: `Bearer ${token}` },
+  const res = await axios.get<number[]>(`${getBackendUrl()}/posts/saved/ids`, {
+    headers: createAuthHeaders(token),
   });
   return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function savePost(postId: number, token: string) {
   const res = await axios.post(
-    `${getBaseUrl()}/posts/${postId}/save`,
+    `${getBackendUrl()}/posts/${postId}/save`,
     undefined,
-    { headers: { Authorization: `Bearer ${token}` } },
+    { headers: createAuthHeaders(token) },
   );
   return res.data;
 }
 
 export async function unsavePost(postId: number, token: string) {
-  const res = await axios.delete(`${getBaseUrl()}/posts/${postId}/save`, {
-    headers: { Authorization: `Bearer ${token}` },
+  const res = await axios.delete(`${getBackendUrl()}/posts/${postId}/save`, {
+    headers: createAuthHeaders(token),
   });
   return res.data;
 }
@@ -190,20 +184,17 @@ export async function updatePost(
   payload: UpdatePostPayload,
   token: string,
 ) {
-  const res = await axios.patch(`${getBaseUrl()}/posts/${id}`, payload, {
-    headers: {
-      Authorization: `Bearer ${token}`,
+  const res = await axios.patch(`${getBackendUrl()}/posts/${id}`, payload, {
+    headers: createAuthHeaders(token, {
       'Content-Type': 'application/json',
-    },
+    }),
   });
   return res.data;
 }
 
 export async function deletePost(id: number, token: string) {
-  const res = await axios.delete(`${getBaseUrl()}/posts/${id}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+  const res = await axios.delete(`${getBackendUrl()}/posts/${id}`, {
+    headers: createAuthHeaders(token),
   });
   return res.data;
 }

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useMemo, type ChangeEvent, type MouseEvent } from 'react';
 import type { Session } from 'next-auth';
 import { useSession } from 'next-auth/react';
-import UserPageShell from '@/app/homepage/components/UserPageShell';
+import UserPageShell from '@/app/_shared/layout/UserPageShell';
 import EditPostModal from './EditPostModal';
 import PostCard from './PostCard';
 import {

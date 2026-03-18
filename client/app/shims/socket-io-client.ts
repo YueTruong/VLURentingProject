@@ -30,6 +30,8 @@ const createSocket = (): Socket => {
   };
 };
 
-export default function io(_url: string): Socket {
+export default function io(url: string, options?: unknown): Socket {
+  void url;
+  void options;
   return createSocket();
 }

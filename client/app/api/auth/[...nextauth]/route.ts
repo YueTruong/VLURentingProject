@@ -6,6 +6,7 @@ import AppleProvider from "next-auth/providers/apple";
 import { cookies } from "next/headers";
 import { jwtDecode } from "jwt-decode";
 import type { JWT } from "next-auth/jwt";
+import { getAuthorizationHeader, getBackendUrl } from "@/app/lib/backend";
 
 type OAuthProvider = "google" | "facebook" | "apple";
 const OAUTH_PROVIDERS: OAuthProvider[] = ["google", "facebook", "apple"];
@@ -36,11 +37,6 @@ type OAuthBridgeResponse = {
     full_name?: string | null;
   };
 };
-
-const getBackendUrl = () =>
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  "http://localhost:3001";
 
 const isOAuthProvider = (provider?: string): provider is OAuthProvider =>
   Boolean(provider && OAUTH_PROVIDERS.includes(provider as OAuthProvider));
@@ -152,11 +148,12 @@ const bridgeOAuthLogin = async (
   profile?: Profile,
 ) => {
   const bridgeSecret = process.env.OAUTH_BRIDGE_SECRET;
+  if (!bridgeSecret) {
+    return null;
+  }
   const payload = getOAuthProfile(user, profile);
   const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (bridgeSecret) {
-    headers["x-oauth-bridge-secret"] = bridgeSecret;
-  }
+  headers["x-oauth-bridge-secret"] = bridgeSecret;
 
   const res = await fetch(`${getBackendUrl()}/auth/oauth-login`, {
     method: "POST",
@@ -188,7 +185,7 @@ const bridgeOAuthLink = async (
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${linkToken}`,
+      Authorization: getAuthorizationHeader(linkToken),
     },
     body: JSON.stringify({
       providerAccountId,

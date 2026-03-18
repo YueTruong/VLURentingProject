@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { RoomCardData } from "@/app/homepage/components/RoomCard";
+import type { RoomCardData } from "@/app/_shared/listings/RoomCard";
 
 export type FavoriteRoom = RoomCardData & { savedAt: string };
 

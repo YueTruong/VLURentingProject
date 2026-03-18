@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import UserTopBar from "@/app/homepage/components/UserTopBar";
+import UserTopBar from "@/app/_shared/layout/UserTopBar";
 import {
   getIdentityVerificationOverview,
   readVerificationStatusFromStorage,

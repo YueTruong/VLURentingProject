@@ -5,8 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSession, signIn } from "next-auth/react";
 import { BellIcon, ChatBubbleIcon } from "@radix-ui/react-icons";
-import UserMenu from "@/app/homepage/components/UserMenu";
+import UserMenu from "@/app/_shared/navigation/UserMenu";
 import ThemeToggleButton from "@/app/theme/ThemeToggleButton";
+import { getUnreadNotificationCount } from "@/app/services/notifications";
 
 export default function UserTopBar() {
   const { data: session, status } = useSession();
@@ -29,19 +30,8 @@ export default function UserTopBar() {
         const token = session?.user?.accessToken;
         if (!token) return;
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
-        
-        const res = await fetch(`${apiUrl}/notifications/unread-count`, {
-          headers: { Authorization: `Bearer ${token}` },
-          cache: 'no-store' 
-        });
-
         if (!active) return;
-
-        if (res.ok) {
-          const data = await res.json();
-          setUnreadCount(data.count);
-        }
+        setUnreadCount(await getUnreadNotificationCount(token));
       } catch (error) {
         if (!active) return;
         const anyError = error as { name?: string };

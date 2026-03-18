@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { BellIcon, ChatBubbleIcon, PlusIcon } from "@radix-ui/react-icons";
-import UserMenu from "@/app/homepage/components/UserMenu";
+import UserMenu from "@/app/_shared/navigation/UserMenu";
 import ThemeToggleButton from "@/app/theme/ThemeToggleButton";
+import { getUnreadNotificationCount } from "@/app/services/notifications";
 
 function TopHeader() {
   const { data: session } = useSession();
@@ -25,19 +26,9 @@ function TopHeader() {
 
     const fetchUnread = async () => {
       try {
-        const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL ||
-          process.env.NEXT_PUBLIC_BACKEND_URL ||
-          "http://localhost:3001";
-
-        const res = await fetch(`${apiUrl}/notifications/unread-count`, {
-          headers: { Authorization: `Bearer ${session.user.accessToken}` },
-          cache: "no-store",
-        });
-
-        if (!res.ok) return;
-        const data = await res.json();
-        setUnreadCount(data.count ?? 0);
+        setUnreadCount(
+          await getUnreadNotificationCount(session.user.accessToken),
+        );
       } catch (error) {
         console.error("Lỗi lấy số thông báo:", error);
       }

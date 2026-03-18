@@ -26,9 +26,6 @@
       "@/*": [
         "./*"
       ],
-      "react-hot-toast": [
-        "./app/shims/react-hot-toast"
-      ],
     }
   },
   "include": [
