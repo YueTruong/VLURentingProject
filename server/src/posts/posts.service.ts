@@ -259,7 +259,7 @@ export class PostsService {
     });
 
     if (!post || !this.canAccessPost(post, user)) {
-      throw new NotFoundException('Khong tim thay tin dang');
+      throw new NotFoundException('Không tìm thấy tin đăng');
     }
 
     const averageRating =
@@ -298,11 +298,11 @@ export class PostsService {
   async update(id: number, updatePostDto: UpdatePostDto, user: RequestUser) {
     const post = await this.postRepository.findOneBy({ id });
     if (!post) {
-      throw new NotFoundException('Khong tim thay tin dang');
+      throw new NotFoundException('Không tìm thấy tin đăng');
     }
 
     if (post.userId !== this.getRequesterId(user)) {
-      throw new ForbiddenException('Ban khong co quyen sua tin dang nay');
+      throw new ForbiddenException('Bạn không có quyền để sửa tin này');
     }
 
     const { categoryId, amenityIds, imageUrls, ...postData } = updatePostDto;
@@ -319,7 +319,7 @@ export class PostsService {
     if (categoryId) {
       const category = await this.categoryRepository.findOneBy({ id: categoryId });
       if (!category) {
-        throw new NotFoundException('Khong tim thay loai phong');
+        throw new NotFoundException('Không tìm thấy loại phòng');
       }
       post.category = category;
     }
@@ -343,11 +343,11 @@ export class PostsService {
   async approve(id: number, status: string, rejectionReason?: string) {
     const post = await this.postRepository.findOneBy({ id });
     if (!post) {
-      throw new NotFoundException('Khong tim thay tin dang');
+      throw new NotFoundException('Không tìm thấy tin đăng');
     }
 
     if (!['approved', 'rejected', 'hidden'].includes(status)) {
-      throw new BadRequestException('Trang thai khong hop le');
+      throw new BadRequestException('Trạng thái không hợp lệ');
     }
 
     post.status = status as PostEntity['status'];
@@ -358,12 +358,12 @@ export class PostsService {
     if (status === 'approved') {
       post.rejectionReason = null;
       post.resubmittedAt = null;
-      notifTitle = 'Tin dang cua ban da duoc duyet';
-      notifMessage = `Tin "${post.title}" da duoc duyet va hien thi cong khai.`;
+      notifTitle = 'Tin đăng của bạn đã được duyệt';
+      notifMessage = `Tin "${post.title}" đã được duyệt và hiển thị công khai.`;
     } else if (status === 'rejected') {
-      post.rejectionReason = rejectionReason || 'Bai dang vi pham quy dinh';
-      notifTitle = 'Tin dang bi tu choi';
-      notifMessage = `Tin "${post.title}" bi tu choi. Ly do: ${post.rejectionReason}`;
+      post.rejectionReason = rejectionReason || 'Bài đăng vi phạm quy định';
+      notifTitle = 'Tin đăng bị từ chối';
+      notifMessage = `Tin "${post.title}" bị từ chối. Lý do: ${post.rejectionReason}`;
     }
 
     if (notifTitle) {
@@ -415,7 +415,7 @@ export class PostsService {
 
     const post = await this.postRepository.findOneBy({ id: postId });
     if (!post || post.status !== 'approved') {
-      throw new NotFoundException('Khong tim thay tin dang de luu');
+      throw new NotFoundException('Không tìm thấy tin đăng để lưu');
     }
 
     const existed = await this.savedPostRepository.findOneBy({ userId, postId });
@@ -443,11 +443,11 @@ export class PostsService {
     const requester = this.getRequester(user);
     if (!requester.isAdmin && requester.userId !== post.userId) {
       throw new ForbiddenException(
-        'Chi chu bai dang hoac admin moi co quyen xoa bai nay',
+        'Chỉ chủ bài đăng hoặc admin mới có quyền xoá bài đăng này',
       );
     }
 
     await this.postRepository.remove(post);
-    return { message: 'Xoa tin dang thanh cong' };
+    return { message: 'Xoá tin đăng thành công' };
   }
 }

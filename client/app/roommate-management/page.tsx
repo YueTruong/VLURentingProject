@@ -321,43 +321,6 @@ export default function RoommateManagementPage() {
           <div className="space-y-4">
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="text-sm font-semibold text-gray-900">
-                Liên kết phòng trọ gốc
-              </div>
-              <select
-                value={selectedId}
-                onChange={(event) => {
-                  setSelectedId(event.target.value);
-                  setSubmitError(null);
-                  setSubmitSuccess(null);
-                }}
-                className="mt-3 h-11 w-full rounded-xl border border-gray-300 bg-white px-3 text-sm text-gray-800"
-                disabled={loading || listings.length === 0}
-              >
-                {listings.length === 0 ? (
-                  <option value="">Chưa có phòng khả dụng</option>
-                ) : null}
-                {listings.map((item) => (
-                  <option key={item.id} value={String(item.id)}>
-                    {item.title}
-                  </option>
-                ))}
-              </select>
-
-              {selected ? (
-                <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-4 text-xs text-gray-600">
-                  <div className="font-semibold text-gray-800">
-                    {selected.title}
-                  </div>
-                  <div className="mt-1">{selected.address}</div>
-                  <div className="mt-1">
-                    Chủ trọ: {selected.landlordName ?? "Chưa cập nhật"}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="text-sm font-semibold text-gray-900">
                 Tình trạng chỗ ở hiện tại
               </div>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
