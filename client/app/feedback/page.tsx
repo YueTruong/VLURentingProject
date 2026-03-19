@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import UserPageShell from "@/app/homepage/components/UserPageShell";
+import UserPageShell from "@/app/_shared/layout/UserPageShell";
 
 type FeedbackForm = {
   title: string;

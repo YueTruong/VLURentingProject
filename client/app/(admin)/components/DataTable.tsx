@@ -36,7 +36,7 @@ export default function DataTable<T>({
   columns,
   pageSize = 8,
   rowKey,
-  emptyText = "No data",
+  emptyText = "Không có dữ liệu",
   onRowClick,
   getRowClassName,
 }: DataTableProps<T>) {
@@ -96,7 +96,7 @@ export default function DataTable<T>({
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
-        <table className="min-w-full border-separate border-spacing-0 text-sm">
+        <table className="w-full min-w-full table-fixed border-separate border-spacing-0 text-sm">
           <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-600">
             <tr>
               {columns.map((column) => {
@@ -189,11 +189,11 @@ export default function DataTable<T>({
 
       <div className="flex flex-col gap-3 border-t border-gray-100 bg-white px-4 py-3 text-sm text-gray-600 md:flex-row md:items-center md:justify-between">
         <div className="text-xs text-gray-500">
-          Showing{" "}
+          Hiển thị{" "}
           <span className="font-medium text-gray-900">
             {startRow}-{endRow}
           </span>{" "}
-          of {sorted.length} rows
+          / {sorted.length} dòng
         </div>
 
         <div className="flex items-center gap-2">
@@ -203,7 +203,7 @@ export default function DataTable<T>({
             className="inline-flex items-center gap-1 rounded-xl border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <DoubleArrowLeftIcon className="h-3.5 w-3.5" />
-            First
+            Đầu
           </button>
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -211,14 +211,14 @@ export default function DataTable<T>({
             className="inline-flex items-center gap-1 rounded-xl border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ChevronLeftIcon className="h-3.5 w-3.5" />
-            Prev
+            Trước
           </button>
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={safePage === totalPages}
             className="inline-flex items-center gap-1 rounded-xl border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Next
+            Sau
             <ChevronRightIcon className="h-3.5 w-3.5" />
           </button>
           <button
@@ -226,7 +226,7 @@ export default function DataTable<T>({
             disabled={safePage === totalPages}
             className="inline-flex items-center gap-1 rounded-xl border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Last
+            Cuối
             <DoubleArrowRightIcon className="h-3.5 w-3.5" />
           </button>
         </div>

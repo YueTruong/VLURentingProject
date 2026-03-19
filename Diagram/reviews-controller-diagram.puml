@@ -1,0 +1,90 @@
+@startuml Reviews Controller Diagram
+
+class ReviewsController {
+  +constructor(reviewsService: ReviewsService)
+  +findLatest(limit?: string): any
+  +findMine(req: any, limit?: string): any
+  +findByPost(postId: string, limit?: string): any
+  +findForAdmin(limit?: string, q?: string): any
+  +deleteForAdmin(id: number): any
+  +update(id: string, updateReviewDto: UpdateReviewDto, req: any): any
+  +create(createReviewDto: CreateReviewDto, req: any): any
+}
+
+class ReviewsService {
+  +constructor(reviewRepository, postRepository, userRepository)
+  +findLatest(limit: number): any
+  +findByUserId(userId: number, limit: number): any
+  +findByPostId(postId: number, limit: number): any
+  +findForAdmin(limit: number, q?: string): any
+  +deleteForAdmin(id: number): any
+  +update(id: number, updateReviewDto: UpdateReviewDto, user: any): any
+  +create(createReviewDto: CreateReviewDto, user: any): any
+}
+
+class ReviewEntity {
+  +id: number
+  +rating: number
+  +comment: string
+  +createdAt: Date
+  +userId: number
+  +postId: number
+  +user: UserEntity
+  +post: PostEntity
+}
+
+class PostEntity {
+  +id: number
+  +title: string
+  +description: string
+  +price: number
+  +area: number
+  +address: string
+  +campus: Campus
+  +availability: AvailabilityStatus
+  +videoUrl: string
+  +latitude: number
+  +longitude: number
+  +rejectionReason: string
+  +resubmittedAt: Date
+  +max_occupancy: number
+  +status: PostStatus
+  +createdAt: Date
+  +updatedAt: Date
+  +userId: number
+  +categoryId: number
+  +user: UserEntity
+  +category: CategoryEntity
+  +images: PostImageEntity[]
+  +amenities: AmenityEntity[]
+  +reviews: ReviewEntity[]
+}
+
+class UserEntity {
+  +id: number
+  +email: string
+  +username: string
+  +password_hash: string
+  +roleId: number
+  +is_active: boolean
+  +createdAt: Date
+  +updatedAt: Date
+  +role: RoleEntity
+  +profile: UserProfileEntity
+  +posts: PostEntity[]
+  +notifications: NotificationEntity[]
+  +oauthAccounts: UserOauthAccountEntity[]
+  +settings: UserSettingsEntity
+}
+
+' Relationships
+ReviewsController --> ReviewsService : uses
+ReviewsService --> ReviewEntity : manages
+ReviewsService --> PostEntity : manages
+ReviewsService --> UserEntity : manages
+ReviewEntity --> UserEntity : many-to-one
+ReviewEntity --> PostEntity : many-to-one
+PostEntity --> ReviewEntity : one-to-many
+
+@enduml
+

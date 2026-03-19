@@ -1,0 +1,64 @@
+@startuml Controller-Service Diagram
+
+class AdminController {
+  +constructor(adminService: AdminService)
+  +getAllPosts(status: string): any
+  +updatePostStatus(id: number, updatePostStatusDto: UpdatePostStatusDto): any
+  +getAllUsers(): any
+  +updateUserStatus(id: number, UpdateUserStatusDto: UpdateUserStatusDto): any
+}
+
+class PostsController {
+  +constructor(postsService: PostsService)
+  +create(createPostDto: CreatePostDto, req: any): any
+  +findAll(searchPostDto: SearchPostDto): any
+  +findMine(req: any): any
+  +findOne(id: number): any
+  +update(id: number, updatePostDto: UpdatePostDto, req: any): any
+  +delete(id: number, req: any): any
+}
+
+class ReviewsController {
+  +constructor(reviewsService: ReviewsService)
+  +create(createReviewDto: CreateReviewDto, req: any): any
+}
+
+class AuthController {
+  +constructor(authService: AuthService)
+  +register(registerDto: RegisterDto): any
+  +login(req: any, loginDto: LoginDto): any
+  +getProfile(req: any): any
+}
+
+class AdminService {
+  +constructor(postRepository: Repository<PostEntity>, userRepository: Repository<UserEntity>)
+  +getAllPosts(status?: string): any
+  +updatePostStatus(id: number, updatePostStatusDto: UpdatePostStatusDto): any
+  +getAllUsers(): any
+  +updateUserStatus(id: number, updateUserStatusDto: UpdateUserStatusDto): any
+}
+
+class PostsService {
+  // Methods for post CRUD
+}
+
+class ReviewsService {
+  +constructor(reviewRepository: Repository<ReviewEntity>, postRepository: Repository<PostEntity>)
+  +create(createReviewDto: CreateReviewDto, user: any): any
+}
+
+class AuthService {
+  +constructor(userRepository: Repository<UserEntity>, roleRepository: Repository<RoleEntity>, profileRepository: Repository<UserProfileEntity>, jwtService: JwtService)
+  +register(registerDto: RegisterDto): any
+  +validateUser(identifier: string, pass: string): any
+  +login(user: any): any
+  +getProfile(userId: number): any
+}
+
+' Relationships
+AdminController --> AdminService : uses
+PostsController --> PostsService : uses
+ReviewsController --> ReviewsService : uses
+AuthController --> AuthService : uses
+
+@enduml

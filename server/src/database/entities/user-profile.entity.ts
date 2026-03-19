@@ -8,19 +8,22 @@ export class UserProfileEntity {
   userId: number;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  full_name: string;
+  full_name: string | null;
 
   @Column({ type: 'varchar', length: 20, unique: true, nullable: true })
-  phone_number: string;
+  phone_number: string | null;
 
   @Column({ type: 'text', nullable: true })
-  avatar_url: string;
+  avatar_url: string | null;
 
   @Column({ type: 'text', nullable: true })
-  address: string;
+  address: string | null;
 
   // Định nghĩa quan hệ 1-1 với UserEntity
   @OneToOne(() => UserEntity, (user) => user.profile, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: UserEntity;
+
+  // @Column({ nullable: true })
+  // cccd: string;
 }

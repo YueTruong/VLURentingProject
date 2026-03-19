@@ -9,8 +9,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <Sidebar />
         <div className="min-w-0 flex-1">
           <Topbar />
-          <main className="px-6 py-8 lg:px-10">
-            <div className="mx-auto max-w-7xl space-y-8">{children}</div>
+          <main className="px-4 py-6 lg:px-6">
+            <div className="mx-auto w-full max-w-none space-y-6">{children}</div>
           </main>
         </div>
       </div>

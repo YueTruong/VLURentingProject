@@ -2,12 +2,14 @@ import {
   IsString,
   IsNotEmpty,
   IsNumber,
+  Max,
   Min,
   IsOptional,
   IsArray,
   IsInt,
   IsLatitude,
   IsLongitude,
+  IsIn,
 } from 'class-validator';
 
 export class CreatePostDto {
@@ -21,6 +23,7 @@ export class CreatePostDto {
 
   @IsNumber()
   @Min(0)
+  @Max(9999999999.99)
   price: number;
 
   @IsNumber()
@@ -30,6 +33,20 @@ export class CreatePostDto {
   @IsString()
   @IsNotEmpty()
   address: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['CS1', 'CS2', 'CS3'])
+  campus?: 'CS1' | 'CS2' | 'CS3';
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['available', 'rented'])
+  availability?: 'available' | 'rented';
+
+  @IsOptional()
+  @IsString()
+  videoUrl?: string;
 
   @IsLatitude()
   @IsOptional()
@@ -47,15 +64,23 @@ export class CreatePostDto {
 
   @IsNumber()
   @IsInt()
-  categoryId: number; // ID của Loại phòng
+  @IsOptional()
+  categoryId?: number;
 
-  // Mảng các ID của Tiện ích, ví dụ: [1, 3, 5]
+  @IsString()
+  @IsOptional()
+  categoryName?: string;
+
   @IsArray()
   @IsInt({ each: true })
   @IsOptional()
   amenityIds?: number[];
 
-  // Mảng các URL của ảnh
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  amenityNames?: string[];
+
   @IsArray()
   @IsString({ each: true })
   @IsOptional()

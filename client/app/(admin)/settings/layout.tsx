@@ -1,6 +1,6 @@
 export default function SettingsLayout({ children } : { children: React.ReactNode}) {
   return (
-    <div className="w-full">
+    <div className="w-full settings-focus-clean">
       {children}
     </div>
   );

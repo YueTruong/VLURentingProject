@@ -1,33 +1,51 @@
-import { ExtractJwt, Strategy } from 'passport-jwt';
-import { PassportStrategy } from '@nestjs/passport';
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PassportStrategy } from '@nestjs/passport';
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import { getRequiredConfig } from 'src/common/config/env.utils';
+import {
+  AuthenticatedRequestUser,
+  JwtPayload,
+} from '../types/auth.types';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private configService: ConfigService) {
     super({
-      // Chỉ định cách lấy Token
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-
-      // Không bỏ qua khi token hết hạn (để tự động báo lỗi)
       ignoreExpiration: false,
-
-      // Lấy 'secret key' từ .env
-      secretOrKey: configService.get<string>('JWT_SECRET')!,
+      secretOrKey: getRequiredConfig(configService, 'JWT_SECRET'),
     });
   }
 
-  // (Được gọi bởi Passport sau khi token đã được xác thực thành công)
-  // Hàm này nhận payload đã được giải mã từ token
-  // @param payload Payload đã được giải mã (ví dụ: { userId: 1, email: '...' })
-  async validate(payload: any) {
-    // Bất cứ thứ gì trả về từ đây, Passport sẽ gán nó vào req.user và chỉ cần trả về payload
+  async validate(
+    payload: JwtPayload & {
+      id?: number;
+      userId?: number;
+      roles?: string;
+    },
+  ): Promise<AuthenticatedRequestUser> {
+    const userId = payload.sub || payload.id || payload.userId;
+
+    if (!userId) {
+      throw new UnauthorizedException(
+        'Token khong hop le (khong tim thay User ID)',
+      );
+    }
+
+    const normalizedRole =
+      typeof payload.role === 'string'
+        ? payload.role.toLowerCase()
+        : typeof payload.roles === 'string'
+          ? payload.roles.toLowerCase()
+          : undefined;
+
     return {
-      userId: payload.sub,
+      id: Number(userId),
+      userId: Number(userId),
       email: payload.email,
       username: payload.username,
-      role: payload.role,
+      role: normalizedRole,
     };
   }
 }

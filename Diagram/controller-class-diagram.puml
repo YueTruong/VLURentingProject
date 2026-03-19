@@ -1,0 +1,168 @@
+@startuml Important Controller Class Diagram with Relationships
+
+class AdminController {
+  +constructor(adminService: AdminService)
+  +getAllPosts(status: string): any
+  +updatePostStatus(id: number, updatePostStatusDto: UpdatePostStatusDto): any
+  +getAllUsers(): any
+  +updateUserStatus(id: number, UpdateUserStatusDto: UpdateUserStatusDto): any
+}
+
+class PostsController {
+  +constructor(postsService: PostsService)
+  +create(createPostDto: CreatePostDto, req: any): any
+  +findAll(searchPostDto: SearchPostDto): any
+  +findMine(req: any): any
+  +findOne(id: number): any
+  +update(id: number, updatePostDto: UpdatePostDto, req: any): any
+  +delete(id: number, req: any): any
+}
+
+class ReviewsController {
+  +constructor(reviewsService: ReviewsService)
+  +create(createReviewDto: CreateReviewDto, req: any): any
+}
+
+class AuthController {
+  +constructor(authService: AuthService)
+  +register(registerDto: RegisterDto): any
+  +login(req: any, loginDto: LoginDto): any
+  +getProfile(req: any): any
+}
+
+class AdminService {
+  +constructor(postRepository: Repository<PostEntity>, userRepository: Repository<UserEntity>)
+  +getAllPosts(status?: string): any
+  +updatePostStatus(id: number, updatePostStatusDto: UpdatePostStatusDto): any
+  +getAllUsers(): any
+  +updateUserStatus(id: number, updateUserStatusDto: UpdateUserStatusDto): any
+}
+
+class PostsService {
+  // Methods for post CRUD
+}
+
+class ReviewsService {
+  +constructor(reviewRepository: Repository<ReviewEntity>, postRepository: Repository<PostEntity>)
+  +create(createReviewDto: CreateReviewDto, user: any): any
+}
+
+class AuthService {
+  +constructor(userRepository: Repository<UserEntity>, roleRepository: Repository<RoleEntity>, profileRepository: Repository<UserProfileEntity>, jwtService: JwtService)
+  +register(registerDto: RegisterDto): any
+  +validateUser(identifier: string, pass: string): any
+  +login(user: any): any
+  +getProfile(userId: number): any
+}
+
+class UserEntity {
+  +id: number
+  +email: string
+  +username: string
+  +password_hash: string
+  +roleId: number
+  +is_active: boolean
+  +createdAt: Date
+  +updatedAt: Date
+  +role: RoleEntity
+  +profile: UserProfileEntity
+  +posts: PostEntity[]
+}
+
+class RoleEntity {
+  +id: number
+  +name: string
+  +users: UserEntity[]
+}
+
+class UserProfileEntity {
+  +userId: number
+  +full_name: string
+  +phone_number: string
+  +avatar_url: string
+  +address: string
+  +user: UserEntity
+}
+
+class PostEntity {
+  +id: number
+  +title: string
+  +description: string
+  +price: number
+  +area: number
+  +address: string
+  +latitude: number
+  +longitude: number
+  +rejectionReason: string
+  +resubmittedAt: Date
+  +max_occupancy: number
+  +status: PostStatus
+  +createdAt: Date
+  +updatedAt: Date
+  +userId: number
+  +categoryId: number
+  +user: UserEntity
+  +category: CategoryEntity
+  +images: PostImageEntity[]
+  +amenities: AmenityEntity[]
+  +reviews: ReviewEntity[]
+}
+
+class CategoryEntity {
+  +id: number
+  +name: string
+  +description: string
+  +posts: PostEntity[]
+}
+
+class AmenityEntity {
+  +id: number
+  +name: string
+  +icon_url: string
+  +posts: PostEntity[]
+}
+
+class PostImageEntity {
+  +id: number
+  +postId: number
+  +image_url: string
+  +is_video: boolean
+  +post: PostEntity
+}
+
+class ReviewEntity {
+  +id: number
+  +rating: number
+  +comment: string
+  +createdAt: Date
+  +userId: number
+  +postId: number
+  +user: UserEntity
+  +post: PostEntity
+}
+
+' Relationships
+AdminController --> AdminService : uses
+PostsController --> PostsService : uses
+ReviewsController --> ReviewsService : uses
+AuthController --> AuthService : uses
+
+AdminService --> PostEntity : manages
+AdminService --> UserEntity : manages
+ReviewsService --> ReviewEntity : manages
+ReviewsService --> PostEntity : manages
+AuthService --> UserEntity : manages
+AuthService --> RoleEntity : manages
+AuthService --> UserProfileEntity : manages
+
+UserEntity ||--o{ RoleEntity : "many-to-one"
+UserEntity ||--|| UserProfileEntity : "one-to-one"
+UserEntity ||--o{ PostEntity : "one-to-many"
+PostEntity ||--o{ CategoryEntity : "many-to-one"
+PostEntity ||--o{ PostImageEntity : "one-to-many"
+PostEntity ||--o{ ReviewEntity : "one-to-many"
+PostEntity }o--o{ AmenityEntity : "many-to-many"
+ReviewEntity ||--o{ UserEntity : "many-to-one"
+ReviewEntity ||--o{ PostEntity : "many-to-one"
+
+@enduml

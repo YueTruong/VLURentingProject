@@ -25,9 +25,13 @@ export class RolesGuard implements CanActivate {
 
     // Lấy thông tin user từ request (đã được JwtAuthGuard giải mã)
     const { user } = context.switchToHttp().getRequest();
+    const normalizedRole =
+      typeof user?.role === 'string' ? user.role.toLowerCase() : undefined;
 
     // So sánh vai trò của user với các vai trò được phép
-    const hasRole = requiredRoles.some((role) => user.role === role);
+    const hasRole = requiredRoles.some(
+      (role) => role.toLowerCase() === normalizedRole,
+    );
 
     if (!hasRole) {
       throw new ForbiddenException('Bạn không có quyền thực hiện hành động này');

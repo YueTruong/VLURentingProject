@@ -1,15 +1,24 @@
 import { Module } from '@nestjs/common';
-import { AdminService } from './admin.service';
-import { AdminController } from './admin.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AmenityEntity } from 'src/database/entities/amenity.entity';
+import { CategoryEntity } from 'src/database/entities/category.entity';
 import { PostEntity } from 'src/database/entities/post.entity';
-import { UserEntity } from 'src/database/entities/user.entity';
 import { UserProfileEntity } from 'src/database/entities/user-profile.entity';
+import { UserSettingsEntity } from 'src/database/entities/user-settings.entity';
+import { UserEntity } from 'src/database/entities/user.entity';
+import { AdminController } from './admin.controller';
+import { AdminService } from './admin.service';
 
 @Module({
   imports: [
-    // Đăng ký PostEntity để AdminService có thể 'Inject'
-    TypeOrmModule.forFeature([PostEntity, UserEntity, UserProfileEntity]),
+    TypeOrmModule.forFeature([
+      PostEntity,
+      UserEntity,
+      UserProfileEntity,
+      UserSettingsEntity,
+      CategoryEntity,
+      AmenityEntity,
+    ]),
   ],
   providers: [AdminService],
   controllers: [AdminController],

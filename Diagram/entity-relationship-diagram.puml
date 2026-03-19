@@ -1,0 +1,233 @@
+@startuml Entity Relationship Diagram
+
+' ======================== USER & AUTH ENTITIES ========================
+
+class UserEntity {
+  +id: number
+  +email: string
+  +username: string
+  +password_hash: string
+  +roleId: number
+  +is_active: boolean
+  +createdAt: Date
+  +updatedAt: Date
+  +role: RoleEntity
+  +profile: UserProfileEntity
+  +posts: PostEntity[]
+  +notifications: NotificationEntity[]
+  +oauthAccounts: UserOauthAccountEntity[]
+  +settings: UserSettingsEntity
+}
+
+class RoleEntity {
+  +id: number
+  +name: string
+  +users: UserEntity[]
+}
+
+class UserProfileEntity {
+  +userId: number
+  +full_name: string
+  +phone_number: string
+  +avatar_url: string
+  +address: string
+  +user: UserEntity
+}
+
+class UserSettingsEntity {
+  +user_id: number
+  +preferred_name: string
+  +residence_address: string
+  +mailing_address: string
+  +emergency_name: string
+  +emergency_relationship: string
+  +emergency_email: string
+  +emergency_phone: string
+  +language_code: string
+  +currency_code: string
+  +timezone: string
+  +read_receipts_enabled: boolean
+  +identity_verification_status: string
+  +identity_document_type: string
+  +identity_front_image_name: string
+  +identity_back_image_name: string
+  +identity_submitted_at: Date
+  +identity_verified_at: Date
+  +created_at: Date
+  +updated_at: Date
+  +user: UserEntity
+}
+
+class UserOauthAccountEntity {
+  +id: number
+  +userId: number
+  +provider: string
+  +providerAccountId: string
+  +user: UserEntity
+}
+
+' ======================== POST ENTITIES ========================
+
+class PostEntity {
+  +id: number
+  +title: string
+  +description: string
+  +price: number
+  +area: number
+  +address: string
+  +campus: Campus
+  +availability: AvailabilityStatus
+  +videoUrl: string
+  +latitude: number
+  +longitude: number
+  +rejectionReason: string
+  +resubmittedAt: Date
+  +max_occupancy: number
+  +status: PostStatus
+  +createdAt: Date
+  +updatedAt: Date
+  +userId: number
+  +categoryId: number
+  +user: UserEntity
+  +category: CategoryEntity
+  +images: PostImageEntity[]
+  +amenities: AmenityEntity[]
+  +reviews: ReviewEntity[]
+}
+
+class CategoryEntity {
+  +id: number
+  +name: string
+  +description: string
+  +posts: PostEntity[]
+}
+
+class AmenityEntity {
+  +id: number
+  +name: string
+  +icon_url: string
+  +posts: PostEntity[]
+}
+
+class PostImageEntity {
+  +id: number
+  +postId: number
+  +image_url: string
+  +is_video: boolean
+  +post: PostEntity
+}
+
+class ReviewEntity {
+  +id: number
+  +rating: number
+  +comment: string
+  +createdAt: Date
+  +userId: number
+  +postId: number
+  +user: UserEntity
+  +post: PostEntity
+}
+
+class SavedPostEntity {
+  +id: number
+  +userId: number
+  +postId: number
+  +createdAt: Date
+  +user: UserEntity
+  +post: PostEntity
+}
+
+' ======================== BOOKING ENTITIES ========================
+
+class BookingEntity {
+  +id: number
+  +postId: number
+  +studentId: number
+  +landlordId: number
+  +booking_date: string
+  +time_slot: string
+  +note: string
+  +status: string
+  +createdAt: Date
+  +updatedAt: Date
+  +post: PostEntity
+  +student: UserEntity
+  +landlord: UserEntity
+}
+
+' ======================== NOTIFICATION ENTITIES ========================
+
+class NotificationEntity {
+  +id: number
+  +title: string
+  +message: string
+  +type: string
+  +isRead: boolean
+  +relatedId: number
+  +createdAt: Date
+  +userId: number
+  +user: UserEntity
+}
+
+' ======================== CHAT ENTITIES ========================
+
+class ConversationEntity {
+  +id: number
+  +participant1Id: number
+  +participant2Id: number
+  +lastMessageAt: Date
+  +createdAt: Date
+}
+
+class MessageEntity {
+  +id: number
+  +conversationId: number
+  +senderId: number
+  +content: string
+  +isRead: boolean
+  +createdAt: Date
+  +conversation: ConversationEntity
+  +sender: UserEntity
+}
+
+' ======================== RELATIONSHIPS ========================
+
+' User relationships
+UserEntity ||--o{ RoleEntity : "many-to-one"
+UserEntity ||--|| UserProfileEntity : "one-to-one"
+UserEntity ||--o{ PostEntity : "one-to-many"
+UserEntity ||--o{ NotificationEntity : "one-to-many"
+UserEntity ||--|| UserSettingsEntity : "one-to-one"
+UserEntity ||--o{ UserOauthAccountEntity : "one-to-many"
+
+' Post relationships
+PostEntity ||--o{ CategoryEntity : "many-to-one"
+PostEntity ||--o{ UserEntity : "many-to-one"
+PostEntity ||--o{ PostImageEntity : "one-to-many"
+PostEntity }o--o{ AmenityEntity : "many-to-many"
+PostEntity ||--o{ ReviewEntity : "one-to-many"
+PostEntity ||--o{ SavedPostEntity : "one-to-many"
+PostEntity ||--o{ BookingEntity : "one-to-many"
+
+' Review relationships
+ReviewEntity ||--o{ UserEntity : "many-to-one"
+ReviewEntity ||--o{ PostEntity : "many-to-one"
+
+' Booking relationships
+BookingEntity ||--o{ PostEntity : "many-to-one"
+BookingEntity ||--o{ UserEntity : "many-to-one (student)"
+BookingEntity ||--o{ UserEntity : "many-to-one (landlord)"
+
+' Saved post relationships
+SavedPostEntity ||--o{ UserEntity : "many-to-one"
+SavedPostEntity ||--o{ PostEntity : "many-to-one"
+
+' Notification relationships
+NotificationEntity ||--o{ UserEntity : "many-to-one"
+
+' Chat relationships
+ConversationEntity ||--o{ MessageEntity : "one-to-many"
+MessageEntity ||--o{ UserEntity : "many-to-one (sender)"
+
+@enduml
+

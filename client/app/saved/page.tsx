@@ -2,7 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import UserPageShell from "@/app/homepage/components/UserPageShell";
+import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
+import UserPageShell from "@/app/_shared/layout/UserPageShell";
+import {
+  getApprovedPosts,
+  getMySavedPostIds,
+  unsavePost,
+  type Post,
+} from "@/app/services/posts";
 
 type SavedItem = {
   id: number;
@@ -11,102 +19,110 @@ type SavedItem = {
   image: string;
   price: string;
   updated: string;
-  status: "active" | "viewed" | "archived";
   tags: string[];
 };
 
-const savedItems: SavedItem[] = [
-  {
-    id: 201,
-    title: "Phòng trọ 1 ngủ gần cơ sở 3",
-    location: "Quận Gò Vấp, TP.HCM",
-    image: "/images/House.svg",
-    price: "4.2 triệu",
-    updated: "Cập nhật 2 giờ trước",
-    status: "active",
-    tags: ["1 ngủ", "Ban công", "Wifi free"],
-  },
-  {
-    id: 202,
-    title: "Căn hộ mini full nội thất",
-    location: "Quận Bình Thạnh",
-    image: "/images/House.svg",
-    price: "6.8 triệu",
-    updated: "Cập nhật hôm qua",
-    status: "viewed",
-    tags: ["2 ngủ", "Bảo vệ 24/7", "Giữ xe mái che"],
-  },
-  {
-    id: 203,
-    title: "Nhà nguyên căn 3 tầng",
-    location: "Thủ Đức, TP.HCM",
-    image: "/images/House.svg",
-    price: "12.5 triệu",
-    updated: "Cập nhật 3 ngày trước",
-    status: "active",
-    tags: ["3 ngủ", "2 phòng tắm", "Sân thượng"],
-  },
-  {
-    id: 204,
-    title: "Co-living có bếp riêng",
-    location: "Quận 7, TP.HCM",
-    image: "/images/House.svg",
-    price: "3.1 triệu",
-    updated: "Đã lưu 2 tuần trước",
-    status: "archived",
-    tags: ["2 ngủ", "Giờ giấc tự do", "Gần TTTM"],
-  },
-];
+const toNumber = (value: number | string | undefined | null) => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+};
 
-function StatusBadge({ status }: { status: SavedItem["status"] }) {
-  const tone =
-    status === "active"
-      ? "bg-green-100 text-green-700"
-      : status === "archived"
-        ? "bg-gray-100 text-gray-600"
-        : "bg-blue-100 text-blue-700";
+const formatSavedPrice = (value: number | string | undefined | null) => {
+  const raw = toNumber(value);
+  if (!raw) return "0 triệu";
+  const million = raw >= 100000 ? raw / 1_000_000 : raw;
+  const rounded = Number.isInteger(million) ? million.toFixed(0) : million.toFixed(1);
+  return `${rounded} triệu`;
+};
 
-  const label = status === "active" ? "Đang mở" : status === "archived" ? "Hết hạn" : "Đã xem";
+const formatSavedUpdated = (value?: string | null) => {
+  if (!value) return "Mới cập nhật";
+  const updated = new Date(value);
+  if (Number.isNaN(updated.getTime())) return "Mới cập nhật";
 
-  return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${tone}`}>{label}</span>;
-}
+  const diffMs = Date.now() - updated.getTime();
+  if (diffMs <= 0) return "Cập nhật hôm nay";
 
-function SavedCard({ item }: { item: SavedItem }) {
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (days <= 0) return "Cập nhật hôm nay";
+  if (days === 1) return "Cập nhật 1 ngày trước";
+  return `Cập nhật ${days} ngày trước`;
+};
+
+const getAmenityTags = (post: Post) =>
+  (post.amenities ?? [])
+    .map((amenity) => amenity?.name?.trim())
+    .filter((name): name is string => Boolean(name))
+    .slice(0, 4);
+
+const isApprovedPost = (status?: string | null) =>
+  status?.toLowerCase() === "approved";
+
+const mapPostToSavedItem = (post: Post): SavedItem => ({
+  id: post.id,
+  title: post.title,
+  location: post.address || "Chưa cập nhật khu vực",
+  image: post.images?.[0]?.image_url || "/images/House.svg",
+  price: formatSavedPrice(post.price),
+  updated: formatSavedUpdated(post.updatedAt ?? post.createdAt),
+  tags: getAmenityTags(post),
+});
+
+function SavedCard({
+  item,
+  removing,
+  onRemove,
+}: {
+  item: SavedItem;
+  removing: boolean;
+  onRemove: () => void;
+}) {
   return (
-    <article className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-shadow">
+    <article className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow hover:shadow-md">
       <div className="flex flex-col md:flex-row">
         <div className="relative h-48 w-full md:h-auto md:w-56">
           <Image src={item.image} alt={item.title} fill className="object-cover" />
         </div>
 
         <div className="flex flex-1 flex-col gap-4 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-gray-500">{item.updated}</p>
-              <h3 className="mt-1 text-lg font-semibold text-gray-900">{item.title}</h3>
-              <p className="text-sm text-gray-600">{item.location}</p>
-            </div>
-            <StatusBadge status={item.status} />
+          <div>
+            <p className="text-xs uppercase tracking-wide text-gray-500">{item.updated}</p>
+            <h3 className="mt-1 text-lg font-semibold text-gray-900">{item.title}</h3>
+            <p className="text-sm text-gray-600">{item.location}</p>
           </div>
 
-          <div className="flex flex-wrap gap-2 text-xs font-medium text-gray-700">
-            {item.tags.map((tag) => (
-              <span key={tag} className="rounded-full bg-gray-100 px-3 py-1">
-                {tag}
-              </span>
-            ))}
-          </div>
+          {item.tags.length > 0 ? (
+            <div className="flex flex-wrap gap-2 text-xs font-medium text-gray-700">
+              {item.tags.map((tag) => (
+                <span key={tag} className="rounded-full bg-gray-100 px-3 py-1">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-lg font-bold text-[#D51F35]">
               {item.price} <span className="text-sm font-medium text-gray-600">/ tháng</span>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 active:scale-95">
-                Đặt lịch xem
-              </button>
-              <button className="rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black active:scale-95">
+              <Link
+                href={`/listings/${item.id}`}
+                className="rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black active:scale-95"
+              >
                 Mở tin
+              </Link>
+              <button
+                type="button"
+                onClick={onRemove}
+                disabled={removing}
+                className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {removing ? "Đang xử lý..." : "Bỏ lưu"}
               </button>
             </div>
           </div>
@@ -117,10 +133,112 @@ function SavedCard({ item }: { item: SavedItem }) {
 }
 
 export default function SavedPage() {
+  const { data: session, status } = useSession();
+  const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [removingIds, setRemovingIds] = useState<number[]>([]);
+  const [clearingAll, setClearingAll] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    const run = async () => {
+      if (status !== "authenticated") {
+        if (!active) return;
+        setSavedItems([]);
+        setLoading(false);
+        setLoadError(false);
+        setRemovingIds([]);
+        setClearingAll(false);
+        return;
+      }
+
+      const token = session?.user?.accessToken;
+      if (!token) {
+        if (!active) return;
+        setSavedItems([]);
+        setLoading(false);
+        setLoadError(true);
+        return;
+      }
+
+      if (!active) return;
+      setLoading(true);
+      setLoadError(false);
+
+      try {
+        const [posts, savedIds] = await Promise.all([
+          getApprovedPosts(),
+          getMySavedPostIds(token),
+        ]);
+
+        if (!active) return;
+
+        const idSet = new Set(savedIds);
+        const mapped = (posts ?? [])
+          .filter((post) => isApprovedPost(post.status))
+          .filter((post) => idSet.has(post.id))
+          .map(mapPostToSavedItem);
+
+        setSavedItems(mapped);
+      } catch {
+        if (!active) return;
+        setLoadError(true);
+        setSavedItems([]);
+      } finally {
+        if (!active) return;
+        setLoading(false);
+      }
+    };
+
+    run();
+
+    return () => {
+      active = false;
+    };
+  }, [session, status]);
+
+  const token = session?.user?.accessToken;
+
+  const handleRemove = async (postId: number) => {
+    if (!token || removingIds.includes(postId)) return;
+
+    setRemovingIds((prev) => [...prev, postId]);
+    try {
+      await unsavePost(postId, token);
+      setSavedItems((prev) => prev.filter((item) => item.id !== postId));
+    } catch {
+      // Keep the current UI state if request fails.
+    } finally {
+      setRemovingIds((prev) => prev.filter((id) => id !== postId));
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!token || savedItems.length === 0 || clearingAll) return;
+
+    setClearingAll(true);
+    try {
+      await Promise.all(savedItems.map((item) => unsavePost(item.id, token).catch(() => null)));
+      setSavedItems([]);
+    } finally {
+      setClearingAll(false);
+      setRemovingIds([]);
+    }
+  };
+
+  const summaryText = useMemo(() => {
+    if (loading) return "Đang tải danh sách tin đã lưu...";
+    if (loadError) return "Không thể tải danh sách tin đã lưu từ hệ thống.";
+    if (savedItems.length === 0) return "Bạn chưa lưu tin nào.";
+    return `${savedItems.length} tin đang lưu`;
+  }, [loadError, loading, savedItems.length]);
+
   return (
     <UserPageShell
       title="Tin đã lưu"
-      description="Lưu lại các tin muốn xem kỹ hơn hoặc chia sẻ với bạn bè. Mỗi tin đều hiển thị thông tin cập nhật mới nhất."
+      description="Danh sách này được đồng bộ từ hệ thống, không còn dùng dữ liệu mẫu."
       actions={
         <Link
           href="/favorites"
@@ -133,26 +251,47 @@ export default function SavedPage() {
       <div className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div>
-            <p className="text-base font-semibold text-gray-900">{savedItems.length} tin đang lưu</p>
+            <p className="text-base font-semibold text-gray-900">{summaryText}</p>
             <p className="text-sm text-gray-600">
-              Bạn có thể đặt lịch xem, gửi tin nhắn hoặc xóa các tin không còn phù hợp.
+              Bạn có thể mở tin chi tiết hoặc bỏ lưu trực tiếp.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50 active:scale-95">
-              Xóa tất cả
-            </button>
-            <button className="rounded-full bg-[#D51F35] px-4 py-2 text-sm font-semibold text-white hover:bg-[#b01628] active:scale-95">
-              Đặt thông báo
+            <button
+              type="button"
+              onClick={handleClearAll}
+              disabled={savedItems.length === 0 || clearingAll}
+              className="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {clearingAll ? "Đang xóa..." : "Xóa tất cả"}
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-5">
-          {savedItems.map((item) => (
-            <SavedCard key={item.id} item={item} />
-          ))}
-        </div>
+        {loading ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm">
+            Đang tải dữ liệu từ hệ thống...
+          </div>
+        ) : loadError ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm">
+            Không thể tải danh sách đã lưu. Vui lòng thử lại sau.
+          </div>
+        ) : savedItems.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600 shadow-sm">
+            Chưa có tin nào trong danh sách đã lưu.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-5">
+            {savedItems.map((item) => (
+              <SavedCard
+                key={item.id}
+                item={item}
+                removing={removingIds.includes(item.id)}
+                onRemove={() => handleRemove(item.id)}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </UserPageShell>
   );

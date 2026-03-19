@@ -1,77 +1,102 @@
 "use client";
 
-import UserTopBar from "@/app/homepage/components/UserTopBar";
+import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation"; 
+import UserTopBar from "@/app/_shared/layout/UserTopBar";
+import { 
+  getNotifications, 
+  markNotificationAsRead, 
+  markAllNotificationsAsRead, 
+  type Notification 
+} from "@/app/services/notifications";
 
-type NotificationItem = {
-  id: string;
-  title: string;
-  detail: string;
-  time: string;
-  type: "listing" | "message" | "system";
-  highlight?: boolean;
-};
+// --- Utility: Format thời gian ---
+function parseNotificationDate(dateString: string) {
+  const normalized = dateString.includes("T") ? dateString : dateString.replace(" ", "T");
+  const safe = /[zZ]|[+-]\d\d:?\d\d$/.test(normalized) ? normalized : `${normalized}Z`;
+  const date = new Date(safe);
+  if (Number.isNaN(date.getTime())) return new Date();
 
-const notifications: NotificationItem[] = [
-  {
-    id: "n1",
-    title: "Lịch xem phòng đã được xác nhận",
-    detail: "Chủ nhà phòng trọ cơ sở 3 xác nhận lịch 15:00 hôm nay. Vui lòng đến đúng giờ.",
-    time: "10 phút trước",
-    type: "listing",
-    highlight: true,
-  },
-  {
-    id: "n2",
-    title: "Tin nhắn mới từ chủ nhà",
-    detail: "Bạn có thể ghé sớm hơn 30 phút không? Tôi có việc bận đột xuất vào buổi chiều.",
-    time: "1 giờ trước",
-    type: "message",
-    highlight: true,
-  },
-  {
-    id: "n3",
-    title: "Cập nhật tính năng",
-    detail: "Đã thêm bộ lọc ký túc xá và gợi ý khu vực gần VLU.",
-    time: "Hôm qua",
-    type: "system",
-  },
-  {
-    id: "n4",
-    title: "Tin yêu thích có thay đổi giá",
-    detail: "Căn hộ mini Bình Thạnh giảm còn 6.5 triệu/tháng.",
-    time: "2 ngày trước",
-    type: "listing",
-  },
-];
+  // Backend lưu UTC, hiển thị theo giờ Việt Nam (+7)
+  date.setHours(date.getHours() + 7);
 
-function TypeBadge({ type }: { type: NotificationItem["type"] }) {
-  const map = {
-    system: { label: "Hệ thống", color: "bg-gray-100 text-gray-800" },
-    message: { label: "Tin nhắn", color: "bg-blue-100 text-blue-700" },
-    listing: { label: "Tin phòng", color: "bg-green-100 text-green-700" },
+  const now = new Date();
+  // Tránh hiển thị thời gian tương lai do sai lệch đồng hồ/client
+  return date.getTime() > now.getTime() ? now : date;
+}
+
+function formatTimeAgo(dateString: string) {
+  const date = parseNotificationDate(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (seconds < 60) return "Vừa xong";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} phút trước`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} ngày trước`;
+  return date.toLocaleDateString("vi-VN");
+}
+
+function TypeBadge({ type }: { type: string }) {
+  const map: Record<string, { label: string; color: string }> = {
+    system: { label: "Hệ thống", color: "bg-(--theme-surface-muted) text-(--theme-text-muted)" },
+    message: { label: "Tin nhắn", color: "bg-(--brand-primary-soft) text-(--brand-primary-text)" },
+    listing: { label: "Tin đăng", color: "bg-(--brand-accent-soft) text-(--brand-accent)" },
+    booking: { label: "Lịch hẹn", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" },
+    roommate: { label: "Ở ghép", color: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300" },
   };
-  const chosen = map[type];
+  const chosen = map[type] || map.system;
   return <span className={`rounded-full px-3 py-1 text-xs font-semibold ${chosen.color}`}>{chosen.label}</span>;
 }
 
-function NotificationCard({ item }: { item: NotificationItem }) {
-  const border = item.highlight ? "border-red-200 bg-red-50" : "border-gray-200 bg-white";
+function NotificationCard({ 
+  item, 
+  onMarkRead, 
+  onOpenDetail 
+}: { 
+  item: Notification; 
+  onMarkRead: (id: number) => void;
+  onOpenDetail: (item: Notification) => void;
+}) {
+  const isUnread = !item.isRead;
+  const border = isUnread
+    ? "border-[color:var(--brand-accent-soft)] bg-[color:var(--brand-accent-soft)]/35"
+    : "border-(--theme-border) bg-(--theme-surface)";
+
   return (
-    <article className={`rounded-2xl border ${border} p-4 shadow-sm`}>
+    <article className={`rounded-2xl border ${border} p-4 shadow-sm transition-all duration-300 hover:shadow-md`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-base font-semibold text-gray-900">{item.title}</h3>
-          <p className="text-sm text-gray-700 mt-1">{item.detail}</p>
-          <p className="text-xs text-gray-500 mt-2">{item.time}</p>
+        <div className="flex-1 cursor-pointer" onClick={() => onOpenDetail(item)}>
+          <h3 className={`text-base text-(--theme-text) ${isUnread ? 'font-bold' : 'font-medium'}`}>{item.title}</h3>
+          <p className="mt-1 text-sm text-(--theme-text-muted)">{item.message}</p>
+          <p className="mt-2 text-xs text-(--theme-text-subtle)">{formatTimeAgo(item.createdAt)}</p>
         </div>
         <TypeBadge type={item.type} />
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <button className="rounded-full border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-50 active:scale-95">
-          Đánh dấu đã đọc
-        </button>
-        <button className="rounded-full bg-[#0b1a57] px-3 py-2 text-xs font-semibold text-white hover:bg-[#0a1647] active:scale-95">
-          Mở chi tiết
+        {isUnread && (
+          <button 
+            onClick={(e) => {
+              e.stopPropagation(); 
+              onMarkRead(item.id);
+            }}
+            className="rounded-full border border-(--theme-border) bg-(--theme-surface) px-3 py-2 text-xs font-semibold text-(--theme-text) hover:bg-(--theme-surface-muted) active:scale-95"
+          >
+            Đánh dấu đã đọc
+          </button>
+        )}
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenDetail(item);
+          }}
+          className="rounded-full bg-(--surface-navy-900) px-3 py-2 text-xs font-semibold text-white hover:bg-(--surface-navy-800) active:scale-95"
+        >
+          Xem chi tiết
         </button>
       </div>
     </article>
@@ -79,28 +104,124 @@ function NotificationCard({ item }: { item: NotificationItem }) {
 }
 
 export default function NotificationsPage() {
-  const unread = notifications.filter((n) => n.highlight).length;
+  const { data: session, status } = useSession();
+  const router = useRouter(); 
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(10);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (status === "loading") return;
+      const token = session?.user?.accessToken;
+
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      try {
+        const data = await getNotifications(token);
+        setNotifications(data);
+        setVisibleCount(10);
+      } catch (err) {
+        console.error("Lỗi tải thông báo:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [session, status]);
+
+  const handleMarkAsRead = async (id: number) => {
+    const token = session?.user?.accessToken;
+    if (!token) return;
+
+    setNotifications((prev) => 
+      prev.map(n => n.id === id ? { ...n, isRead: true } : n)
+    );
+
+    try {
+      await markNotificationAsRead(id, token);
+    } catch (error) {
+      console.error("Lỗi đánh dấu đã đọc:", error);
+    }
+  };
+
+  const handleMarkAll = async () => {
+    const token = session?.user?.accessToken;
+    if (!token) return;
+
+    if (confirm("Bạn muốn đánh dấu tất cả là đã đọc?")) {
+       setNotifications((prev) => prev.map(n => ({ ...n, isRead: true })));
+       try {
+         await markAllNotificationsAsRead(token);
+       } catch (error) {
+         console.error("Lỗi đánh dấu tất cả:", error);
+       }
+    }
+  };
+
+  const handleOpenDetail = async (item: Notification) => {
+    if (!item.isRead) {
+       await handleMarkAsRead(item.id);
+    }
+
+    if (item.type === 'booking') {
+      const userRole = session?.user?.role?.toLowerCase();
+      if (userRole === 'landlord') {
+        router.push('/manage-bookings');
+      } else {
+        router.push('/my-bookings'); 
+      }
+    }
+    else if (item.type === 'listing' && item.relatedId) {
+      if (item.title.toLowerCase().includes("từ chối")) {
+        router.push('/my-posts'); 
+      } else {
+        router.push(`/listings/${item.relatedId}`);
+      }
+    }
+    else if (item.type === 'message') {
+      const chatUrl = item.relatedId ? `/chat?partnerId=${item.relatedId}` : '/chat';
+      router.push(chatUrl);
+    }
+    else if (item.type === 'roommate') {
+      const userRole = session?.user?.role?.toLowerCase();
+      router.push(userRole === 'admin' ? '/dashboard/roommate-requests' : '/roommate-management');
+    }
+    else {
+      alert(item.message); 
+    }
+  };
+
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  const sortedNotifications = useMemo(() => {
+    return [...notifications].sort(
+      (a, b) => parseNotificationDate(b.createdAt).getTime() - parseNotificationDate(a.createdAt).getTime(),
+    );
+  }, [notifications]);
+
+  const visibleNotifications = useMemo(
+    () => sortedNotifications.slice(0, visibleCount),
+    [sortedNotifications, visibleCount],
+  );
+
+  const hasMoreNotifications = visibleCount < sortedNotifications.length;
 
   return (
-    <div className="min-h-screen bg-[#f5f7fb]">
+    <div className="min-h-screen bg-(--theme-bg)">
       <UserTopBar />
 
       <main className="mx-auto max-w-5xl px-4 py-8 space-y-6">
-        <div className="rounded-3xl bg-white shadow-md border border-gray-100 overflow-hidden">
-          {/* Tabs mock */}
-          <div className="flex items-center gap-4 border-b border-gray-100 px-6 pt-6">
-            <button className="rounded-t-xl border-b-2 border-transparent px-3 pb-3 text-sm font-semibold text-gray-500 hover:text-gray-800">
-              Thông tin chung
-            </button>
-            <button className="rounded-t-xl border-b-2 border-transparent px-3 pb-3 text-sm font-semibold text-gray-500 hover:text-gray-800">
-              Bảo mật & Mật khẩu
-            </button>
-            <button className="rounded-t-xl border-b-2 border-[#2c4ce8] px-3 pb-3 text-sm font-semibold text-[#2c4ce8]">
+        <div className="overflow-hidden rounded-3xl border border-(--theme-border) bg-(--theme-surface) shadow-md">
+          <div className="flex items-center gap-4 border-b border-(--theme-border) px-6 pt-6">
+            <button className="rounded-t-xl border-b-2 border-(--brand-primary) px-3 pb-3 text-sm font-semibold text-(--brand-primary-text)">
               Thông báo
             </button>
           </div>
 
-          <div className="bg-gradient-to-r from-[#0c184f] to-[#182c7a] text-white px-6 py-6">
+          <div className="bg-linear-to-r from-(--surface-navy-900) to-(--surface-navy-700) text-white px-6 py-6">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <span className="rounded-full bg-white/15 px-2 py-1 text-xs font-semibold uppercase">Thông báo</span>
@@ -109,28 +230,49 @@ export default function NotificationsPage() {
               <p className="text-sm text-gray-100">
                 Tổng hợp cập nhật mới về tin nhắn, lịch xem phòng và thay đổi từ các tin bạn quan tâm.
               </p>
-              <div className="flex flex-wrap gap-2 pt-1">
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-gray-100">Luồng người dùng</span>
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-gray-100">Cập nhật thời gian thực</span>
-              </div>
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-gray-100">{unread} thông báo chưa đọc</p>
+              <p className="text-sm text-gray-100">
+                {loading ? "Đang tải..." : `${unreadCount} thông báo chưa đọc`}
+              </p>
               <div className="flex gap-2">
-                <button className="rounded-full bg-white text-[#0b1a57] px-4 py-2 text-xs font-semibold hover:bg-gray-100">Bật thông báo</button>
-                <button className="rounded-full border border-white/50 px-4 py-2 text-xs font-semibold text-white hover:bg-white/10">Cài đặt ưu tiên</button>
-                <button className="rounded-full bg-[#d51f35] px-4 py-2 text-xs font-semibold text-white hover:bg-[#b01628]">Đọc hết</button>
+                <button 
+                  onClick={handleMarkAll}
+                  disabled={unreadCount === 0}
+                  className="rounded-full bg-(--brand-accent) px-4 py-2 text-xs font-semibold text-white hover:bg-(--brand-accent-strong) disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Đọc hết
+                </button>
               </div>
             </div>
           </div>
 
-          <div className="space-y-3 px-6 py-5 bg-white">
-            {notifications.map((n) => (
-              <NotificationCard key={n.id} item={n} />
-            ))}
-            <div className="flex justify-center py-2">
-              <button className="text-sm font-semibold text-gray-700 hover:underline">Xem các thông báo cũ hơn</button>
-            </div>
+          <div className="space-y-3 bg-(--theme-surface) px-6 py-5">
+            {loading ? (
+              <div className="py-10 text-center text-(--theme-text-subtle)">Đang tải dữ liệu...</div>
+            ) : sortedNotifications.length === 0 ? (
+              <div className="py-10 text-center text-(--theme-text-subtle)">Bạn chưa có thông báo nào.</div>
+            ) : (
+              visibleNotifications.map((n) => (
+                <NotificationCard 
+                  key={n.id} 
+                  item={n} 
+                  onMarkRead={handleMarkAsRead} 
+                  onOpenDetail={handleOpenDetail} 
+                />
+              ))
+            )}
+            
+            {hasMoreNotifications && (
+              <div className="flex justify-center py-2">
+                <button
+                  onClick={() => setVisibleCount((prev) => prev + 10)}
+                  className="text-sm font-semibold text-(--brand-primary-text) hover:underline"
+                >
+                  Xem các thông báo cũ hơn
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </main>

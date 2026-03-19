@@ -1,51 +1,71 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AdminModule } from './admin/admin.module';
+import { AiModule } from './ai/ai.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { ConfigModule } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
-import { PostsModule } from './posts/posts.module';
-import { AdminModule } from './admin/admin.module';
-import { ReviewsModule } from './reviews/reviews.module';
+import { BookingsModule } from './bookings/bookings.module';
+import { ChatModule } from './chat/chat.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { shouldUseSchemaSync } from './common/config/database.config';
+import { NotificationsModule } from './notifications/notifications.module';
+import { PostsModule } from './posts/posts.module';
+import { ReviewsModule } from './reviews/reviews.module';
+import { RoommateManagementModule } from './roommate-management/roommate-management.module';
 import { UsersModule } from './users/user.module';
 
 @Module({
   imports: [
-    // Tải file .env và biến nó thành các biến môi trường
     ConfigModule.forRoot({
-      isGlobal: true, // Cho phép ConfigModule được sử dụng ở mọi nơi
-      envFilePath: '.env', // Chỉ định tên file .env
+      isGlobal: true,
+      envFilePath: '.env',
     }),
-
-    // Cấu hình kết nối Database (TypeORM)
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: () => ({
-        type: 'postgres',
-        host: process.env.DB_HOST,
-        port: parseInt(process.env.DB_PORT || '5432', 10),
-        username: process.env.DB_USERNAME,
-        password: process.env.DB_PASSWORD,
-        database: process.env.DB_DATABASE,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const databaseUrl = config.get<string>('DATABASE_URL');
+        const nodeEnv = config.get<string>('NODE_ENV') || 'development';
+        const isProd = nodeEnv === 'production';
+        const synchronize = shouldUseSchemaSync(nodeEnv, databaseUrl);
 
-        // Tự động tìm và tải các Entities (models)
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-
-        // Tự động đồng bộ schema (chỉ dùng cho development)
-        // Khi ở production, chúng ta sẽ dùng migrations
-        autoLoadEntities: true,
-        synchronize: true, // <-- TẠM THỜI ĐỂ LÀ true
-      }),
+        return {
+          type: 'postgres' as const,
+          ...(databaseUrl
+            ? { url: databaseUrl }
+            : {
+                host: config.get<string>('DB_HOST'),
+                port: parseInt(config.get<string>('DB_PORT') || '5432', 10),
+                username: config.get<string>('DB_USERNAME'),
+                password: config.get<string>('DB_PASSWORD'),
+                database: config.get<string>('DB_DATABASE'),
+              }),
+          entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          autoLoadEntities: true,
+          migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
+          migrationsTableName: 'typeorm_migrations',
+          ssl: databaseUrl ? { rejectUnauthorized: false } : false,
+          extra: databaseUrl
+            ? { ssl: { rejectUnauthorized: false } }
+            : undefined,
+          synchronize,
+          logging: !isProd,
+        };
+      },
     }),
-
+    UsersModule,
     AuthModule,
-
+    CloudinaryModule,
     PostsModule,
-
     AdminModule,
-
     ReviewsModule,
+    ChatModule,
+    NotificationsModule,
+    AiModule,
+    BookingsModule,
+    RoommateManagementModule,
   ],
   controllers: [AppController],
   providers: [AppService],

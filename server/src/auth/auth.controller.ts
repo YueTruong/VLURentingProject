@@ -1,67 +1,155 @@
 import {
-  Controller,
-  Post,
   Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Req,
   UseGuards,
-  Request,
-  Get,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
+import { Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
+import { OauthLoginDto } from './dto/oauth-login.dto';
+import { LinkProviderDto } from './dto/link-provider.dto';
+import { UpdateSettingsPersonalDto } from './dto/update-settings-personal.dto';
+import { UpdateSettingsPreferencesDto } from './dto/update-settings-preferences.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
-@ApiTags('Auth - Xác thực và Quản lý Tài khoản')
-@Controller('auth') // Tiền tố chung cho tất cả API trong file này là /auth
+type AuthenticatedRequest = Request & {
+  user?: {
+    userId?: number;
+  };
+};
+
+@ApiTags('Auth')
+@Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // API Endpoint cho chức năng Đăng ký
-  // POST /auth/register
   @Post('register')
-  @HttpCode(HttpStatus.CREATED) // Trả về mã 201 Created khi thành công
-  @ApiOperation({ summary: 'Đăng ký tài khoản mới' })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register a new account' })
   async register(@Body() registerDto: RegisterDto) {
-    // Nhờ ValidationPipe ở main.ts, registerDto sẽ tự động được kiểm tra
-    // Nếu sai (ví dụ: email không hợp lệ), NestJS sẽ tự động trả về lỗi 400
-
     const user = await this.authService.register(registerDto);
-
     return {
-      message: 'Đăng ký tài khoản thành công',
+      message: 'Register successfully',
       data: user,
     };
   }
 
-  // API Endpoint cho chức năng Đăng nhập
-  // POST /auth/login
   @Post('login')
   @UseGuards(AuthGuard('local'))
-  @HttpCode(HttpStatus.OK) // Trả về mã 200 OK khi thành công
-  @ApiOperation({ summary: 'Đăng nhập' })
-  async login(@Request() req: any, @Body() loginDto: LoginDto) {
-    // Nếu đến được đây, tức là LocalAuthGuard đã xác thực thành công
-    // req.user sẽ chứa thông tin user do LocalStrategy trả về
-
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login by email/username and password' })
+  async login(@Req() req: any, @Body() _loginDto: LoginDto) {
     return this.authService.login(req.user);
   }
 
-  // API Endpoint để lấy thông tin user hiện tại
-  // GET /auth/profile
-  @UseGuards(JwtAuthGuard) // Kích hoạt JwtAuthGuard cho route này
-  @Get('profile')
-  @ApiOperation({ summary: 'Lấy thông tin tài khoản hiện tại' })
-  async getProfile(@Request() req: any) {
-    // Nếu đến được đây, tức là JwtAuthGuard đã xác thực thành công
-    // req.user sẽ chứa thông tin user do JwtStrategy trả về
-    const userId = req.user.userId;
+  @Post('oauth-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'OAuth login from NextAuth bridge' })
+  async oauthLogin(
+    @Body() dto: OauthLoginDto,
+    @Headers('x-oauth-bridge-secret') bridgeSecret?: string,
+  ) {
+    return this.authService.oauthLogin(dto, bridgeSecret);
+  }
 
-    // Gọi service để lấy thông tin chi tiết của user
+  @Post('link/:provider')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Link OAuth provider to current account' })
+  async linkProvider(
+    @Req() req: AuthenticatedRequest,
+    @Param('provider') provider: string,
+    @Body() dto: LinkProviderDto,
+  ) {
+    const userId = req.user?.userId;
+    return this.authService.linkProvider(userId, provider, dto);
+  }
+
+  @Delete('link/:provider')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Ngắt liên kết provider OAuth khỏi tài khoản hiện tại',
+  })
+  async unlinkProvider(
+    @Req() req: AuthenticatedRequest,
+    @Param('provider') provider: string,
+  ) {
+    const userId = req.user?.userId;
+    return this.authService.unlinkProvider(userId, provider);
+  }
+
+  @Get('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current account profile' })
+  async getProfile(@Req() req: AuthenticatedRequest) {
+    const userId = req.user?.userId;
     return this.authService.getProfile(userId);
+  }
+
+  @Get('public-profile/:userId')
+  @ApiOperation({ summary: 'Get public profile by user id' })
+  async getPublicProfile(@Param('userId', ParseIntPipe) userId: number) {
+    return this.authService.getPublicProfile(userId);
+  }
+
+  @Get('settings')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get settings (compat route)' })
+  async getSettings(@Req() req: AuthenticatedRequest) {
+    const userId = req.user?.userId;
+    return this.authService.getSettings(userId);
+  }
+
+  @Patch('settings/personal')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update personal settings (compat route)' })
+  async updateSettingsPersonal(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: UpdateSettingsPersonalDto,
+  ) {
+    const userId = req.user?.userId;
+    return this.authService.updateSettingsPersonal(userId, dto);
+  }
+
+  @Patch('settings/preferences')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update preferences settings (compat route)' })
+  async updateSettingsPreferences(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: UpdateSettingsPreferencesDto,
+  ) {
+    const userId = req.user?.userId;
+    return this.authService.updateSettingsPreferences(userId, dto);
+  }
+
+  @Patch('settings/password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change password from settings (compat route)' })
+  async changePassword(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    const userId = req.user?.userId;
+    return this.authService.changePassword(userId, dto);
   }
 }

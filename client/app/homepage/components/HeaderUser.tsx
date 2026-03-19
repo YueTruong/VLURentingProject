@@ -2,78 +2,124 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import SelectBox from "@/app/homepage/components/SelectBox";
-import UserMenu from "@/app/homepage/components/UserMenu";
-
-const CAMPUS_OPTIONS = [
-  { value: "cs1", label: "Cơ sở 1 (Nguyễn Khắc Nhu)" },
-  { value: "cs2", label: "Cơ sở 2 (Phan Văn Trị)" },
-  { value: "cs3", label: "Cơ sở 3 (Đặng Thùy Trâm)" },
-];
-
-const PRICE_OPTIONS = [
-  { value: "duoi-3tr", label: "Dưới 3 triệu" },
-  { value: "3tr-5tr", label: "3 triệu - 5 triệu" },
-  { value: "tren-5tr", label: "Trên 5 triệu" },
-];
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { BellIcon, ChatBubbleIcon, PlusIcon } from "@radix-ui/react-icons";
+import UserMenu from "@/app/_shared/navigation/UserMenu";
+import ThemeToggleButton from "@/app/theme/ThemeToggleButton";
+import { getUnreadNotificationCount } from "@/app/services/notifications";
 
 function TopHeader() {
-  return (
-    <header className="w-full bg-[#010433] text-white relative z-20">
-      <div className="w-full mx-auto flex items-center justify-between py-4 px-12 h-[100px]">
-        <div className="shrink-0">
-          <Image src="/images/VLU-Renting-Logo.svg" alt="VLU Renting" width={187} height={74} className="object-contain" />
-        </div>
+  const { data: session } = useSession();
+  const [unreadCount, setUnreadCount] = useState(0);
 
-        <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center hidden md:block">
-          <h1 className="text-[42px] font-extrabold tracking-wide">
-            <span className="text-white">VLU</span>{" "}
-            <span className="text-[#D51F35]">Renting</span>
+  // Nhờ next-auth.d.ts, TypeScript đã tự hiểu session.user có role
+  const userRole = session?.user?.role?.toLowerCase();
+  
+  // Logic phân quyền
+  const isLandlord = userRole === "landlord";
+  const canUseChatAndNotif = userRole === "student" || userRole === "landlord";
+
+  useEffect(() => {
+    // Nếu không có token HOẶC là admin (không có quyền dùng thông báo) thì bỏ qua
+    if (!session?.user?.accessToken || !canUseChatAndNotif) return;
+
+    const fetchUnread = async () => {
+      try {
+        setUnreadCount(
+          await getUnreadNotificationCount(session.user.accessToken),
+        );
+      } catch (error) {
+        console.error("Lỗi lấy số thông báo:", error);
+      }
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 15000);
+    return () => clearInterval(interval);
+  }, [session, canUseChatAndNotif]);
+
+  return (
+    <header className="relative z-50 w-full border-b border-(--surface-navy-border) text-white shadow-lg">
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, var(--surface-navy-900), var(--surface-navy-800), var(--surface-navy-700))",
+        }}
+      />
+
+      <div className="relative flex h-[100px] w-full items-center justify-between px-6 md:px-10 2xl:px-16">
+        {/* LOGO */}
+        <Link href="/" className="z-10 shrink-0 transition-transform duration-300 hover:scale-105">
+          <Image
+            src="/images/VLU-Renting-Logo.svg"
+            alt="VLU Renting"
+            width={160}
+            height={64}
+            className="h-[50px] w-auto object-contain sm:h-[60px] md:h-[70px]"
+            priority
+          />
+        </Link>
+
+        {/* TITLE */}
+        <div className="pointer-events-none absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 text-center xl:block">
+          <h1 className="whitespace-nowrap text-[36px] font-extrabold leading-none tracking-tight drop-shadow-lg 2xl:text-[42px]">
+            <span className="text-(--brand-accent)">VLU</span>
+            <span className="text-white">RENTING</span>
           </h1>
-          <p className="text-[16px] text-gray-300 font-light -mt-1">
+          <p className="mt-2 whitespace-nowrap text-[12px] font-medium tracking-wide text-gray-300 opacity-90 2xl:text-[14px]">
             Trang web giúp sinh viên Văn Lang tìm kiếm nhà trọ phù hợp
           </p>
         </div>
 
-        <div className="flex gap-4">
-          <Link
-            href="/post"
-            className="
-              shrink-0 w-[100px] h-10 font-bold
-              bg-black rounded-full flex items-center justify-center 
-              transition-all duration-300 active:scale-95
-            "
-          >
-            Đăng tin
-          </Link>
+        {/* ACTIONS */}
+        <div className="z-10 flex items-center gap-3 sm:gap-4">
+          
+          <ThemeToggleButton
+            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white hover:bg-white/20 active:scale-95 transition-colors"
+            iconClassName="h-5 w-5"
+          />
 
-          <Link
-            href="/chat"
-            className="
-              shrink-0 w-[60px] h-10
-              bg-white rounded-full flex items-center
-              justify-center shadow-sm border border-gray-100
-              transistion-all duration-300 active:scale-95 hover:bg-gray-100
-            "
-            aria-label="Trò chuyện"
-          >
-            <Image src="/icons/Chat.svg" alt="Chat" width={24} height={24} />
-          </Link>
+          {/* CHỈ HIỆN ĐĂNG TIN NẾU LÀ LANDLORD */}
+          {isLandlord && (
+            <Link
+              href="/post"
+              className="group flex h-10 w-10 items-center justify-center gap-2 rounded-full bg-(--brand-accent) text-sm font-bold text-white shadow-md shadow-red-900/20 transition-all duration-300 hover:-translate-y-0.5 hover:bg-(--brand-accent-strong) hover:shadow-lg active:scale-95 md:w-auto md:px-5"
+              title="Đăng tin mới"
+            >
+              <PlusIcon className="h-4 w-4 font-bold" />
+              <span className="hidden md:inline">Đăng tin</span>
+            </Link>
+          )}
 
-          <Link
-            href="/notifications"
-            className="
-              shrink-0 w-[60px] h-10
-              bg-white rounded-full flex items-center
-              justify-center hover:bg-gray-100 shadow-sm border border-gray-100
-              transistion-all duration-300 active:scale-95
-            "
-            aria-label="Thông báo"
-          >
-            <Image src="/icons/Notification.svg" alt="Thông báo" width={24} height={24} />
-          </Link>
+          {/* CHỈ HIỆN CHAT & THÔNG BÁO CHO STUDENT VÀ LANDLORD */}
+          {canUseChatAndNotif && (
+            <>
+              <Link
+                href="/chat"
+                className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white backdrop-blur-sm transition-all duration-300 hover:bg-white hover:text-(--surface-navy-900) hover:shadow-[0_0_15px_rgba(255,255,255,0.3)] active:scale-95"
+                aria-label="Chat"
+              >
+                <ChatBubbleIcon className="h-5 w-5" />
+              </Link>
 
-          <div className="ml-2">
+              <Link
+                href="/notifications"
+                className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white backdrop-blur-sm transition-all duration-300 hover:bg-white hover:text-(--surface-navy-900) hover:shadow-[0_0_15px_rgba(255,255,255,0.3)] active:scale-95"
+                aria-label="Notifications"
+              >
+                <BellIcon className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-(--brand-accent) px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-(--surface-navy-900)">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </Link>
+            </>
+          )}
+
+          <div className="border-l border-white/10 pl-2">
             <UserMenu />
           </div>
         </div>
@@ -84,54 +130,18 @@ function TopHeader() {
 
 function SearchBar() {
   return (
-    <div className="relative w-full h-[276px]">
-      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/images/Background-Image.svg')" }}>
-        <div className="absolute inset-0 bg-black/10" />
-      </div>
-
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-6xl px-4">
-        <form
-          className="
-            bg-white rounded-[10px] shadow-xl p-2
-            flex flex-col md:flex-row items-center gap-2
-            overflow-visible relative z-30
-          "
-          onSubmit={(e) => {
-            e.preventDefault();
+    <div className="relative h-[200px] w-full overflow-hidden sm:h-60 md:h-[280px]">
+      <div
+        className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 hover:scale-105"
+        style={{ backgroundImage: "url('/images/Background-Image.svg')" }}
+      >
+        <div className="absolute inset-0 bg-black/30" />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: "linear-gradient(to top, var(--surface-navy-overlay), transparent)",
           }}
-        >
-          <div
-            className="
-              flex-1 flex items-center px-4 w-full h-12
-              border-b md:border-b-0 md:border-r border-gray-200
-            "
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400 mr-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Tìm kiếm nhà trọ ..."
-              className="w-full outline-none text-gray-700 placeholder-gray-500 bg-transparent"
-            />
-          </div>
-
-          <SelectBox icon="📍" placeholder="Chọn cơ sở" options={CAMPUS_OPTIONS} />
-          <SelectBox icon="💰" placeholder="Chọn giá tiền" options={PRICE_OPTIONS} />
-
-          <button
-            type="submit"
-            className="
-              bg-[#D51F35] text-white
-              px-8 h-12 rounded-[10px]
-              font-bold shadow-md
-              hover:bg-[#b01628] transition-all duration-300 ease-in-out active:scale-95  
-              w-full md:w-auto
-            "
-          >
-            Search
-          </button>
-        </form>
+        />
       </div>
     </div>
   );
@@ -139,7 +149,7 @@ function SearchBar() {
 
 export default function Header() {
   return (
-    <div className="flex flex-col w-full">
+    <div className="flex w-full flex-col shadow-2xl">
       <TopHeader />
       <SearchBar />
     </div>

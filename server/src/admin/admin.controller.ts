@@ -1,50 +1,53 @@
 import {
-  Controller,
-  Patch,
-  Param,
+  BadGatewayException,
   Body,
-  UseGuards,
-  ParseIntPipe,
+  Controller,
+  Delete,
+  Get,
   HttpCode,
   HttpStatus,
-  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
   Query,
+  Res,
+  NotFoundException,
+  UseGuards,
 } from '@nestjs/common';
-import { AdminService } from './admin.service';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { AdminService } from './admin.service';
+import { ManageAmenityDto } from './dto/manage-amenity.dto';
+import { ManageCategoryDto } from './dto/manage-category.dto';
+import { ReviewIdentityVerificationDto } from './dto/review-identity-verification.dto';
 import { UpdatePostStatusDto } from './dto/update-post-status.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 @ApiTags('Admin Management')
 @ApiBearerAuth()
-@Controller('admin') // Tiền tố chung /admin
+@Controller('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
-  // API lấy tất cả bài đăng
-  // Có thể lọc theo trạng thái bằng query param ?status=
-  // GET /admin/posts
   @Get('/posts')
-  @Roles('admin') // Chỉ cho phép role 'admin'
+  @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Lấy tất cả bài đăng với tùy chọn lọc theo trạng thái' })
-  async getAllPosts(@Query('status') status: string) {
-    // Dùng @Query để lấy tham số truy vấn 'status'
+  @ApiOperation({
+    summary: 'Lay tat ca bai dang voi tuy chon loc theo trang thai',
+  })
+  async getAllPosts(@Query('status') status?: string) {
     return this.adminService.getAllPosts(status);
   }
 
-  // API cập nhật trạng thái tin đăng
-  // PATCH /admin/posts/:id/status
   @Patch('/posts/:id/status')
   @HttpCode(HttpStatus.OK)
-  @Roles('admin') // CChỉ cho phép role 'admin'
+  @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Cập nhật trạng thái của một bài đăng' })
+  @ApiOperation({ summary: 'Cap nhat trang thai cua mot bai dang' })
   async updatePostStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePostStatusDto: UpdatePostStatusDto,
@@ -54,39 +57,160 @@ export class AdminController {
       updatePostStatusDto,
     );
     return {
-      message: 'Cập nhật trạng thái tin đăng thành công',
+      message: 'Cap nhat trang thai tin dang thanh cong',
       data: updatedPost,
     };
   }
 
-  // API cho phép Admin xem tất cả người dùng
-  // GET /admin/users
   @Get('/users')
-  @Roles('admin') // Chỉ cho phép role 'admin'
+  @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Lấy tất cả người dùng' })
+  @ApiOperation({ summary: 'Lay tat ca nguoi dung' })
   async getAllUsers() {
     return this.adminService.getAllUsers();
   }
 
-  // API cho phép Admin mở/khoá người dùng
-  // PATCH /admin/users/:id/status
-  @Patch('/users/:id/status')
-  @Roles('admin') // Chỉ cho phép role 'admin'
+  @Get('/identity-verifications')
+  @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Cập nhật trạng thái của một người dùng' })
+  @ApiOperation({ summary: 'Lay danh sach ho so xac minh danh tinh' })
+  async getIdentityVerifications(@Query('status') status?: string) {
+    return this.adminService.getIdentityVerifications(status);
+  }
+
+  @Get('/identity-verifications/file')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Lay tep xac minh danh tinh de admin xem truoc' })
+  async getIdentityVerificationDocument(
+    @Query('reference') reference: string,
+    @Res() res: Response,
+  ) {
+    const source =
+      await this.adminService.resolveIdentityVerificationDocumentSource(
+        reference,
+      );
+
+    if (source.kind === 'file') {
+      return res.sendFile(source.path);
+    }
+
+    const remoteResponse = await fetch(source.url);
+    if (!remoteResponse.ok) {
+      if (remoteResponse.status === 404) {
+        throw new NotFoundException('Khong tim thay tep xac minh danh tinh');
+      }
+      throw new BadGatewayException('Khong the tai tep xac minh danh tinh');
+    }
+
+    const contentType = remoteResponse.headers.get('content-type');
+    const contentLength = remoteResponse.headers.get('content-length');
+    if (contentType) {
+      res.setHeader('Content-Type', contentType);
+    }
+    if (contentLength) {
+      res.setHeader('Content-Length', contentLength);
+    }
+
+    const body = Buffer.from(await remoteResponse.arrayBuffer());
+    return res.send(body);
+  }
+
+  @Patch('/users/:id/identity-verification')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Duyet ho so xac minh danh tinh cua nguoi dung' })
+  async reviewIdentityVerification(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() payload: ReviewIdentityVerificationDto,
+  ) {
+    return this.adminService.reviewIdentityVerification(id, payload);
+  }
+
+  @Get('/categories')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Lay danh sach danh muc' })
+  async getAllCategories() {
+    return this.adminService.getAllCategories();
+  }
+
+  @Post('/categories')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Tao danh muc moi' })
+  async createCategory(@Body() payload: ManageCategoryDto) {
+    return this.adminService.createCategory(payload);
+  }
+
+  @Patch('/categories/:id')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Cap nhat danh muc' })
+  async updateCategory(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() payload: ManageCategoryDto,
+  ) {
+    return this.adminService.updateCategory(id, payload);
+  }
+
+  @Delete('/categories/:id')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Xoa danh muc' })
+  async deleteCategory(@Param('id', ParseIntPipe) id: number) {
+    return this.adminService.deleteCategory(id);
+  }
+
+  @Get('/amenities')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Lay danh sach tien ich' })
+  async getAllAmenities() {
+    return this.adminService.getAllAmenities();
+  }
+
+  @Post('/amenities')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Tao tien ich moi' })
+  async createAmenity(@Body() payload: ManageAmenityDto) {
+    return this.adminService.createAmenity(payload);
+  }
+
+  @Patch('/amenities/:id')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Cap nhat tien ich' })
+  async updateAmenity(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() payload: ManageAmenityDto,
+  ) {
+    return this.adminService.updateAmenity(id, payload);
+  }
+
+  @Delete('/amenities/:id')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Xoa tien ich' })
+  async deleteAmenity(@Param('id', ParseIntPipe) id: number) {
+    return this.adminService.deleteAmenity(id);
+  }
+
+  @Patch('/users/:id/status')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Cap nhat trang thai cua mot nguoi dung' })
   async updateUserStatus(
     @Param('id', ParseIntPipe) id: number,
-    @Body() UpdateUserStatusDto: UpdateUserStatusDto,
+    @Body() updateUserStatusDto: UpdateUserStatusDto,
   ) {
     const updatedUser = await this.adminService.updateUserStatus(
       id,
-      UpdateUserStatusDto,
+      updateUserStatusDto,
     );
     return {
-      message: 'Cập nhật trạng thái người dùng thành công',
+      message: 'Cap nhat trang thai nguoi dung thanh cong',
       data: updatedUser,
     };
   }

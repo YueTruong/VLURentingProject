@@ -1,0 +1,136 @@
+@startuml Posts Controller Diagram
+
+class PostsController {
+  +constructor(postsService: PostsService)
+  +getAdminPosts(status?: string): any
+  +findMine(req: any): any
+  +getMySavedPostIds(req: any): any
+  +approvePost(id: number, status: string, rejectionReason?: string): any
+  +create(createPostDto: CreatePostDto, req: any): any
+  +findAll(searchPostDto: SearchPostDto): any
+  +savePost(id: number, req: any): any
+  +unsavePost(id: number, req: any): any
+  +findOne(id: number): any
+  +update(id: number, updatePostDto: UpdatePostDto, req: any): any
+  +delete(id: number, req: any): any
+}
+
+class PostsService {
+  +constructor(postRepository, savedPostRepository, ...)
+  +findAllForAdmin(status?: string): any
+  +findMine(user: any): any
+  +getMySavedPostIds(user: any): any
+  +approve(id: number, status: string, rejectionReason?: string): any
+  +create(createPostDto: CreatePostDto, user: any): any
+  +findAll(searchPostDto: SearchPostDto): any
+  +savePost(postId: number, user: any): any
+  +unsavePost(postId: number, user: any): any
+  +findOne(id: number): any
+  +update(id: number, updatePostDto: UpdatePostDto, user: any): any
+  +delete(id: number, user: any): any
+}
+
+class PostEntity {
+  +id: number
+  +title: string
+  +description: string
+  +price: number
+  +area: number
+  +address: string
+  +campus: Campus
+  +availability: AvailabilityStatus
+  +videoUrl: string
+  +latitude: number
+  +longitude: number
+  +rejectionReason: string
+  +resubmittedAt: Date
+  +max_occupancy: number
+  +status: PostStatus
+  +createdAt: Date
+  +updatedAt: Date
+  +userId: number
+  +categoryId: number
+  +user: UserEntity
+  +category: CategoryEntity
+  +images: PostImageEntity[]
+  +amenities: AmenityEntity[]
+  +reviews: ReviewEntity[]
+}
+
+class UserEntity {
+  +id: number
+  +email: string
+  +username: string
+  +password_hash: string
+  +roleId: number
+  +is_active: boolean
+  +createdAt: Date
+  +updatedAt: Date
+  +role: RoleEntity
+  +profile: UserProfileEntity
+  +posts: PostEntity[]
+  +notifications: NotificationEntity[]
+  +oauthAccounts: UserOauthAccountEntity[]
+  +settings: UserSettingsEntity
+}
+
+class CategoryEntity {
+  +id: number
+  +name: string
+  +description: string
+  +posts: PostEntity[]
+}
+
+class AmenityEntity {
+  +id: number
+  +name: string
+  +icon_url: string
+  +posts: PostEntity[]
+}
+
+class PostImageEntity {
+  +id: number
+  +postId: number
+  +image_url: string
+  +is_video: boolean
+  +post: PostEntity
+}
+
+class ReviewEntity {
+  +id: number
+  +rating: number
+  +comment: string
+  +createdAt: Date
+  +userId: number
+  +postId: number
+  +user: UserEntity
+  +post: PostEntity
+}
+
+class SavedPostEntity {
+  +id: number
+  +userId: number
+  +postId: number
+  +createdAt: Date
+  +user: UserEntity
+  +post: PostEntity
+}
+
+' Relationships
+PostsController --> PostsService : uses
+PostsService --> PostEntity : manages
+PostsService --> SavedPostEntity : manages
+PostsService --> UserEntity : manages
+PostsService --> CategoryEntity : manages
+PostsService --> AmenityEntity : manages
+PostsService --> PostImageEntity : manages
+PostsService --> ReviewEntity : manages
+PostEntity --> CategoryEntity : many-to-one
+PostEntity --> UserEntity : many-to-one
+PostEntity --> PostImageEntity : one-to-many
+PostEntity --> AmenityEntity : many-to-many
+PostEntity --> ReviewEntity : one-to-many
+PostEntity --> SavedPostEntity : one-to-many
+
+@enduml
+

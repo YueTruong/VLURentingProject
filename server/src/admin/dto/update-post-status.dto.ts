@@ -1,19 +1,22 @@
-import { IsEnum, IsNotEmpty } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
-// Định nghĩa các trạng thái hợp lệ mà Admin có thể set
-// (Không bao gồm 'pending')
 export enum PostStatusAdmin {
   APPROVED = 'approved',
   REJECTED = 'rejected',
-  HIDDEN = 'hidden', // Admin cũng có thể ẩn tin
+  HIDDEN = 'hidden',
 }
 
 export class UpdatePostStatusDto {
   @IsEnum(PostStatusAdmin, {
-    message: `Trạng thái phải là một trong các giá trị: ${Object.values(
+    message: `Tráº¡ng thÃ¡i pháº£i lÃ  má»™t trong cÃ¡c giÃ¡ trá»‹: ${Object.values(
       PostStatusAdmin,
     ).join(', ')}`,
   })
-  @IsNotEmpty({ message: 'Trạng thái không được để trống' })
+  @IsNotEmpty({ message: 'Tráº¡ng thÃ¡i khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng' })
   status: PostStatusAdmin;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500, { message: 'LÃ½ do tá»« chá»‘i khÃ´ng Ä‘Æ°á»£c quÃ¡ 500 kÃ½ tá»±' })
+  rejectionReason?: string;
 }

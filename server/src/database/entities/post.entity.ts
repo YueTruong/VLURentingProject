@@ -19,6 +19,9 @@ import { ReviewEntity } from './review.entity';
 // Tạm thời dùng string
 type PostStatus = 'pending' | 'approved' | 'rejected' | 'rented' | 'hidden';
 
+export type Campus = 'CS1' | 'CS2' | 'CS3';
+export type AvailabilityStatus = 'available' | 'rented';
+
 @Entity({ name: 'posts' })
 export class PostEntity {
   @PrimaryGeneratedColumn()
@@ -39,11 +42,34 @@ export class PostEntity {
   @Column({ type: 'text' })
   address: string;
 
+  @Column({
+    type: 'enum',
+    enum: ['CS1', 'CS2', 'CS3'],
+    nullable: true,
+  })
+  campus: Campus | null;
+
+  @Column({
+    type: 'enum',
+    enum: ['available', 'rented'],
+    default: 'available',
+  })
+  availability: AvailabilityStatus;
+
+  @Column({ type: 'text', name: 'video_url', nullable: true })
+  videoUrl: string | null;
+
   @Column({ type: 'double precision', nullable: true })
   latitude: number;
 
   @Column({ type: 'double precision', nullable: true })
   longitude: number;
+
+  @Column({ type: 'text', name: 'rejection_reason', nullable: true })
+  rejectionReason: string | null;
+
+  @Column({ type: 'timestamp', name: 'resubmitted_at', nullable: true })
+  resubmittedAt: Date | null;
 
   @Column({ type: 'int', default: 1 })
   max_occupancy: number; // Số người ở tối đa

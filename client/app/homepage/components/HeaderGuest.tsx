@@ -1,70 +1,77 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import SelectBox from "./SelectBox";
-
-// 1. Constants cho SelectBox
-const CAMPUS_OPTIONS = [
-  { value: "cs1", label: "Cơ sở 1 (Nguyễn Khắc Nhu)" },
-  { value: "cs2", label: "Cơ sở 2 (Phan Văn Trị)" },
-  { value: "cs3", label: "Cơ sở 3 (Đặng Thuỳ Trâm)" },
-];
-
-const PRICE_OPTIONS = [
-  { value: "duoi-3tr", label: "Dưới 3 triệu" },
-  { value: "3tr-5tr", label: "3 triệu - 5 triệu" },
-  { value: "tren-5tr", label: "Trên 5 triệu" },
-];
+import { PersonIcon } from "@radix-ui/react-icons";
+import ThemeToggleButton from "@/app/theme/ThemeToggleButton";
 
 // 2. Sub-component: TopHeader
 function TopHeader() {
   return (
-    <header className="w-full bg-[#010433] text-white relative z-20">
-      <div className="w-full mx-auto flex items-center justify-between py-4 px-12 h-[100px]">
-        {/* Logo */}
-        <div className="shrink-0">
+    <header className="relative z-50 w-full border-b border-(--surface-navy-border) text-white shadow-lg">
+      {/* Background Gradient */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          backgroundImage: "linear-gradient(to right, var(--surface-navy-900), var(--surface-navy-800), var(--surface-navy-700))",
+        }}
+      />
+
+      {/* Container: w-full để tràn màn hình, px-6 để đẩy sát biên hơn */}
+      <div className="relative w-full flex h-[100px] items-center justify-between px-6 md:px-10 2xl:px-16">
+        
+        {/* === LEFT: LOGO === */}
+        <Link href="/" className="shrink-0 transition-transform hover:scale-105 duration-300 z-10">
           <Image
             src="/images/VLU-Renting-Logo.svg"
             alt="VLU Renting"
-            width={187}
-            height={74}
-            className="object-contain"
+            width={160}
+            height={64}
+            className="object-contain w-auto h-[50px] sm:h-[60px] md:h-[70px]"
+            priority
           />
-        </div>
+        </Link>
 
-        {/* Title */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center hidden md:block">
-          <h1 className="text-[42px] font-extrabold tracking-wide">
-            <span className="text-white">VLU</span>{" "}
-            <span className="text-[#D51F35]">Renting</span>
+        {/* === CENTER: TITLE === */}
+        {/* Logic: 
+            - xl (Laptop): Hiện tiêu đề to, Slogan chữ nhỏ.
+            - 2xl (PC lớn): Hiện đầy đủ thoải mái.
+            - hidden: Ẩn trên tablet/mobile.
+        */}
+        <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 text-center xl:block z-0 pointer-events-none">
+          <h1 className="text-[36px] 2xl:text-[42px] font-extrabold leading-none tracking-tight drop-shadow-lg whitespace-nowrap">
+            <span className="text-(--brand-accent)">VLU</span>
+            <span className="text-white">RENTING</span>
           </h1>
-          <p className="text-[16px] text-gray-300 font-light -mt-1">
+          {/* Dòng slogan dài: Chỉ hiện trên màn hình > 1280px, chỉnh font nhỏ lại chút để vừa vặn */}
+          <p className="mt-2 text-[12px] 2xl:text-[14px] font-medium text-gray-300 tracking-wide opacity-90 whitespace-nowrap">
             Trang web giúp sinh viên Văn Lang tìm kiếm nhà trọ phù hợp
           </p>
         </div>
 
-        {/* Login button */}
-        <Link href="/login">
-          <button
-            type="button"
+        {/* === RIGHT: ACTIONS === */}
+        <div className="z-10 shrink-0 flex items-center gap-3">
+          <ThemeToggleButton
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/20"
+            iconClassName="h-5 w-5"
+          />
+          <Link
+            href="/login"
             className="
-              shrink-0 w-[140px] h-10 
-              bg-white text-black rounded-full 
-              flex items-center justify-center gap-2 
-              font-semibold text-sm shadow-md 
-              hover:bg-gray-100 transition-all active:scale-95
+              group relative flex h-10 sm:h-11 w-[130px] sm:w-[150px] items-center justify-center gap-2.5 
+              rounded-full bg-[#ffffff] text-[#010433]
+              font-bold text-xs sm:text-sm shadow-md transition-all duration-300
+              hover:shadow-[0_0_15px_rgba(255,255,255,0.4)] hover:-translate-y-0.5
+              active:scale-95
             "
           >
-            <div className="w-5 h-5 relative">
-              <Image
-                src="/icons/UserIcon.svg"
-                alt="user"
-                fill
-                className="object-contain"
-              />
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#e6ebff] text-[#010433] transition-colors group-hover:bg-(--brand-accent) group-hover:text-white">
+              <PersonIcon className="h-4 w-4" />
             </div>
-            Thành viên
-          </button>
-        </Link>
+              <span>Thành viên</span>
+          </Link>
+        </div>
+
       </div>
     </header>
   );
@@ -73,80 +80,16 @@ function TopHeader() {
 // 3. Sub-component: SearchBar
 function SearchBar() {
   return (
-    <div className="relative w-full h-[276px]">
-      {/* Background */}
+    <div className="relative w-full h-[200px] sm:h-60 md:h-[280px] overflow-hidden">
       <div
-        className="absolute inset-0 bg-cover bg-center"
+        className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 hover:scale-105"
         style={{ backgroundImage: "url('/images/Background-Image.svg')" }}
       >
-        <div className="absolute inset-0 bg-black/10" />
-      </div>
-
-      {/* Search form */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-full max-w-6xl px-4">
-        <form
-          className="
-            bg-white rounded-[10px] shadow-xl p-2 
-            flex flex-col md:flex-row items-center gap-2 
-            overflow-visible relative z-30
-          "
-        >
-          {/* Input */}
-          <div
-            className="
-              flex-1 flex items-center px-4 w-full h-12 
-              border-b md:border-b-0 md:border-r border-gray-200
-            "
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6 text-gray-400 mr-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-            <input
-              type="text"
-              placeholder="Tìm kiếm nhà trọ..."
-              className="w-full outline-none text-gray-700 placeholder-gray-500 bg-transparent"
-            />
-          </div>
-
-          {/* Chọn cơ sở */}
-          <SelectBox
-            icon="📍"
-            placeholder="Chọn cơ sở"
-            options={CAMPUS_OPTIONS}
-          />
-
-          {/* Chọn giá */}
-          <SelectBox
-            icon="🏷️"
-            placeholder="Chọn giá tiền"
-            options={PRICE_OPTIONS}
-          />
-
-          {/* Button search */}
-          <button
-            type="submit"
-            className="
-              bg-[#D51F35] text-white 
-              px-8 h-12 rounded-[10px]
-              font-bold shadow-md 
-              hover:bg-[#b01628] transition-all duration-300 ease-in-out active:scale-95
-              w-full md:w-auto
-            "
-          >
-            Search
-          </button>
-        </form>
+        <div className="absolute inset-0 bg-black/30" />
+        <div
+          className="absolute inset-0"
+          style={{ backgroundImage: "linear-gradient(to top, var(--surface-navy-overlay), transparent)" }}
+        />
       </div>
     </div>
   );
@@ -155,7 +98,7 @@ function SearchBar() {
 // 4. Header chính
 export default function Header() {
   return (
-    <div className="flex flex-col w-full">
+    <div className="flex flex-col w-full shadow-2xl">
       <TopHeader />
       <SearchBar />
     </div>

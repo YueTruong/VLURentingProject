@@ -1,0 +1,31 @@
+@startuml Chat Entities Diagram
+
+' ======================== CHAT ENTITIES ========================
+
+class ConversationEntity {
+  +id: number
+  +participant1Id: number
+  +participant2Id: number
+  +lastMessageAt: Date
+  +createdAt: Date
+}
+
+class MessageEntity {
+  +id: number
+  +conversationId: number
+  +senderId: number
+  +content: string
+  +isRead: boolean
+  +createdAt: Date
+  +conversation: ConversationEntity
+  +sender: UserEntity
+}
+
+' ======================== RELATIONSHIPS ========================
+
+' Chat relationships
+ConversationEntity ||--o{ MessageEntity : "one-to-many"
+MessageEntity ||--o{ UserEntity : "many-to-one (sender)"
+
+@enduml
+

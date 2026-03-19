@@ -1,100 +1,135 @@
 import {
-  Controller,
-  Post,
   Body,
-  UseGuards,
-  Request,
+  Controller,
+  Delete,
+  Get,
   HttpCode,
   HttpStatus,
-  Get,
   Param,
   ParseIntPipe,
   Patch,
-  Delete,
+  Post,
   Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
-import { PostsService } from './posts.service';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '../auth/dto/register.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { Roles } from '../common/decorators/roles.decorator';
+import { RolesGuard } from '../common/guards/roles.guard';
 import { CreatePostDto } from './dto/create-post.dto';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/common/guards/roles.guard';
-import { Roles } from 'src/common/decorators/roles.decorator';
-import { UpdatePostDto } from './dto/update-post.dto';
 import { SearchPostDto } from './dto/search-post.dto';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { UpdatePostDto } from './dto/update-post.dto';
+import { PostsService } from './posts.service';
 
-@ApiTags('Posts - Quản lý Tin đăng')
+@ApiTags('Posts')
 @Controller('posts')
 export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
-  // API Tạo tin đăng mới
-  // Chỉ cho phép vai trò 'owner' (Chủ trọ)
-  @Post()
+  @Get('admin')
+  @ApiOperation({ summary: 'Get posts for admin' })
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Tạo tin đăng mới (Chủ trọ)' })
-  @HttpCode(HttpStatus.CREATED)
-  @Roles('owner') // Chỉ định vai trò được phép
-  @UseGuards(JwtAuthGuard, RolesGuard) // Kích hoạt cả 2 Bảo vệ
-  async create(@Body() createPostDto: CreatePostDto, @Request() req: any) {
-    // req.user được gán từ JwtAuthGuard
-    const user = req.user;
-
-    const newPost = await this.postsService.create(createPostDto, user);
-
-    return {
-      message: 'Tạo tin đăng thành công, đang chờ duyệt',
-      data: newPost,
-    };
+  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async getAdminPosts(@Query('status') status?: string) {
+    return this.postsService.findAllForAdmin(status);
   }
 
-  // API lấy danh sách tin đăng
-  // GET /posts
+  @Get('me')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get my posts' })
+  @Roles(UserRole.LANDLORD, UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async findMine(@Req() req: any) {
+    return this.postsService.findMine(req.user);
+  }
+
+  @Get('saved/ids')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get my saved post ids' })
+  @Roles(UserRole.STUDENT, UserRole.LANDLORD, UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async getMySavedPostIds(@Req() req: any) {
+    return this.postsService.getMySavedPostIds(req.user);
+  }
+
+  @Patch('admin/:id/approve')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Approve/reject/hide post' })
+  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async approvePost(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('status') status: string,
+    @Body('rejectionReason') rejectionReason?: string,
+  ) {
+    return this.postsService.approve(id, status, rejectionReason);
+  }
+
+  @Post()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create post' })
+  @HttpCode(HttpStatus.CREATED)
+  @Roles(UserRole.LANDLORD)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async create(@Body() createPostDto: CreatePostDto, @Req() req: any) {
+    return this.postsService.create(createPostDto, req.user);
+  }
+
   @Get()
-  @ApiOperation({ summary: 'Lấy danh sách tin đăng (công khai)' })
+  @ApiOperation({ summary: 'Get public approved posts' })
   async findAll(@Query() searchPostDto: SearchPostDto) {
     return this.postsService.findAll(searchPostDto);
   }
 
-  // API lấy chi tiết tin đăng theo ID
-  // GET /posts/:id
-  @Get(':id')
-  @ApiOperation({ summary: 'Lấy chi tiết tin đăng theo ID (công khai)' })
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    // 'id' được ép kiểu sang number nhờ ParseIntPipe
-    return this.postsService.findOne(id);
+  @Post(':id/save')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Save post to favorites' })
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.STUDENT, UserRole.LANDLORD, UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async savePost(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.postsService.savePost(id, req.user);
   }
 
-  // API cập nhật tin đăng theo ID
-  // PATCH /posts/:id
-  @Patch(':id')
-  @HttpCode(HttpStatus.OK)
+  @Delete(':id/save')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Cập nhật tin đăng theo ID (Chủ trọ)' })
-  @Roles('owner') // Chỉ định vai trò được phép
-  @UseGuards(JwtAuthGuard, RolesGuard) // Kích hoạt cả 2 Bảo vệ
+  @ApiOperation({ summary: 'Remove post from favorites' })
+  @Roles(UserRole.STUDENT, UserRole.LANDLORD, UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async unsavePost(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.postsService.unsavePost(id, req.user);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get post by id' })
+  @UseGuards(OptionalJwtAuthGuard)
+  async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.postsService.findOne(id, req.user);
+  }
+
+  @Patch(':id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update post' })
+  @Roles(UserRole.LANDLORD)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePostDto: UpdatePostDto,
-    @Request() req: any,
+    @Req() req: any,
   ) {
-    const user = req.user;
-
-    // Kiểm tra và cập nhật tin đăng
-    return this.postsService.update(id, updatePostDto, user);
+    return this.postsService.update(id, updatePostDto, req.user);
   }
 
-  // API xoá tin đăng theo ID
-  // DELETE /posts/:id
   @Delete(':id')
-  @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Xoá tin đăng theo ID (Chủ trọ)' })
-  @Roles('owner') // Chỉ định vai trò được phép
-  @UseGuards(JwtAuthGuard, RolesGuard) // Kích hoạt cả 2 Bảo vệ
-  async delete(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
-    const user = req.user;
-
-    // Kiểm tra và xoá tin đăng
-    return this.postsService.delete(id, user);
+  @ApiOperation({ summary: 'Delete post' })
+  @Roles(UserRole.LANDLORD, UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async delete(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.postsService.delete(id, req.user);
   }
 }

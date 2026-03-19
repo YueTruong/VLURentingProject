@@ -1,0 +1,103 @@
+@startuml Admin Controller Diagram
+
+class AdminController {
+  +constructor(adminService: AdminService)
+  +getAllPosts(status: string): any
+  +updatePostStatus(id: number, updatePostStatusDto: UpdatePostStatusDto): any
+  +getAllUsers(): any
+  +updateUserStatus(id: number, UpdateUserStatusDto: UpdateUserStatusDto): any
+  +getAllCategories(): any
+  +createCategory(payload: ManageCategoryDto): any
+  +updateCategory(id: number, payload: ManageCategoryDto): any
+  +deleteCategory(id: number): any
+  +getAllAmenities(): any
+  +createAmenity(payload: ManageAmenityDto): any
+  +updateAmenity(id: number, payload: ManageAmenityDto): any
+  +deleteAmenity(id: number): any
+}
+
+class AdminService {
+  +constructor(postRepository, userRepository, categoryRepository, amenityRepository)
+  +getAllPosts(status?: string): any
+  +updatePostStatus(id: number, updatePostStatusDto: UpdatePostStatusDto): any
+  +getAllUsers(): any
+  +updateUserStatus(id: number, updateUserStatusDto: UpdateUserStatusDto): any
+  +getAllCategories(): any
+  +createCategory(payload: ManageCategoryDto): any
+  +updateCategory(id: number, payload: ManageCategoryDto): any
+  +deleteCategory(id: number): any
+  +getAllAmenities(): any
+  +createAmenity(payload: ManageAmenityDto): any
+  +updateAmenity(id: number, payload: ManageAmenityDto): any
+  +deleteAmenity(id: number): any
+}
+
+class PostEntity {
+  +id: number
+  +title: string
+  +description: string
+  +price: number
+  +area: number
+  +address: string
+  +campus: Campus
+  +availability: AvailabilityStatus
+  +videoUrl: string
+  +latitude: number
+  +longitude: number
+  +rejectionReason: string
+  +resubmittedAt: Date
+  +max_occupancy: number
+  +status: PostStatus
+  +createdAt: Date
+  +updatedAt: Date
+  +userId: number
+  +categoryId: number
+  +user: UserEntity
+  +category: CategoryEntity
+  +images: PostImageEntity[]
+  +amenities: AmenityEntity[]
+  +reviews: ReviewEntity[]
+}
+
+class UserEntity {
+  +id: number
+  +email: string
+  +username: string
+  +password_hash: string
+  +roleId: number
+  +is_active: boolean
+  +createdAt: Date
+  +updatedAt: Date
+  +role: RoleEntity
+  +profile: UserProfileEntity
+  +posts: PostEntity[]
+  +notifications: NotificationEntity[]
+  +oauthAccounts: UserOauthAccountEntity[]
+  +settings: UserSettingsEntity
+}
+
+class CategoryEntity {
+  +id: number
+  +name: string
+  +description: string
+  +posts: PostEntity[]
+}
+
+class AmenityEntity {
+  +id: number
+  +name: string
+  +icon_url: string
+  +posts: PostEntity[]
+}
+
+' Relationships
+AdminController --> AdminService : uses
+AdminService --> PostEntity : manages
+AdminService --> UserEntity : manages
+AdminService --> CategoryEntity : manages
+AdminService --> AmenityEntity : manages
+PostEntity --> CategoryEntity : many-to-one
+PostEntity --> UserEntity : many-to-one
+
+@enduml
+

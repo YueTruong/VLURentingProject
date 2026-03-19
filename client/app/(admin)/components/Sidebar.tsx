@@ -3,10 +3,12 @@
 import {
   ArrowLeftIcon,
   BarChartIcon,
-  FileTextIcon,
+  CheckCircledIcon,
   HomeIcon,
   PersonIcon,
   PieChartIcon,
+  StarIcon,
+  RowsIcon,
 } from "@radix-ui/react-icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -18,8 +20,11 @@ const nav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: <BarChartIcon className="h-4 w-4" /> },
   { href: "/dashboard/analytics", label: "Analytics", icon: <PieChartIcon className="h-4 w-4" /> },
   { href: "/dashboard/users", label: "Users", icon: <PersonIcon className="h-4 w-4" /> },
+  { href: "/dashboard/identity-verifications", label: "Identity Checks", icon: <CheckCircledIcon className="h-4 w-4" /> },
   { href: "/dashboard/listings", label: "Listings", icon: <HomeIcon className="h-4 w-4" /> },
-  { href: "/dashboard/properties", label: "Properties", icon: <FileTextIcon className="h-4 w-4" /> },
+  { href: "/dashboard/roommate-requests", label: "Ở ghép", icon: <HomeIcon className="h-4 w-4" /> },
+  { href: "/dashboard/reviews", label: "Reviews", icon: <StarIcon className="h-4 w-4" /> },
+  { href: "/dashboard/catalog", label: "Catalog", icon: <RowsIcon className="h-4 w-4" /> },
 ];
 
 function NavLink({ href, label, icon, active }: NavItem & { active: boolean }) {
@@ -68,13 +73,13 @@ export default function Sidebar() {
           ))}
         </nav>
 
-        <div className="mt-6 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+        {/* <div className="mt-6 rounded-2xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
           <div className="text-xs uppercase tracking-wide text-gray-500">Quick tip</div>
           <div className="mt-2 text-sm font-medium text-gray-900">Connect analytics API later</div>
           <p className="mt-1 text-xs text-gray-500">
             UI is ready for SWR/React Query - just wire the endpoints.
           </p>
-        </div>
+        </div> */}
 
         <div className="mt-auto pt-4">
           <Link
