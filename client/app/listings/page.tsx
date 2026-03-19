@@ -890,9 +890,20 @@ export default function ListingsPage() {
   }, [messages]);
 
   const sourceListings = remoteListings;
+  const defaultCampusOptions = useMemo(() => ["CS1", "CS2", "CS3"], []);
   const campusFilterOptions = useMemo(
-    () => [allOption, ...Array.from(new Set(sourceListings.map((item) => item.campus).filter(Boolean)))],
-    [allOption, sourceListings]
+    () => [
+      allOption,
+      ...defaultCampusOptions,
+      ...Array.from(
+        new Set(
+          sourceListings
+            .map((item) => item.campus)
+            .filter((option): option is string => Boolean(option) && !defaultCampusOptions.includes(option)),
+        ),
+      ),
+    ],
+    [allOption, defaultCampusOptions, sourceListings]
   );
   const districtFilterOptions = useMemo(
     () => [allOption, ...Array.from(new Set(sourceListings.map((item) => item.district).filter(Boolean)))],

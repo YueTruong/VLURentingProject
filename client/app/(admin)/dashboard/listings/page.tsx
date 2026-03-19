@@ -7,7 +7,7 @@ import SectionCard from "../../components/SectionCard";
 import FiltersBar from "../../components/FiltersBar";
 import DataTable, { type Column } from "../../components/DataTable";
 import StatusBadge from "../../components/StatusBadge";
-import { getAdminPosts, updatePostStatus, type Post } from "@/app/services/posts";
+import { deletePost, getAdminPosts, updatePostStatus, type Post } from "@/app/services/posts";
 
 type ListingStatus = "approved" | "pending" | "rejected" | "hidden" | "rented";
 type ListingStatusFilter = "all" | ListingStatus;
@@ -423,6 +423,40 @@ export default function ListingsPage() {
     setRejectError(null);
   }, []);
 
+  const handleDeletePost = useCallback(
+    async (id: number): Promise<boolean> => {
+      if (!accessToken) {
+        setLoadError("auth_failed");
+        setActionError("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
+        return false;
+      }
+
+      if (!window.confirm("Bạn chắc chắn muốn xóa tin đăng này?")) {
+        return false;
+      }
+
+      const key = `${id}:delete`;
+      setActionKey(key);
+      setActionError(null);
+
+      try {
+        await deletePost(id, accessToken);
+        setPosts((prev) => prev.filter((post) => post.id !== id));
+        if (rejectTargetId === id) {
+          closeRejectDialog();
+        }
+        return true;
+      } catch (error) {
+        console.error(error);
+        setActionError("Không thể xóa tin đăng. Vui lòng thử lại.");
+        return false;
+      } finally {
+        setActionKey(null);
+      }
+    },
+    [accessToken, closeRejectDialog, rejectTargetId],
+  );
+
   const appendRejectPreset = useCallback((preset: string) => {
     setRejectReason((current) => {
       if (!current.trim()) return `- ${preset}`;
@@ -528,11 +562,22 @@ export default function ListingsPage() {
             >
               {actionKey === `${row.id}:hidden` ? "Đang cập nhật..." : "Cân nhắc"}
             </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                void handleDeletePost(row.id);
+              }}
+              disabled={actionKey === `${row.id}:delete`}
+              className={`${actionButtonBase} border-red-200 text-red-700 hover:bg-red-50`}
+            >
+              {actionKey === `${row.id}:delete` ? "Đang xóa..." : "Xóa"}
+            </button>
           </div>
         ),
       },
     ],
-    [actionKey, handleStatusChange, openRejectDialog],
+    [actionKey, handleDeletePost, handleStatusChange, openRejectDialog],
   );
 
   return (
@@ -790,6 +835,14 @@ export default function ListingsPage() {
                     className={`${actionButtonBase} border-gray-200 text-gray-700 hover:bg-gray-50`}
                   >
                     {actionKey === `${selectedPost.id}:hidden` ? "Đang cập nhật..." : "Cân nhắc"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDeletePost(selectedPost.id)}
+                    disabled={actionKey === `${selectedPost.id}:delete`}
+                    className={`${actionButtonBase} border-red-200 text-red-700 hover:bg-red-50`}
+                  >
+                    {actionKey === `${selectedPost.id}:delete` ? "Đang xóa..." : "Xóa tin đăng"}
                   </button>
                 </div>
               </div>

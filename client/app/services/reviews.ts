@@ -102,6 +102,11 @@ export async function updateReview(reviewId: number, payload: UpdateReviewPayloa
   return res.data;
 }
 
+export async function deleteReview(reviewId: number) {
+  const res = await api.delete(`/reviews/${reviewId}`);
+  return res.data;
+}
+
 export async function getPostReviews(postId: number, limit = 10): Promise<PostReviewsResponse> {
   const res = await api.get<PostReviewsResponse>(`/reviews/post/${postId}`, {
     params: { limit },
