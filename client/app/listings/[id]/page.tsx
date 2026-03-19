@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useParams, useRouter } from "next/navigation"; 
 import Image from "next/image";
 import Link from "next/link";
@@ -9,7 +9,7 @@ import { useSession } from "next-auth/react";
 import { createBooking } from "@/app/services/bookings";
 import UserPageShell from "@/app/_shared/layout/UserPageShell"; // ✅ Dùng chung Shell với Listings & Favorites
 import { getPostById, type Post } from "@/app/services/posts";
-import { createReview, getPostReviews, updateReview, type PublicReview } from "@/app/services/reviews";
+import { createReview, deleteReview, getPostReviews, updateReview, type PublicReview } from "@/app/services/reviews";
 import toast from "react-hot-toast"; 
 import { getFavoriteScope, toggleFavorite, useFavoritesByScope } from "@/app/services/favorites"; 
 
@@ -157,7 +157,7 @@ const getSubmitErrorMessage = (error: unknown) => {
   const message = anyError?.response?.data?.message;
   if (Array.isArray(message)) return message.join(", ");
   if (typeof message === "string" && message.trim()) return message;
-  return "Không thể cập nhật đánh giá. Vui lòng thử lại.";
+  return "Không thể xử lý đánh giá. Vui lòng thử lại.";
 };
 
 const mapPostStatusLabel = (status?: string) => {
@@ -400,8 +400,11 @@ export default function ListingDetailPage() {
   const [editRating, setEditRating] = useState(5);
   const [editComment, setEditComment] = useState("");
   const [editSubmitting, setEditSubmitting] = useState(false);
+  const [deleteSubmittingId, setDeleteSubmittingId] = useState<number | null>(null);
+  const [isEditingMyReview, setIsEditingMyReview] = useState(false);
   const [editError, setEditError] = useState("");
   const [editSuccess, setEditSuccess] = useState("");
+  const reviewFormRef = useRef<HTMLFormElement | null>(null);
 
   const imageCount = listing?.images.length ?? 0;
   const postId = useMemo(() => {
@@ -593,6 +596,7 @@ export default function ListingDetailPage() {
     if (!myReview) {
       setEditRating(5);
       setEditComment("");
+      setIsEditingMyReview(false);
       setEditError("");
       setEditSuccess("");
       return;
@@ -600,6 +604,64 @@ export default function ListingDetailPage() {
     setEditRating(Number.isFinite(myReview.rating) ? myReview.rating : 5);
     setEditComment(myReview.comment ?? "");
   }, [myReview]);
+
+  const refreshReviews = async () => {
+    if (!postId) return;
+
+    const refreshed = await getPostReviews(postId, 20);
+    setReviewSummary({
+      averageRating: Number.isFinite(refreshed.averageRating)
+        ? refreshed.averageRating
+        : 0,
+      totalReviews: Number.isFinite(refreshed.totalReviews)
+        ? refreshed.totalReviews
+        : 0,
+    });
+    setReviews((refreshed.reviews ?? []).map(mapPublicReview));
+  };
+
+  const handleStartEditReview = (review: ListingReview) => {
+    setIsEditingMyReview(true);
+    setEditRating(Number.isFinite(review.rating) ? review.rating : 5);
+    setEditComment(review.comment ?? "");
+    setEditError("");
+    setEditSuccess("");
+    reviewFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const handleCancelEditReview = () => {
+    if (myReview) {
+      setEditRating(Number.isFinite(myReview.rating) ? myReview.rating : 5);
+      setEditComment(myReview.comment ?? "");
+    } else {
+      setEditRating(5);
+      setEditComment("");
+    }
+    setIsEditingMyReview(false);
+    setEditError("");
+    setEditSuccess("");
+  };
+
+  const handleDeleteReview = async (reviewId: number) => {
+    if (!postId) return;
+    if (!window.confirm("Bạn chắc chắn muốn xóa đánh giá này?")) return;
+
+    setDeleteSubmittingId(reviewId);
+    setEditError("");
+    setEditSuccess("");
+
+    try {
+      await deleteReview(reviewId);
+      await refreshReviews();
+      setIsEditingMyReview(false);
+      setEditSuccess("Xóa đánh giá thành công.");
+      toast.success("Xóa đánh giá thành công.");
+    } catch (error) {
+      setEditError(getSubmitErrorMessage(error));
+    } finally {
+      setDeleteSubmittingId(null);
+    }
+  };
 
   const handleSubmitReview = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -635,22 +697,16 @@ export default function ListingDetailPage() {
         });
       }
 
-      const refreshed = await getPostReviews(postId, 20);
-      setReviewSummary({
-        averageRating: Number.isFinite(refreshed.averageRating)
-          ? refreshed.averageRating
-          : 0,
-        totalReviews: Number.isFinite(refreshed.totalReviews)
-          ? refreshed.totalReviews
-          : 0,
-      });
-      setReviews((refreshed.reviews ?? []).map(mapPublicReview));
+      await refreshReviews();
 
-      setEditSuccess(myReview ? "Cập nhật đánh giá thành công." : "Gửi đánh giá thành công.");
+      const successMessage = myReview ? "Cập nhật đánh giá thành công." : "Gửi đánh giá thành công.";
+      setEditSuccess(successMessage);
+      toast.success(successMessage);
       if (!myReview) {
         setEditRating(5);
         setEditComment("");
       }
+      setIsEditingMyReview(false);
     } catch (error) {
       setEditError(getSubmitErrorMessage(error));
     } finally {
@@ -840,23 +896,49 @@ export default function ListingDetailPage() {
                 <div className="rounded-xl border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-600 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">Chưa có đánh giá nào. Hãy là người đầu tiên chia sẻ trải nghiệm.</div>
               ) : (
                 <div className="space-y-3">
-                  {reviews.map((review) => (
-                    <article key={review.id} className="rounded-xl border border-gray-200 bg-white p-4 transition-colors dark:border-gray-700 dark:bg-gray-800">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="relative h-9 w-9 overflow-hidden rounded-full border border-gray-200 dark:border-gray-600">
-                            <Image src={review.userAvatar} alt={review.userName} fill unoptimized className="object-cover" />
+                  {reviews.map((review) => {
+                    const isMyReviewCard = currentUserId !== null && Number(review.userId) === currentUserId;
+
+                    return (
+                      <article key={review.id} className="rounded-xl border border-gray-200 bg-white p-4 transition-colors dark:border-gray-700 dark:bg-gray-800">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="relative h-9 w-9 overflow-hidden rounded-full border border-gray-200 dark:border-gray-600">
+                              <Image src={review.userAvatar} alt={review.userName} fill unoptimized className="object-cover" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">{review.userName}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">{formatReviewDate(review.createdAt)}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-semibold text-gray-900 dark:text-white">{review.userName}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{formatReviewDate(review.createdAt)}</p>
+                          <div className="flex flex-col items-end gap-2">
+                            <ReviewStars rating={review.rating} />
+                            {isMyReviewCard ? (
+                              <div className="flex flex-wrap justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditReview(review)}
+                                  disabled={deleteSubmittingId === review.id}
+                                  className="rounded-full border border-gray-300 px-3 py-1 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                >
+                                  Chỉnh sửa
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDeleteReview(review.id)}
+                                  disabled={deleteSubmittingId === review.id || editSubmitting}
+                                  className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/20"
+                                >
+                                  {deleteSubmittingId === review.id ? "Đang xóa..." : "Xóa"}
+                                </button>
+                              </div>
+                            ) : null}
                           </div>
                         </div>
-                        <ReviewStars rating={review.rating} />
-                      </div>
-                      <p className="mt-3 text-sm leading-6 text-gray-700 dark:text-gray-300">{review.comment}</p>
-                    </article>
-                  ))}
+                        <p className="mt-3 text-sm leading-6 text-gray-700 dark:text-gray-300">{review.comment}</p>
+                      </article>
+                    );
+                  })}
                 </div>
               )}
 
@@ -869,8 +951,12 @@ export default function ListingDetailPage() {
                   <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
                     Bạn cần <Link href="/login" className="font-semibold text-[#d51f35] hover:underline dark:text-red-400">đăng nhập</Link> để viết đánh giá.
                   </div>
+                ) : myReview && !isEditingMyReview ? (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 transition-colors dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                    Bạn đã đánh giá tin này. Dùng nút <span className="font-semibold">Chỉnh sửa</span> hoặc <span className="font-semibold">Xóa</span> trên đánh giá của bạn để thay đổi.
+                  </div>
                 ) : (
-                  <form className="space-y-3" onSubmit={handleSubmitReview}>
+                  <form ref={reviewFormRef} className="space-y-3" onSubmit={handleSubmitReview}>
                     <div>
                       <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{myReview ? "Chỉnh sửa đánh giá của bạn" : "Chọn số sao"}</p>
                       <div className="mt-2 flex flex-wrap gap-2">
@@ -896,7 +982,17 @@ export default function ListingDetailPage() {
                     {editError ? <p className="text-sm font-semibold text-red-500 dark:text-red-400">{editError}</p> : null}
                     {editSuccess ? <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{editSuccess}</p> : null}
 
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                      {myReview ? (
+                        <button
+                          type="button"
+                          onClick={handleCancelEditReview}
+                          disabled={editSubmitting}
+                          className="rounded-full border border-gray-300 px-6 py-2 text-sm font-semibold text-gray-700 transition-all hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                        >
+                          Hủy
+                        </button>
+                      ) : null}
                       <button type="submit" disabled={editSubmitting} className="rounded-full bg-[#d51f35] px-6 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#b01628] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60">
                         {editSubmitting ? "Đang gửi..." : myReview ? "Cập nhật đánh giá" : "Gửi đánh giá"}
                       </button>
