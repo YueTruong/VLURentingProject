@@ -164,6 +164,32 @@ export class ReviewsService {
     return this.serializeReview(saved);
   }
 
+  async delete(reviewId: number, user: any) {
+    if (!Number.isFinite(reviewId) || reviewId <= 0) {
+      throw new BadRequestException('reviewId khong hop le');
+    }
+
+    const userId = Number(user?.userId ?? user?.id);
+    if (!Number.isFinite(userId) || userId <= 0) {
+      throw new ForbiddenException('Khong the xac dinh nguoi dung');
+    }
+
+    const review = await this.reviewRepository.findOne({
+      where: { id: reviewId },
+    });
+
+    if (!review) {
+      throw new NotFoundException('Danh gia khong ton tai');
+    }
+
+    if (review.userId !== userId) {
+      throw new ForbiddenException('Ban khong co quyen xoa danh gia nay');
+    }
+
+    await this.reviewRepository.remove(review);
+    return { success: true, deletedId: reviewId };
+  }
+
 
   async findForAdmin(limit = 50, keyword?: string) {
     const safeLimit = Number.isFinite(limit)

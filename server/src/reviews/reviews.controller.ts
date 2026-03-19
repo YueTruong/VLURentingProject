@@ -89,6 +89,14 @@ export class ReviewsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  @ApiOperation({ summary: 'Xoa danh gia cua chinh toi' })
+  async delete(@Param('id') id: string, @Request() req: any) {
+    const reviewId = Number.parseInt(id, 10);
+    return this.reviewsService.delete(reviewId, req.user);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post()
   @ApiOperation({ summary: 'Tao danh gia moi' })
   async create(@Body() createReviewDto: CreateReviewDto, @Request() req: any) {
