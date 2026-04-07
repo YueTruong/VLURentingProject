@@ -53,6 +53,10 @@ export type ChangePasswordInput = {
   newPassword: string;
 };
 
+export type DeactivateAccountInput = {
+  currentPassword?: string;
+};
+
 export type SubmitIdentityVerificationInput = {
   documentType: IdentityDocumentType;
   frontImageName: string;
@@ -67,6 +71,28 @@ export type SettingsPrivacyPostPreferences = {
   bookedServices: boolean;
 };
 
+export type SettingsNotificationPreferences = {
+  stopAllMarketingEmails: boolean;
+  offers: {
+    hostRecognition: boolean;
+    tripOffers: boolean;
+    priceSuggestions: boolean;
+    hostPerks: boolean;
+    newsAndPrograms: boolean;
+    localRegulations: boolean;
+    inspirationAndDeals: boolean;
+    tripPlanning: boolean;
+  };
+  account: {
+    newDeviceLogin: boolean;
+    securityUpdates: boolean;
+    paymentActivity: boolean;
+    profileReminders: boolean;
+    verificationReminders: boolean;
+    supportTips: boolean;
+  };
+};
+
 export type SettingsPreferences = {
   language: string;
   currency: string;
@@ -75,19 +101,71 @@ export type SettingsPreferences = {
     readReceiptsEnabled: boolean;
     post: SettingsPrivacyPostPreferences;
   };
+  notifications: SettingsNotificationPreferences;
+};
+
+export type SettingsPersonal = {
+  legalName: string;
+  preferredName: string;
+  email: string;
+  phoneNumber: string;
+  residenceAddress: string;
+  mailingAddress: string;
+  emergencyContact: {
+    name: string;
+    relationship: string;
+    email: string;
+    phone: string;
+  };
 };
 
 export type SettingsOverview = {
+  personal: SettingsPersonal;
   preferences: SettingsPreferences;
+  account: {
+    role: string;
+  };
+  identity: IdentityVerificationOverview;
+};
+
+export type UpdateSettingsPersonalInput = {
+  legalName?: string;
+  preferredName?: string;
+  email?: string;
+  phoneNumber?: string;
+  residenceAddress?: string;
+  mailingAddress?: string;
+  emergencyName?: string;
+  emergencyRelationship?: string;
+  emergencyEmail?: string;
+  emergencyPhone?: string;
 };
 
 export type UpdateSettingsPreferencesInput = {
+  language?: string;
+  currency?: string;
+  timezone?: string;
   readReceiptsEnabled?: boolean;
   postPrivacySearchEngine?: boolean;
   postPrivacyHometown?: boolean;
   postPrivacyExpertType?: boolean;
   postPrivacyJoinedTime?: boolean;
   postPrivacyBookedServices?: boolean;
+  stopAllMarketingEmails?: boolean;
+  notifyOfferHostRecognition?: boolean;
+  notifyOfferTripOffers?: boolean;
+  notifyOfferPriceSuggestions?: boolean;
+  notifyOfferHostPerks?: boolean;
+  notifyOfferNewsAndPrograms?: boolean;
+  notifyOfferLocalRegulations?: boolean;
+  notifyOfferInspirationAndDeals?: boolean;
+  notifyOfferTripPlanning?: boolean;
+  notifyAccountNewDeviceLogin?: boolean;
+  notifyAccountSecurityUpdates?: boolean;
+  notifyAccountPaymentActivity?: boolean;
+  notifyAccountProfileReminders?: boolean;
+  notifyAccountVerificationReminders?: boolean;
+  notifyAccountSupportTips?: boolean;
 };
 
 export const VERIFICATION_STORAGE_KEY = "vlu.landlord.verified";
@@ -148,10 +226,34 @@ export async function changePassword(input: ChangePasswordInput, token: string) 
   return res.data;
 }
 
+export async function deactivateAccount(
+  input: DeactivateAccountInput,
+  token: string,
+) {
+  const res = await axios.patch(`${getBackendUrl()}/me/account/deactivate`, input, {
+    headers: createAuthHeaders(token),
+  });
+  return res.data;
+}
+
 export async function getSettingsOverview(token: string): Promise<SettingsOverview> {
   const res = await axios.get<SettingsOverview>(`${getBackendUrl()}/me/settings`, {
     headers: createAuthHeaders(token),
   });
+  return res.data;
+}
+
+export async function updateSettingsPersonal(
+  input: UpdateSettingsPersonalInput,
+  token: string,
+): Promise<SettingsOverview> {
+  const res = await axios.patch<SettingsOverview>(
+    `${getBackendUrl()}/me/settings/personal`,
+    input,
+    {
+      headers: createAuthHeaders(token),
+    },
+  );
   return res.data;
 }
 

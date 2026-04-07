@@ -12,16 +12,17 @@ import { getUnreadNotificationCount } from "@/app/services/notifications";
 function TopHeader() {
   const { data: session } = useSession();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isCompact, setIsCompact] = useState(false);
 
   // Nhờ next-auth.d.ts, TypeScript đã tự hiểu session.user có role
   const userRole = session?.user?.role?.toLowerCase();
   
   // Logic phân quyền
-  const isLandlord = userRole === "landlord";
-  const canUseChatAndNotif = userRole === "student" || userRole === "landlord";
+  const canPostListing = userRole === "landlord" || userRole === "admin";
+  const canUseChatAndNotif = userRole === "student" || userRole === "landlord" || userRole === "admin";
 
   useEffect(() => {
-    // Nếu không có token HOẶC là admin (không có quyền dùng thông báo) thì bỏ qua
+    // Nếu không có token hoặc role không dùng chat/thông báo thì bỏ qua
     if (!session?.user?.accessToken || !canUseChatAndNotif) return;
 
     const fetchUnread = async () => {
@@ -39,8 +40,21 @@ function TopHeader() {
     return () => clearInterval(interval);
   }, [session, canUseChatAndNotif]);
 
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsCompact(window.scrollY > 24);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
   return (
-    <header className="relative z-50 w-full border-b border-(--surface-navy-border) text-white shadow-lg">
+    <header className="sticky top-0 z-50 w-full border-b border-(--surface-navy-border) text-white shadow-lg">
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -49,7 +63,11 @@ function TopHeader() {
         }}
       />
 
-      <div className="relative flex h-[100px] w-full items-center justify-between px-6 md:px-10 2xl:px-16">
+      <div
+        className={`relative flex w-full items-center justify-between px-6 transition-all duration-300 md:px-10 2xl:px-16 ${
+          isCompact ? "h-[76px]" : "h-[100px]"
+        }`}
+      >
         {/* LOGO */}
         <Link href="/" className="z-10 shrink-0 transition-transform duration-300 hover:scale-105">
           <Image
@@ -57,18 +75,28 @@ function TopHeader() {
             alt="VLU Renting"
             width={160}
             height={64}
-            className="h-[50px] w-auto object-contain sm:h-[60px] md:h-[70px]"
+            className={`w-auto object-contain transition-all duration-300 ${
+              isCompact ? "h-[42px] sm:h-[48px] md:h-[54px]" : "h-[50px] sm:h-[60px] md:h-[70px]"
+            }`}
             priority
           />
         </Link>
 
         {/* TITLE */}
         <div className="pointer-events-none absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 text-center xl:block">
-          <h1 className="whitespace-nowrap text-[36px] font-extrabold leading-none tracking-tight drop-shadow-lg 2xl:text-[42px]">
+          <h1
+            className={`whitespace-nowrap font-extrabold leading-none tracking-tight drop-shadow-lg transition-all duration-300 ${
+              isCompact ? "text-[30px] 2xl:text-[34px]" : "text-[36px] 2xl:text-[42px]"
+            }`}
+          >
             <span className="text-(--brand-accent)">VLU</span>
             <span className="text-white">RENTING</span>
           </h1>
-          <p className="mt-2 whitespace-nowrap text-[12px] font-medium tracking-wide text-gray-300 opacity-90 2xl:text-[14px]">
+          <p
+            className={`whitespace-nowrap font-medium tracking-wide text-gray-300 opacity-90 transition-all duration-300 ${
+              isCompact ? "mt-1 text-[11px] 2xl:text-[12px]" : "mt-2 text-[12px] 2xl:text-[14px]"
+            }`}
+          >
             Trang web giúp sinh viên Văn Lang tìm kiếm nhà trọ phù hợp
           </p>
         </div>
@@ -81,8 +109,8 @@ function TopHeader() {
             iconClassName="h-5 w-5"
           />
 
-          {/* CHỈ HIỆN ĐĂNG TIN NẾU LÀ LANDLORD */}
-          {isLandlord && (
+          {/* Hiện đăng tin cho chủ trọ và admin */}
+          {canPostListing && (
             <Link
               href="/post"
               className="group flex h-10 w-10 items-center justify-center gap-2 rounded-full bg-(--brand-accent) text-sm font-bold text-white shadow-md shadow-red-900/20 transition-all duration-300 hover:-translate-y-0.5 hover:bg-(--brand-accent-strong) hover:shadow-lg active:scale-95 md:w-auto md:px-5"
@@ -93,7 +121,7 @@ function TopHeader() {
             </Link>
           )}
 
-          {/* CHỈ HIỆN CHAT & THÔNG BÁO CHO STUDENT VÀ LANDLORD */}
+          {/* Hiện chat và thông báo cho các role được phép */}
           {canUseChatAndNotif && (
             <>
               <Link
@@ -149,9 +177,11 @@ function SearchBar() {
 
 export default function Header() {
   return (
-    <div className="flex w-full flex-col shadow-2xl">
+    <>
       <TopHeader />
-      <SearchBar />
-    </div>
+      <div className="flex w-full flex-col shadow-2xl">
+        <SearchBar />
+      </div>
+    </>
   );
 }

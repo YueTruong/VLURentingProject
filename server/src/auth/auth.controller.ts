@@ -25,6 +25,7 @@ import { LinkProviderDto } from './dto/link-provider.dto';
 import { UpdateSettingsPersonalDto } from './dto/update-settings-personal.dto';
 import { UpdateSettingsPreferencesDto } from './dto/update-settings-preferences.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 type AuthenticatedRequest = Request & {
   user?: {
@@ -100,6 +101,18 @@ export class AuthController {
   async getProfile(@Req() req: AuthenticatedRequest) {
     const userId = req.user?.userId;
     return this.authService.getProfile(userId);
+  }
+
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update current account profile' })
+  async updateProfile(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    const userId = req.user?.userId;
+    return this.authService.updateProfile(userId, dto);
   }
 
   @Get('public-profile/:userId')

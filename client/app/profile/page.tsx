@@ -9,7 +9,7 @@ import UserPageShell from "@/app/_shared/layout/UserPageShell";
 import { getMyPosts, type Post } from "@/app/services/posts"; 
 import { getFavoriteScope, useFavoritesByScope, toggleFavorite } from "@/app/services/favorites"; 
 import toast from "react-hot-toast";
-import { getMyProfile, getPublicProfile, updateMyProfile, type PublicProfile } from "@/app/services/auth";
+import { getMyProfile, getPublicProfile, updateMyProfile, type MyProfile, type PublicProfile } from "@/app/services/auth";
 
 type Listing = {
   id: number;
@@ -245,6 +245,7 @@ function ProfileContent() {
   const [listingSearch, setListingSearch] = useState("");
   const [profilePhone, setProfilePhone] = useState("");
   const [profileAddress, setProfileAddress] = useState("");
+  const [myProfile, setMyProfile] = useState<MyProfile | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [chatPreviewProfile, setChatPreviewProfile] = useState<ChatProfilePreview | null>(null);
   const [chatPreviewResolved, setChatPreviewResolved] = useState(false);
@@ -254,7 +255,7 @@ function ProfileContent() {
   const favoriteScope = getFavoriteScope(session?.user?.id);
   const favorites = useFavoritesByScope(favoriteScope); 
 
-  const publicProfileId = useMemo(() => {
+  const sharedProfileId = useMemo(() => {
     const raw = searchParams.get("userId");
     if (!raw) return null;
     const parsed = Number(raw);
@@ -265,9 +266,11 @@ function ProfileContent() {
     const raw = searchParams.get("chatUserId");
     if (!raw) return null;
     const parsed = Number(raw);
-    return Number.isFinite(parsed) ? parsed : null;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
   }, [searchParams]);
 
+  const publicProfileId = sharedProfileId ?? chatProfileId;
+  const isProfileFromChat = sharedProfileId === null && chatProfileId !== null;
   const isSharedProfileMode = publicProfileId !== null;
   const isChatPreviewMode = !isSharedProfileMode && chatProfileId !== null;
 
@@ -287,24 +290,27 @@ function ProfileContent() {
     return () => window.clearTimeout(timer);
   }, [chatProfileId, isChatPreviewMode]);
 
-  const roleKey = session?.user?.role?.toString().toLowerCase() || "student";
+  const roleKey = getRoleKey(myProfile?.role || session?.user?.role?.toString());
   const isStudent = roleKey === "student";
   const isLandlord = roleKey === "landlord";
   const isAdmin = roleKey === "admin";
   const roleBadgeClassName = getRoleBadgeClassName(roleKey);
+  const profileEmail = myProfile?.email || session?.user?.email || "";
 
   const displayName = useMemo(() => {
+    const profileName = myProfile?.full_name?.trim();
     const rawFullName = (session?.user as { full_name?: string })?.full_name;
     const sessionName = session?.user?.name;
-    const email = session?.user?.email || "";
+    const email = profileEmail;
 
+    if (profileName) return profileName;
     if (rawFullName && rawFullName.trim() !== "") return rawFullName;
     if (sessionName && !sessionName.includes("@")) return sessionName;
     if (email) return email.split("@")[0]; 
     return "Người dùng";
-  }, [session]);
+  }, [myProfile?.full_name, profileEmail, session]);
 
-  const avatarUrl = session?.user?.image || "/images/Admins.png";
+  const avatarUrl = myProfile?.avatar_url?.trim() || session?.user?.image || "/images/Admins.png";
 
   useEffect(() => {
     if (!isSharedProfileMode || publicProfileId === null) {
@@ -340,17 +346,24 @@ function ProfileContent() {
 
   useEffect(() => {
     const token = session?.user?.accessToken;
-    if (!token || status !== "authenticated") return;
+    if (!token || status !== "authenticated") {
+      setMyProfile(null);
+      setProfilePhone("");
+      setProfileAddress("");
+      return;
+    }
 
     let active = true;
     getMyProfile(token)
       .then((profile) => {
         if (!active) return;
+        setMyProfile(profile);
         setProfilePhone(profile.phone_number || "");
         setProfileAddress(profile.address || "");
       })
       .catch(() => {
         if (!active) return;
+        setMyProfile(null);
       });
 
     return () => {
@@ -395,10 +408,13 @@ function ProfileContent() {
 
     setSavingProfile(true);
     try {
-      await updateMyProfile(token, {
+      const updatedProfile = await updateMyProfile(token, {
         phoneNumber: profilePhone,
         address: profileAddress,
       });
+      setMyProfile(updatedProfile);
+      setProfilePhone(updatedProfile.phone_number || "");
+      setProfileAddress(updatedProfile.address || "");
       toast.success("Cập nhật hồ sơ thành công");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Không thể cập nhật hồ sơ";
@@ -512,9 +528,9 @@ function ProfileContent() {
   }, [activeListings, favorites.length, isLandlord]);
 
   const verifiedItems = [
-    session?.user?.email ? "Email" : null,
+    profileEmail ? "Email" : null,
     displayName !== "Người dùng" ? "Họ tên" : null,
-    session?.user?.image ? "Ảnh đại diện" : null,
+    myProfile?.avatar_url?.trim() || session?.user?.image ? "Ảnh đại diện" : null,
   ].filter(Boolean) as string[];
 
   const listingLocation = fetchedListings.length > 0 ? fetchedListings[0].location : "Chưa cập nhật khu vực";
@@ -557,6 +573,7 @@ function ProfileContent() {
       [listing.title, listing.location, listing.category].join(" ").toLowerCase().includes(keyword),
     );
   }, [listingSearch, publicListings]);
+  const hasPublicListings = publicListings.length > 0;
 
   const publicRoleKey = getRoleKey(publicProfile?.role);
   const publicRoleLabel = getRoleLabel(publicProfile?.role);
@@ -572,17 +589,17 @@ function ProfileContent() {
   }, [publicProfile?.joinedAt]);
   const publicProfileBio = useMemo(() => {
     if (!publicProfile) return "";
-    if (publicRoleKey === "landlord") {
-      if (publicListings.length === 0) {
-        return "Hiện chưa có tin cho thuê được duyệt trên hệ thống.";
-      }
+    if (hasPublicListings) {
       return `Hiện đang có ${publicListings.length} tin cho thuê đã được duyệt và hiển thị công khai.`;
+    }
+    if (publicRoleKey === "landlord") {
+      return "Hiện chưa có tin cho thuê được duyệt trên hệ thống.";
     }
     if (publicRoleKey === "admin") {
       return "Hồ sơ công khai của tài khoản quản trị viên trên VLU Renting.";
     }
     return "Hồ sơ công khai của người dùng trên VLU Renting.";
-  }, [publicListings.length, publicProfile, publicRoleKey]);
+  }, [hasPublicListings, publicListings.length, publicProfile, publicRoleKey]);
 
   const handleOpenPublicChat = () => {
     if (!publicProfile?.userId) return;
@@ -606,7 +623,7 @@ function ProfileContent() {
     return (
       <UserPageShell
         title="Hồ sơ người dùng"
-        description="Xem hồ sơ công khai được chia sẻ từ liên kết."
+        description={isProfileFromChat ? "Xem hồ sơ và bài đăng của người bạn đang trò chuyện." : "Xem hồ sơ công khai được chia sẻ từ liên kết."}
       >
         <div className="space-y-6 lg:space-y-8">
           <section className="relative overflow-hidden rounded-3xl border border-(--theme-border) bg-(--theme-surface) p-6 shadow-sm transition-colors dark:border-gray-800 dark:bg-gray-900">
@@ -630,7 +647,7 @@ function ProfileContent() {
                       </span>
                     </div>
                     <div className="mt-1 text-sm text-(--theme-text-subtle) dark:text-(--theme-text-subtle)">
-                      Hồ sơ công khai qua liên kết chia sẻ
+                      {isProfileFromChat ? "Hồ sơ công khai từ cuộc trò chuyện" : "Hồ sơ công khai qua liên kết chia sẻ"}
                     </div>
                     {publicProfile.address ? (
                       <div className="mt-2 text-sm text-(--theme-text-muted) dark:text-(--theme-text-subtle)">
@@ -641,6 +658,16 @@ function ProfileContent() {
                 </div>
 
                 <div className="flex flex-wrap gap-3">
+                  {isProfileFromChat ? (
+                    <button
+                      type="button"
+                      onClick={() => router.push("/chat")}
+                      className="inline-flex items-center gap-2 rounded-xl border border-(--theme-border) bg-(--theme-surface) px-4 py-2 text-sm font-semibold text-(--theme-text-muted) shadow-sm transition-colors hover:bg-(--theme-surface-muted) dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      <Icon name="chat" />
+                      Quay lại chat
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => copyProfileLink(publicProfile.userId)}
@@ -690,7 +717,7 @@ function ProfileContent() {
                       <div>
                         <span className="font-semibold text-(--theme-text) dark:text-white">Khu vực:</span> {publicProfile.address || "Chưa cập nhật"}
                       </div>
-                      {publicRoleKey === "landlord" ? (
+                      {publicRoleKey === "landlord" || hasPublicListings ? (
                         <div>
                           <span className="font-semibold text-(--theme-text) dark:text-white">Tin đang hiển thị:</span> {publicListings.length}
                         </div>
@@ -705,18 +732,18 @@ function ProfileContent() {
                   <div className="flex flex-col gap-4 border-b border-(--theme-border) pb-5 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h2 className="text-lg font-bold text-(--theme-text) dark:text-white">
-                        {publicRoleKey === "landlord" ? "Danh sách phòng đang cho thuê" : "Thông tin công khai"}
+                        {hasPublicListings || publicRoleKey === "landlord" ? "Danh sách phòng đang cho thuê" : "Thông tin công khai"}
                       </h2>
                       <p className="mt-1 text-sm text-(--theme-text-subtle) dark:text-(--theme-text-subtle)">
-                        {publicRoleKey === "landlord"
-                          ? publicListings.length === 0
+                        {hasPublicListings
+                          ? `Đang hiển thị ${publicListings.length} tin nổi bật.`
+                          : publicRoleKey === "landlord"
                             ? "Người dùng này chưa có tin cho thuê công khai."
-                            : `Đang hiển thị ${publicListings.length} tin nổi bật.`
-                          : "Người dùng này hiện không có danh sách phòng công khai."}
+                            : "Người dùng này hiện không có danh sách phòng công khai."}
                       </p>
                     </div>
 
-                    {publicRoleKey === "landlord" && publicListings.length > 0 ? (
+                    {hasPublicListings ? (
                       <div className="relative w-full sm:w-72">
                         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-(--theme-text-subtle)">
                           <Icon name="search" />
@@ -733,12 +760,7 @@ function ProfileContent() {
                   </div>
 
                   <div className="mt-5">
-                    {publicRoleKey !== "landlord" ? (
-                      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-(--theme-border) py-16 text-(--theme-text-subtle) dark:border-gray-700 dark:text-(--theme-text-subtle)">
-                        <span className="mb-3 text-4xl opacity-40">👤</span>
-                        <p>Người dùng này chưa chia sẻ danh sách phòng công khai.</p>
-                      </div>
-                    ) : publicListings.length === 0 ? (
+                    {publicListings.length === 0 ? (
                       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-(--theme-border) py-16 text-(--theme-text-subtle) dark:border-gray-700 dark:text-(--theme-text-subtle)">
                         <span className="mb-3 text-4xl opacity-40">📂</span>
                         <p>Chưa có tin cho thuê công khai.</p>
@@ -913,13 +935,13 @@ function ProfileContent() {
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-5">
               <div className="relative h-20 w-20 overflow-hidden rounded-full border-4 border-gray-50 shadow-sm dark:border-gray-800">
-                <Image src={avatarUrl} alt={displayName} fill className="object-cover" />
+                <Image src={avatarUrl} alt={displayName} fill className="object-cover" unoptimized />
               </div>
               <div>
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-white capitalize">{displayName}</h1>
                   <span className={`rounded-full px-3 py-1 text-xs font-semibold ${roleBadgeClassName}`}>
-                    {roleKey === "landlord" ? "Chủ trọ" : roleKey === "admin" ? "Admin" : "Sinh viên"}
+                    {getRoleLabel(roleKey)}
                   </span>
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-sm text-(--theme-text-subtle) dark:text-(--theme-text-subtle)">

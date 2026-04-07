@@ -173,6 +173,7 @@ export default function ListingsPage() {
   const [status, setStatus] = useState<ListingStatusFilter>("all");
   const [posts, setPosts] = useState<Post[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<LoadErrorType>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -250,17 +251,23 @@ export default function ListingsPage() {
   }, [qDeferred, rows, status]);
 
   useEffect(() => {
-    const nextSelectedId =
-      filteredRows.length === 0
-        ? null
-        : filteredRows.some((row) => row.id === selectedId)
-          ? selectedId
-          : filteredRows[0].id;
-
-    if (nextSelectedId !== selectedId) {
-      setSelectedId(nextSelectedId);
+    if (filteredRows.length === 0) {
+      if (selectedId !== null) {
+        setSelectedId(null);
+      }
+      if (isPreviewOpen) {
+        setIsPreviewOpen(false);
+      }
+      return;
     }
-  }, [filteredRows, selectedId]);
+
+    if (selectedId !== null && !filteredRows.some((row) => row.id === selectedId)) {
+      setSelectedId(null);
+      if (isPreviewOpen) {
+        setIsPreviewOpen(false);
+      }
+    }
+  }, [filteredRows, isPreviewOpen, selectedId]);
 
   useEffect(() => {
     setLightboxIndex((current) => (current === null ? current : null));
@@ -322,9 +329,19 @@ export default function ListingsPage() {
     setStatus(value);
   }, []);
 
-  const handleRowSelect = useCallback((row: AdminPostRow) => {
-    setSelectedId((current) => (current === row.id ? current : row.id));
+  const openPreview = useCallback((id: number) => {
+    setSelectedId(id);
+    setIsPreviewOpen(true);
   }, []);
+
+  const closePreview = useCallback(() => {
+    setIsPreviewOpen(false);
+    setLightboxIndex(null);
+  }, []);
+
+  const handleRowSelect = useCallback((row: AdminPostRow) => {
+    openPreview(row.id);
+  }, [openPreview]);
 
   const openLightbox = useCallback((index: number) => {
     setLightboxIndex(index);
@@ -350,10 +367,38 @@ export default function ListingsPage() {
     });
   }, [imageCount]);
 
+  const hasOverlayOpen = isPreviewOpen || rejectTargetId !== null || activeImageSrc !== null;
+
+  useEffect(() => {
+    if (!hasOverlayOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [hasOverlayOpen]);
+
+  useEffect(() => {
+    if (!isPreviewOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (activeImageSrc || rejectTargetId !== null) return;
+
+      event.preventDefault();
+      closePreview();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [activeImageSrc, closePreview, isPreviewOpen, rejectTargetId]);
+
   useEffect(() => {
     if (!activeImageSrc) return;
-
-    document.body.style.overflow = "hidden";
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -375,7 +420,6 @@ export default function ListingsPage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
     };
   }, [activeImageSrc, closeLightbox, showNextImage, showPrevImage]);
 
@@ -442,6 +486,11 @@ export default function ListingsPage() {
       try {
         await deletePost(id, accessToken);
         setPosts((prev) => prev.filter((post) => post.id !== id));
+        if (selectedId === id) {
+          setSelectedId(null);
+          setIsPreviewOpen(false);
+          setLightboxIndex(null);
+        }
         if (rejectTargetId === id) {
           closeRejectDialog();
         }
@@ -454,7 +503,7 @@ export default function ListingsPage() {
         setActionKey(null);
       }
     },
-    [accessToken, closeRejectDialog, rejectTargetId],
+    [accessToken, closeRejectDialog, rejectTargetId, selectedId],
   );
 
   const appendRejectPreset = useCallback((preset: string) => {
@@ -522,62 +571,8 @@ export default function ListingsPage() {
         width: "10%",
         sortValue: (row) => row.createdAtValue,
       },
-      {
-        key: "actions",
-        header: "Thao tác",
-        align: "right",
-        width: "10%",
-        render: (row) => (
-          <div className="flex flex-col items-stretch gap-2">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                void handleStatusChange(row.id, "approved");
-              }}
-              disabled={row.status === "approved" || actionKey === `${row.id}:approved`}
-              className={`${actionButtonBase} border-emerald-200 text-emerald-700 hover:bg-emerald-50`}
-            >
-              {actionKey === `${row.id}:approved` ? "Đang duyệt..." : "Duyệt"}
-            </button>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                openRejectDialog(row.id);
-              }}
-              disabled={actionKey === `${row.id}:rejected`}
-              className={`${actionButtonBase} border-rose-200 text-rose-700 hover:bg-rose-50`}
-            >
-              {actionKey === `${row.id}:rejected` ? "Đang từ chối..." : "Từ chối"}
-            </button>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                void handleStatusChange(row.id, "hidden");
-              }}
-              disabled={row.status === "hidden" || actionKey === `${row.id}:hidden`}
-              className={`${actionButtonBase} border-gray-200 text-gray-700 hover:bg-gray-50`}
-            >
-              {actionKey === `${row.id}:hidden` ? "Đang cập nhật..." : "Cân nhắc"}
-            </button>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                void handleDeletePost(row.id);
-              }}
-              disabled={actionKey === `${row.id}:delete`}
-              className={`${actionButtonBase} border-red-200 text-red-700 hover:bg-red-50`}
-            >
-              {actionKey === `${row.id}:delete` ? "Đang xóa..." : "Xóa"}
-            </button>
-          </div>
-        ),
-      },
     ],
-    [actionKey, handleDeletePost, handleStatusChange, openRejectDialog],
+    [],
   );
 
   return (
@@ -644,13 +639,37 @@ export default function ListingsPage() {
             row.id === selectedId ? "bg-gray-50/80" : ""
           }
         />
+        <div className="border-t border-gray-100 px-4 py-3 text-xs text-gray-500">
+          Bấm vào một dòng để mở popup xem nhanh tin đăng.
+        </div>
       </SectionCard>
 
-      <SectionCard
-        title="Chi tiết bài đăng"
-        subtitle={selectedPost ? `#${selectedPost.id}` : "Chọn một bài đăng để xem chi tiết"}
-        contentClassName="space-y-6"
-      >
+      {isPreviewOpen ? (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4"
+          onClick={closePreview}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="w-full max-w-7xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <SectionCard
+              title="Chi tiết bài đăng"
+              subtitle={selectedPost ? `#${selectedPost.id}` : "Chọn một bài đăng để xem chi tiết"}
+              right={
+                <button
+                  type="button"
+                  onClick={closePreview}
+                  className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Đóng
+                </button>
+              }
+              className="flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden border-gray-200 bg-[#f7f7f6] shadow-2xl"
+              contentClassName="flex-1 space-y-6 overflow-y-auto"
+            >
         {!selectedPost ? (
           <div className="text-sm text-gray-500">Chưa có bài đăng nào được chọn.</div>
         ) : (
@@ -877,7 +896,10 @@ export default function ListingsPage() {
             </aside>
           </div>
         )}
-      </SectionCard>
+            </SectionCard>
+          </div>
+        </div>
+      ) : null}
 
       {rejectTargetId !== null ? (
         <div

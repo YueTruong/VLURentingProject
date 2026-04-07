@@ -1,6 +1,7 @@
 "use client";
 
-import { type ChangeEvent, useDeferredValue, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
+import { type ChangeEvent, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import SectionCard from "../../components/SectionCard";
 import FiltersBar from "../../components/FiltersBar";
 import LineTrend from "../../components/charts/LineTrend";
@@ -8,32 +9,20 @@ import BarKpi from "../../components/charts/BarKpi";
 import DataTable, { type Column } from "../../components/DataTable";
 import StatusBadge, { type BadgeTone } from "../../components/StatusBadge";
 import {
-  trendUsers,
-  trendListings,
-  barSources,
-  users,
-  listings,
-  type UserRow,
-  type ListingRow,
-} from "../../components/mock/data";
+  getAdminDashboardOverview,
+  type AdminDashboardOverview,
+  type DashboardListingRow,
+  type DashboardListingStatus,
+  type DashboardUserRow,
+  type DashboardUserStatus,
+} from "@/app/services/admin-dashboard";
 
-type UserStatus = "ACTIVE" | "PENDING" | "BLOCKED";
-type ListingStatus = "APPROVED" | "PENDING" | "REJECTED";
-type UserStatusFilter = "all" | UserStatus;
-type ListingStatusFilter = "all" | ListingStatus;
+type LoadErrorType = "auth_failed" | "forbidden" | "load_failed" | null;
+type UserStatusFilter = "all" | DashboardUserStatus;
+type ListingStatusFilter = "all" | DashboardListingStatus;
 
-type UserFilterable = {
-  username: string;
-  email: string;
-  status: UserStatus;
-};
-
-type ListingFilterable = {
-  title: string;
-  owner: string;
-  city: string;
-  status: ListingStatus;
-};
+type UserFilterable = Pick<DashboardUserRow, "username" | "email" | "status">;
+type ListingFilterable = Pick<DashboardListingRow, "title" | "owner" | "city" | "status">;
 
 const USER_STATUS_OPTIONS = [
   { value: "all", label: "All users" },
@@ -47,14 +36,18 @@ const LISTING_STATUS_OPTIONS = [
   { value: "APPROVED", label: "Approved" },
   { value: "PENDING", label: "Pending" },
   { value: "REJECTED", label: "Rejected" },
+  { value: "HIDDEN", label: "Hidden" },
+  { value: "RENTED", label: "Rented" },
 ] satisfies { value: ListingStatusFilter; label: string }[];
 
-const STATUS_TONE_MAP: Record<UserStatus | ListingStatus, BadgeTone> = {
+const STATUS_TONE_MAP: Record<DashboardUserStatus | DashboardListingStatus, BadgeTone> = {
   ACTIVE: "green",
   APPROVED: "green",
   PENDING: "yellow",
   BLOCKED: "red",
   REJECTED: "red",
+  HIDDEN: "gray",
+  RENTED: "blue",
 };
 
 function isUserStatusFilter(value: string): value is UserStatusFilter {
@@ -62,7 +55,14 @@ function isUserStatusFilter(value: string): value is UserStatusFilter {
 }
 
 function isListingStatusFilter(value: string): value is ListingStatusFilter {
-  return value === "all" || value === "APPROVED" || value === "PENDING" || value === "REJECTED";
+  return (
+    value === "all" ||
+    value === "APPROVED" ||
+    value === "PENDING" ||
+    value === "REJECTED" ||
+    value === "HIDDEN" ||
+    value === "RENTED"
+  );
 }
 
 function includesQ(value: string, q: string) {
@@ -86,8 +86,14 @@ function exportJson(filename: string, payload: unknown) {
   URL.revokeObjectURL(url);
 }
 
-function mapStatusToTone(status: UserStatus | ListingStatus): BadgeTone {
+function mapStatusToTone(status: DashboardUserStatus | DashboardListingStatus): BadgeTone {
   return STATUS_TONE_MAP[status];
+}
+
+function formatDate(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("vi-VN");
 }
 
 function filterUsers<T extends UserFilterable>(rows: readonly T[], q: string, status: UserStatusFilter) {
@@ -117,50 +123,101 @@ function filterListings<T extends ListingFilterable>(rows: readonly T[], q: stri
   });
 }
 
-function useUserFilters<T extends UserFilterable>({
-  rows,
-  q,
-  status,
+function EmptyPanel({
+  message,
+  tone = "neutral",
 }: {
-  rows: readonly T[];
-  q: string;
-  status: UserStatusFilter;
+  message: string;
+  tone?: "neutral" | "danger";
 }) {
-  return useMemo(() => filterUsers(rows, q, status), [q, rows, status]);
-}
+  const className =
+    tone === "danger"
+      ? "flex h-[260px] items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 px-4 text-sm text-rose-700"
+      : "flex h-[260px] items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 text-sm text-gray-500";
 
-function useListingFilters<T extends ListingFilterable>({
-  rows,
-  q,
-  status,
-}: {
-  rows: readonly T[];
-  q: string;
-  status: ListingStatusFilter;
-}) {
-  return useMemo(() => filterListings(rows, q, status), [q, rows, status]);
+  return <div className={className}>{message}</div>;
 }
 
 export default function AnalyticsPage() {
   const [q, setQ] = useState("");
   const [userStatus, setUserStatus] = useState<UserStatusFilter>("all");
   const [listingStatus, setListingStatus] = useState<ListingStatusFilter>("all");
+  const [overview, setOverview] = useState<AdminDashboardOverview | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<LoadErrorType>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const { data: session, status: sessionStatus } = useSession();
+  const accessToken = session?.user?.accessToken;
+  const role = session?.user?.role;
+  const normalizedRole = typeof role === "string" ? role.toLowerCase() : undefined;
+
+  const authError = useMemo<LoadErrorType>(() => {
+    if (sessionStatus === "loading") return null;
+    if (!accessToken) return "auth_failed";
+    if (normalizedRole && normalizedRole !== "admin") return "forbidden";
+    return null;
+  }, [accessToken, normalizedRole, sessionStatus]);
+
+  const fetchOverview = useCallback(async () => {
+    if (sessionStatus === "loading") return;
+    if (!accessToken) {
+      setOverview(null);
+      setLoadError("auth_failed");
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const data = await getAdminDashboardOverview(accessToken);
+      setOverview(data);
+    } catch (error) {
+      const statusCode =
+        typeof error === "object" && error !== null && "response" in error
+          ? (error as { response?: { status?: number } }).response?.status
+          : undefined;
+
+      if (statusCode === 401) {
+        setLoadError("auth_failed");
+      } else if (statusCode === 403) {
+        setLoadError("forbidden");
+      } else {
+        console.error("Failed to load analytics overview:", error);
+        setLoadError("load_failed");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, sessionStatus]);
+
+  useEffect(() => {
+    if (authError) {
+      setOverview(null);
+      setIsLoading(false);
+      return;
+    }
+
+    void fetchOverview();
+  }, [authError, fetchOverview, refreshKey]);
 
   const userStatusOptions = useMemo(() => USER_STATUS_OPTIONS, []);
   const listingStatusOptions = useMemo(() => LISTING_STATUS_OPTIONS, []);
   const deferredQ = useDeferredValue(q);
-  const filteredUsers = useUserFilters({
-    rows: users,
-    q: deferredQ,
-    status: userStatus,
-  });
-  const filteredListings = useListingFilters({
-    rows: listings,
-    q: deferredQ,
-    status: listingStatus,
-  });
+  const users = useMemo(() => overview?.users ?? [], [overview]);
+  const listings = useMemo(() => overview?.listings ?? [], [overview]);
+  const filteredUsers = useMemo(
+    () => filterUsers(users, deferredQ, userStatus),
+    [deferredQ, userStatus, users],
+  );
+  const filteredListings = useMemo(
+    () => filterListings(listings, deferredQ, listingStatus),
+    [deferredQ, listingStatus, listings],
+  );
 
-  const userCols = useMemo<Column<UserRow>[]>(
+  const userCols = useMemo<Column<DashboardUserRow>[]>(
     () => [
       { key: "username", header: "Username", sortable: true },
       { key: "email", header: "Email" },
@@ -171,12 +228,18 @@ export default function AnalyticsPage() {
         render: (row) => <StatusBadge label={row.status} tone={mapStatusToTone(row.status)} />,
         sortValue: (row) => row.status,
       },
-      { key: "createdAt", header: "Created", sortable: true },
+      {
+        key: "createdAt",
+        header: "Created",
+        sortable: true,
+        render: (row) => formatDate(row.createdAt),
+        sortValue: (row) => new Date(row.createdAt).getTime(),
+      },
     ],
     [],
   );
 
-  const listingCols = useMemo<Column<ListingRow>[]>(
+  const listingCols = useMemo<Column<DashboardListingRow>[]>(
     () => [
       { key: "title", header: "Title" },
       { key: "owner", header: "Owner", sortable: true },
@@ -198,6 +261,13 @@ export default function AnalyticsPage() {
         sortable: true,
         render: (row) => <StatusBadge label={row.status} tone={mapStatusToTone(row.status)} />,
         sortValue: (row) => row.status,
+      },
+      {
+        key: "createdAt",
+        header: "Created",
+        sortable: true,
+        render: (row) => formatDate(row.createdAt),
+        sortValue: (row) => new Date(row.createdAt).getTime(),
       },
     ],
     [],
@@ -239,26 +309,50 @@ export default function AnalyticsPage() {
       data: {
         filteredUsers: exportedUsers,
         filteredListings: exportedListings,
-        trendUsers,
-        trendListings,
-        barSources,
+        trendUsers: overview?.trendSeries.users["7d"] ?? [],
+        trendListings: overview?.trendSeries.listings["7d"] ?? [],
+        userRoleBreakdown: overview?.userRoleBreakdown ?? [],
+        listingStatusBreakdown: overview?.listingStatusBreakdown ?? [],
       },
     });
   }
+
+  const resolvedLoadError = authError ?? loadError;
+  const usersEmptyText = isLoading
+    ? "Loading users..."
+    : resolvedLoadError
+      ? "Users are unavailable."
+      : "No users found.";
+  const listingsEmptyText = isLoading
+    ? "Loading listings..."
+    : resolvedLoadError
+      ? "Listings are unavailable."
+      : "No listings found.";
 
   return (
     <div className="space-y-6">
       <SectionCard
         title="Analytics Dashboard"
-        subtitle="Track trends, sources, and operational health"
+        subtitle="Live trends and operational health from current website data"
         right={
-          <button
-            type="button"
-            onClick={handleExportReport}
-            className="rounded-xl bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800"
-          >
-            Export report
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setRefreshKey((prev) => prev + 1)}
+              disabled={isLoading || sessionStatus === "loading"}
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Reload
+            </button>
+            <button
+              type="button"
+              onClick={handleExportReport}
+              disabled={!overview}
+              className="rounded-xl bg-gray-900 px-3 py-2 text-sm text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Export report
+            </button>
+          </div>
         }
       >
         <FiltersBar
@@ -267,6 +361,7 @@ export default function AnalyticsPage() {
           status={userStatus}
           onStatus={handleUserStatusChange}
           statusOptions={userStatusOptions}
+          placeholder="Search users, listings, or locations"
           right={
             <div className="flex w-full items-center gap-2 md:w-60">
               <label className="text-sm text-gray-600" htmlFor="listing-status-filter">
@@ -287,33 +382,85 @@ export default function AnalyticsPage() {
             </div>
           }
         />
+        {resolvedLoadError === "auth_failed" ? (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để xem analytics.
+          </div>
+        ) : null}
+        {resolvedLoadError === "forbidden" ? (
+          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            Tài khoản hiện tại không có quyền truy cập trang analytics.
+          </div>
+        ) : null}
+        {resolvedLoadError === "load_failed" ? (
+          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            Không thể tải dữ liệu analytics. Dùng Reload để thử lại.
+          </div>
+        ) : null}
       </SectionCard>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <SectionCard title="User Trends" subtitle="Weekly new users">
-          <LineTrend data={trendUsers} />
+        <SectionCard title="User Trends" subtitle="New users in the last 7 days">
+          {resolvedLoadError ? (
+            <EmptyPanel message="Không thể tải biểu đồ người dùng." tone="danger" />
+          ) : isLoading && !overview ? (
+            <EmptyPanel message="Đang tải biểu đồ người dùng..." />
+          ) : (
+            <LineTrend data={overview?.trendSeries.users["7d"] ?? []} />
+          )}
         </SectionCard>
 
-        <SectionCard title="Listings Trends" subtitle="Weekly created listings">
-          <LineTrend data={trendListings} />
+        <SectionCard title="Listings Trends" subtitle="New listings in the last 7 days">
+          {resolvedLoadError ? (
+            <EmptyPanel message="Không thể tải biểu đồ tin đăng." tone="danger" />
+          ) : isLoading && !overview ? (
+            <EmptyPanel message="Đang tải biểu đồ tin đăng..." />
+          ) : (
+            <LineTrend data={overview?.trendSeries.listings["7d"] ?? []} />
+          )}
         </SectionCard>
       </div>
 
-      <SectionCard title="Acquisition Sources" subtitle="Where users come from">
-        <BarKpi data={barSources} />
-      </SectionCard>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <SectionCard title="User Roles" subtitle="Breakdown by account role">
+          {resolvedLoadError ? (
+            <EmptyPanel message="Không thể tải phân bố vai trò người dùng." tone="danger" />
+          ) : isLoading && !overview ? (
+            <EmptyPanel message="Đang tải phân bố vai trò người dùng..." />
+          ) : (
+            <BarKpi data={overview?.userRoleBreakdown ?? []} />
+          )}
+        </SectionCard>
+
+        <SectionCard title="Listing Statuses" subtitle="Breakdown by moderation status">
+          {resolvedLoadError ? (
+            <EmptyPanel message="Không thể tải phân bố trạng thái tin đăng." tone="danger" />
+          ) : isLoading && !overview ? (
+            <EmptyPanel message="Đang tải phân bố trạng thái tin đăng..." />
+          ) : (
+            <BarKpi data={overview?.listingStatusBreakdown ?? []} />
+          )}
+        </SectionCard>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <SectionCard title="Users" subtitle="Filtered by your search">
-          <DataTable<UserRow> rows={filteredUsers} columns={userCols} pageSize={6} rowKey={(row) => row.id} />
+          <DataTable<DashboardUserRow>
+            rows={filteredUsers}
+            columns={userCols}
+            pageSize={6}
+            rowKey={(row) => row.id}
+            emptyText={usersEmptyText}
+          />
         </SectionCard>
 
-        <SectionCard title="Latest Listings" subtitle="Operational queue">
-          <DataTable<ListingRow>
+        <SectionCard title="Listings" subtitle="Filtered operational queue">
+          <DataTable<DashboardListingRow>
             rows={filteredListings}
             columns={listingCols}
             pageSize={6}
             rowKey={(row) => row.id}
+            emptyText={listingsEmptyText}
           />
         </SectionCard>
       </div>

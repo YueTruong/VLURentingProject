@@ -1,70 +1,82 @@
-declare module 'leaflet' {
+declare module "leaflet" {
   export interface LatLng {
     lat: number;
     lng: number;
   }
 
+  export type LatLngTuple = [number, number];
+
   export interface LeafletMouseEvent {
     latlng: LatLng;
   }
 
+  export interface DragEndEvent {
+    target: Marker;
+  }
+
+  export interface MapOptions {
+    center: LatLngTuple;
+    zoom: number;
+    scrollWheelZoom?: boolean;
+    zoomControl?: boolean;
+  }
+
+  export interface SetViewOptions {
+    animate?: boolean;
+  }
+
+  export interface MarkerOptions {
+    draggable?: boolean;
+    icon?: unknown;
+  }
+
+  export interface DivIconOptions {
+    className?: string;
+    html?: string;
+    iconSize?: [number, number];
+    iconAnchor?: [number, number];
+  }
+
+  export interface TileLayerOptions {
+    attribution?: string;
+    maxZoom?: number;
+  }
+
   export interface Map {
-    on(event: string, handler: (event: LeafletMouseEvent) => void): this;
+    on(event: "click", handler: (event: LeafletMouseEvent) => void): this;
     off(): this;
     remove(): this;
     invalidateSize(): this;
-    setView(center: [number, number], zoom: number, options?: { animate?: boolean }): this;
+    setView(center: LatLngTuple, zoom: number, options?: SetViewOptions): this;
     getZoom(): number;
   }
 
   export interface Marker {
-    setLatLng(latlng: [number, number]): this;
+    setLatLng(latlng: LatLngTuple): this;
+    getLatLng(): LatLng;
     addTo(map: Map): this;
+    on(event: "dragend", handler: (event: DragEndEvent) => void): this;
+    off(): this;
     remove(): this;
   }
 
-  export namespace Marker {
-    const prototype: {
-      options: {
-        icon?: unknown;
-      };
-    };
+  export interface TileLayer {
+    addTo(map: Map): this;
   }
 
-  export function map(
-    element: HTMLElement,
-    options: {
-      center: [number, number];
-      zoom: number;
-      scrollWheelZoom?: boolean;
-    },
-  ): Map;
+  export function map(element: HTMLElement, options: MapOptions): Map;
 
-  export function marker(latlng: [number, number]): Marker;
+  export function marker(latlng: LatLngTuple, options?: MarkerOptions): Marker;
 
-  export function icon(options: {
-    iconUrl: string;
-    iconRetinaUrl?: string;
-    shadowUrl?: string;
-    iconSize?: [number, number];
-    iconAnchor?: [number, number];
-  }): unknown;
+  export function tileLayer(urlTemplate: string, options?: TileLayerOptions): TileLayer;
 
-  export function tileLayer(
-    urlTemplate: string,
-    options?: {
-      attribution?: string;
-    },
-  ): {
-    addTo(map: Map): void;
-  };
+  export function divIcon(options?: DivIconOptions): unknown;
 
   const L: {
     map: typeof map;
     marker: typeof marker;
-    icon: typeof icon;
     tileLayer: typeof tileLayer;
-    Marker: typeof Marker;
+    divIcon: typeof divIcon;
   };
 
   export default L;

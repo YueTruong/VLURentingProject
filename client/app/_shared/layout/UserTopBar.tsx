@@ -17,10 +17,10 @@ export default function UserTopBar() {
   const userRole = session?.user?.role?.toLowerCase();
   
   // Logic phân quyền
-  const canUseChatAndNotif = userRole === "student" || userRole === "landlord";
+  const canUseChatAndNotif = userRole === "student" || userRole === "landlord" || userRole === "admin";
 
   useEffect(() => {
-    // Nếu chưa đăng nhập HOẶC không có quyền (là admin) thì không gọi API
+    // Nếu chưa đăng nhập hoặc role không dùng chat/thông báo thì không gọi API
     if (status !== "authenticated" || !canUseChatAndNotif) return;
 
     let active = true;

@@ -1,10 +1,15 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { HousingQueryDto } from './dto/housing-query.dto';
 
 @Controller('ai')
 export class AiController {
   constructor(private readonly aiService: AiService) {}
+
+  @Get('status')
+  getStatus() {
+    return this.aiService.getStatus();
+  }
 
   @Post('housing-query')
   async parseHousingQuery(@Body() body: HousingQueryDto) {

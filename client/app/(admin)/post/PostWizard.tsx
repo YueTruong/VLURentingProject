@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { createPost, uploadImages } from "@/app/services/posts";
+import { buildLocationQuery, type LatLng } from "./location-utils";
 import {
   getIdentityVerificationOverview,
   readVerificationStatusFromStorage,
@@ -63,6 +64,7 @@ type ListingDraft = {
   addressText: string;
   district: string;
   ward: string;
+  mapAddress: string;
   // map placeholder (lat/lng)
   lat?: number;
   lng?: number;
@@ -86,6 +88,18 @@ type DraftSnapshot = {
   };
   draft: Omit<ListingDraft, "images">;
 };
+
+function omitLocationDraftFields(draft: Omit<ListingDraft, "images">): Omit<ListingDraft, "images"> {
+  return {
+    ...draft,
+    addressText: "",
+    ward: "",
+    district: "",
+    mapAddress: "",
+    lat: undefined,
+    lng: undefined,
+  };
+}
 
 const steps = [
   { key: "basic", label: "Cơ bản" },
@@ -189,8 +203,9 @@ function createEmptyDraft(): ListingDraft {
     roommateLandlordConsent: false,
 
     addressText: "",
-    district: "Bình Thạnh",
+    district: "",
     ward: "",
+    mapAddress: "",
 
     furnishing: "BASIC",
     amenities: {
@@ -245,10 +260,14 @@ function formatDraftTimestamp(value: string) {
 }
 
 function buildAddress(draft: ListingDraft) {
-  return [draft.addressText, draft.ward, draft.district]
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .join(", ");
+  return buildLocationQuery(
+    {
+      primaryAddress: draft.addressText,
+      ward: draft.ward,
+      district: draft.district,
+    },
+    { includeCity: false, includeCountry: false }
+  );
 }
 
 function collectAmenityNames(amenities: Amenities) {
@@ -698,7 +717,7 @@ export default function PostWizard() {
       const base = createEmptyDraft();
       const nextDraft: ListingDraft = {
         ...base,
-        ...parsed.draft,
+        ...omitLocationDraftFields(parsed.draft),
         roommateLifestyle: {
           ...base.roommateLifestyle,
           ...(parsed.draft.roommateLifestyle ?? {}),
@@ -726,25 +745,92 @@ export default function PostWizard() {
   };
 
   const currentAddress = buildAddress(draft);
+  const mapAddressFields = useMemo(
+    () => ({
+      primaryAddress: draft.addressText,
+      ward: draft.ward,
+      district: draft.district,
+      city: "Thành phố Hồ Chí Minh",
+      country: "Việt Nam",
+    }),
+    [draft.addressText, draft.district, draft.ward]
+  );
+  const mapValue = useMemo(
+    () =>
+      Number.isFinite(draft.lat) && Number.isFinite(draft.lng)
+        ? ({ lat: draft.lat as number, lng: draft.lng as number } satisfies LatLng)
+        : null,
+    [draft.lat, draft.lng]
+  );
+  const handleMapAddressChange = useCallback((nextMapAddress: string) => {
+    setDraft((currentDraft) =>
+      currentDraft.mapAddress === nextMapAddress
+        ? currentDraft
+        : { ...currentDraft, mapAddress: nextMapAddress }
+    );
+  }, []);
+  const handleMapClear = useCallback(() => {
+    setDraft((currentDraft) => {
+      if (
+        !currentDraft.addressText &&
+        !currentDraft.ward &&
+        !currentDraft.district &&
+        !currentDraft.mapAddress &&
+        currentDraft.lat === undefined &&
+        currentDraft.lng === undefined
+      ) {
+        return currentDraft;
+      }
+
+      return {
+        ...currentDraft,
+        addressText: "",
+        ward: "",
+        district: "",
+        mapAddress: "",
+        lat: undefined,
+        lng: undefined,
+      };
+    });
+  }, []);
+  const handleMapLocationChange = useCallback((nextLocation: LatLng | null) => {
+    setDraft((currentDraft) => {
+      const nextLat = nextLocation?.lat;
+      const nextLng = nextLocation?.lng;
+      const sameLocation =
+        currentDraft.lat === nextLat && currentDraft.lng === nextLng;
+
+      if (sameLocation) {
+        return currentDraft;
+      }
+
+      return {
+        ...currentDraft,
+        lat: nextLat,
+        lng: nextLng,
+      };
+    });
+  }, []);
 
   const persistDraft = useCallback(() => {
     try {
       const { images, ...rest } = draft;
       void images;
+      const persistedDraft = omitLocationDraftFields(rest);
       const payload: DraftSnapshot = {
         version: DRAFT_STORAGE_VERSION,
         savedAt: new Date().toISOString(),
         step,
-        mapQuery: currentAddress,
+        mapQuery: "",
         postConsents,
-        draft: rest,
+        draft: persistedDraft,
       };
       localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload));
       setDraftSavedAt(payload.savedAt);
     } catch (error) {
       console.error("Draft save failed.", error);
     }
-  }, [currentAddress, draft, step, postConsents]);
+  }, [draft, step, postConsents]);
 
   const clearDraftStorage = (resetForm: boolean) => {
     localStorage.removeItem(DRAFT_STORAGE_KEY);
@@ -1536,23 +1622,17 @@ export default function PostWizard() {
                 <div className="md:col-span-2">
                   <FieldLabel>Map</FieldLabel>
                   <div className="space-y-3">
-                    <div className="h-136 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                    <div className="overflow-hidden rounded-2xl">
                       <MapPicker
-                        defaultAddress={currentAddress}
-                        value={
-                          Number.isFinite(draft.lat) && Number.isFinite(draft.lng)
-                            ? { lat: draft.lat as number, lng: draft.lng as number }
-                            : null
-                        }
-                        onChange={(value) => setDraft((d) => ({ ...d, lat: value.lat, lng: value.lng }))}
+                        addressFields={mapAddressFields}
+                        isActive={step === 1}
+                        mapAddress={draft.mapAddress}
+                        value={mapValue}
+                        onMapAddressChange={handleMapAddressChange}
+                        onClearAddress={handleMapClear}
+                        onChange={handleMapLocationChange}
                       />
                     </div>
-                    <div className="text-xs text-gray-500">Bạn có thể lấy tọa độ theo địa chỉ hoặc nhập tay latitude/longitude.</div>
-                    {Number.isFinite(draft.lat) && Number.isFinite(draft.lng) && (
-                      <div className="text-xs text-gray-600">
-                        lat: {draft.lat} - lng: {draft.lng}
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>

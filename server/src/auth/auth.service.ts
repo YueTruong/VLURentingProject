@@ -24,6 +24,8 @@ import { LinkProviderDto } from './dto/link-provider.dto';
 import { UpdateSettingsPersonalDto } from './dto/update-settings-personal.dto';
 import { UpdateSettingsPreferencesDto } from './dto/update-settings-preferences.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { DeactivateAccountDto } from './dto/deactivate-account.dto';
 import { SubmitIdentityVerificationDto } from './dto/submit-identity-verification.dto';
 import { LoginResponse, ValidatedUser } from './types/auth.types';
 
@@ -659,6 +661,51 @@ export class AuthService {
     };
   }
 
+  async deactivateAccount(
+    userId: number | undefined,
+    dto: DeactivateAccountDto,
+  ) {
+    const validUserId = this.requireUserId(userId);
+    const user = await this.userRepository.findOne({
+      where: { id: validUserId },
+      select: ['id', 'password_hash', 'is_active'],
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const hasPassword = Boolean(
+      user.password_hash && user.password_hash.trim().length > 0,
+    );
+
+    if (hasPassword) {
+      if (!dto.currentPassword) {
+        throw new BadRequestException('Vui lÃ²ng nháº­p máº­t kháº©u hiá»‡n táº¡i');
+      }
+
+      const isCurrentPasswordValid = await bcrypt.compare(
+        dto.currentPassword,
+        user.password_hash as string,
+      );
+      if (!isCurrentPasswordValid) {
+        throw new BadRequestException('Máº­t kháº©u hiá»‡n táº¡i khÃ´ng Ä‘Ãºng');
+      }
+    }
+
+    if (user.is_active === false) {
+      return {
+        message: 'TÃ i khoáº£n Ä‘Ã£ Ä‘Æ°á»£c vÃ´ hiá»‡u hÃ³a trÆ°á»›c Ä‘Ã³',
+      };
+    }
+
+    user.is_active = false;
+    await this.userRepository.save(user);
+
+    return {
+      message: 'VÃ´ hiá»‡u hÃ³a tÃ i khoáº£n thÃ nh cÃ´ng',
+    };
+  }
+
   async getIdentityVerification(userId: number | undefined) {
     const validUserId = this.requireUserId(userId);
     const user = await this.userRepository.findOne({
@@ -720,22 +767,69 @@ export class AuthService {
   }
 
   async getProfile(userId: number | undefined) {
-    const settingsData = await this.getSettings(userId);
-    return {
-      userId: this.requireUserId(userId),
-      email: settingsData.personal.email,
-      role: settingsData.account.role,
-      full_name: settingsData.personal.legalName || null,
-      phone_number: settingsData.personal.phoneNumber || null,
-      address: settingsData.personal.residenceAddress || null,
-      preferred_name: settingsData.personal.preferredName || null,
-      mailing_address: settingsData.personal.mailingAddress || null,
-      emergency_name: settingsData.personal.emergencyContact.name || null,
-      emergency_relationship:
-        settingsData.personal.emergencyContact.relationship || null,
-      emergency_email: settingsData.personal.emergencyContact.email || null,
-      emergency_phone: settingsData.personal.emergencyContact.phone || null,
-    };
+    const validUserId = this.requireUserId(userId);
+    const user = await this.userRepository.findOne({
+      where: { id: validUserId },
+      relations: ['role', 'profile', 'settings'],
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const profile = await this.ensureProfile(user);
+    const settings = await this.ensureSettings(user);
+
+    return this.buildProfileResponse(user, profile, settings);
+  }
+
+  async updateProfile(userId: number | undefined, dto: UpdateProfileDto) {
+    const validUserId = this.requireUserId(userId);
+    const user = await this.userRepository.findOne({
+      where: { id: validUserId },
+      relations: ['role', 'profile', 'settings'],
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const profile = await this.ensureProfile(user);
+    const settings = await this.ensureSettings(user);
+
+    if (dto.phoneNumber !== undefined) {
+      const normalizedPhone = this.normalizeOptionalText(dto.phoneNumber);
+      if (normalizedPhone && normalizedPhone !== profile.phone_number) {
+        const existingByPhone = await this.profileRepository.findOne({
+          where: {
+            phone_number: normalizedPhone,
+            userId: Not(validUserId),
+          },
+          select: ['userId'],
+        });
+        if (existingByPhone) {
+          throw new ConflictException('Phone number already exists');
+        }
+      }
+      profile.phone_number = normalizedPhone;
+    }
+
+    if (dto.fullName !== undefined) {
+      profile.full_name = this.normalizeOptionalText(dto.fullName);
+    }
+    if (dto.avatarUrl !== undefined) {
+      profile.avatar_url = this.normalizeOptionalText(dto.avatarUrl);
+    }
+    if (dto.address !== undefined) {
+      const normalizedAddress = this.normalizeOptionalText(dto.address);
+      profile.address = normalizedAddress;
+      settings.residence_address = normalizedAddress;
+    }
+
+    await Promise.all([
+      this.profileRepository.save(profile),
+      this.userSettingsRepository.save(settings),
+    ]);
+
+    return this.buildProfileResponse(user, profile, settings);
   }
 
   async getPublicProfile(userId: number) {
@@ -1111,6 +1205,28 @@ export class AuthService {
         role: this.normalizeRoleName(user.role),
       },
       identity: this.buildIdentityVerificationResponse(settings),
+    };
+  }
+
+  private buildProfileResponse(
+    user: UserEntity,
+    profile: UserProfileEntity,
+    settings: UserSettingsEntity,
+  ) {
+    return {
+      userId: user.id,
+      email: user.email,
+      role: this.normalizeRoleName(user.role),
+      full_name: profile.full_name ?? null,
+      phone_number: profile.phone_number ?? null,
+      avatar_url: profile.avatar_url ?? null,
+      address: settings.residence_address || profile.address || null,
+      preferred_name: settings.preferred_name ?? null,
+      mailing_address: settings.mailing_address ?? null,
+      emergency_name: settings.emergency_name ?? null,
+      emergency_relationship: settings.emergency_relationship ?? null,
+      emergency_email: settings.emergency_email ?? null,
+      emergency_phone: settings.emergency_phone ?? null,
     };
   }
 

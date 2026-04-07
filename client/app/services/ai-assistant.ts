@@ -18,6 +18,20 @@ export type AiHousingCriteria = {
   tags?: string[];
 };
 
+export type AiAssistantStatus = {
+  cloudAvailable: boolean;
+  provider: "openai" | "dialogflow" | "ollama" | "fallback";
+  openaiConfigured: boolean;
+  dialogflowConfigured: boolean;
+  ollamaConfigured: boolean;
+  message: string;
+};
+
+export async function getHousingAssistantStatus() {
+  const res = await axios.get(`${getBackendUrl()}/ai/status`);
+  return res.data as AiAssistantStatus;
+}
+
 export async function askHousingAssistant(message: string, districtOptions: string[]) {
   const res = await axios.post(`${getBackendUrl()}/ai/housing-query`, {
     message,
@@ -27,5 +41,7 @@ export async function askHousingAssistant(message: string, districtOptions: stri
     criteria?: AiHousingCriteria | null;
     reply?: string;
     provider?: string;
+    mode?: "cloud" | "fallback";
+    cloudAvailable?: boolean;
   };
 }

@@ -1,5 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@200..900&family=Outfit:wght@100..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap");
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
@@ -922,4 +923,244 @@ body {
 :root[data-theme="dark"] .settings-standalone-shell input::placeholder,
 :root[data-theme="dark"] .settings-standalone-shell textarea::placeholder {
   color: rgba(148, 163, 184, 0.82);
+}
+
+/* Admin dashboard dark-mode normalization */
+:root[data-theme="dark"] .admin-dashboard-shell {
+  background:
+    radial-gradient(circle at top left, rgba(213, 31, 53, 0.12) 0%, transparent 24%),
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.1) 0%, transparent 26%),
+    linear-gradient(180deg, #07111f 0%, #090f1d 46%, #08111f 100%);
+  color: var(--theme-text);
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .bg-white,
+:root[data-theme="dark"] .admin-dashboard-shell .bg-white\/80,
+:root[data-theme="dark"] .admin-dashboard-shell .bg-white\/90,
+:root[data-theme="dark"] .admin-dashboard-shell .bg-\[\#f7f7f6\] {
+  background-color: rgba(15, 23, 42, 0.92) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .bg-gray-50,
+:root[data-theme="dark"] .admin-dashboard-shell .bg-gray-100,
+:root[data-theme="dark"] .admin-dashboard-shell .bg-gray-50\/80,
+:root[data-theme="dark"] .admin-dashboard-shell .bg-gray-100\/80 {
+  background-color: rgba(20, 31, 54, 0.76) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .border-gray-100,
+:root[data-theme="dark"] .admin-dashboard-shell .border-gray-200,
+:root[data-theme="dark"] .admin-dashboard-shell .border-gray-300 {
+  border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .divide-gray-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(148, 163, 184, 0.14) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .text-gray-900,
+:root[data-theme="dark"] .admin-dashboard-shell .text-gray-800 {
+  color: var(--theme-text) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .text-gray-700,
+:root[data-theme="dark"] .admin-dashboard-shell .text-gray-600 {
+  color: var(--theme-text-muted) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .text-gray-500,
+:root[data-theme="dark"] .admin-dashboard-shell .text-gray-400 {
+  color: var(--theme-text-subtle) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell input,
+:root[data-theme="dark"] .admin-dashboard-shell textarea,
+:root[data-theme="dark"] .admin-dashboard-shell select {
+  background-color: rgba(15, 23, 42, 0.74);
+  border-color: rgba(148, 163, 184, 0.22);
+  color: var(--theme-text);
+  caret-color: #f8fafc;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell input::placeholder,
+:root[data-theme="dark"] .admin-dashboard-shell textarea::placeholder {
+  color: rgba(148, 163, 184, 0.76);
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .hover\:bg-gray-50:hover,
+:root[data-theme="dark"] .admin-dashboard-shell .hover\:bg-gray-50\/60:hover,
+:root[data-theme="dark"] .admin-dashboard-shell .hover\:bg-gray-100:hover {
+  background-color: rgba(30, 41, 59, 0.78) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .bg-rose-50,
+:root[data-theme="dark"] .admin-dashboard-shell .bg-rose-100,
+:root[data-theme="dark"] .admin-dashboard-shell .bg-red-50,
+:root[data-theme="dark"] .admin-dashboard-shell .bg-red-100 {
+  background-color: rgba(127, 29, 29, 0.22) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .bg-amber-50,
+:root[data-theme="dark"] .admin-dashboard-shell .bg-amber-100,
+:root[data-theme="dark"] .admin-dashboard-shell .bg-yellow-50 {
+  background-color: rgba(113, 63, 18, 0.22) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .bg-green-50,
+:root[data-theme="dark"] .admin-dashboard-shell .bg-emerald-50 {
+  background-color: rgba(6, 95, 70, 0.2) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .bg-blue-50 {
+  background-color: rgba(30, 64, 175, 0.2) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .border-rose-100,
+:root[data-theme="dark"] .admin-dashboard-shell .border-rose-200,
+:root[data-theme="dark"] .admin-dashboard-shell .border-red-100,
+:root[data-theme="dark"] .admin-dashboard-shell .border-red-200 {
+  border-color: rgba(248, 113, 113, 0.28) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .border-amber-100,
+:root[data-theme="dark"] .admin-dashboard-shell .border-amber-200,
+:root[data-theme="dark"] .admin-dashboard-shell .border-yellow-200 {
+  border-color: rgba(245, 158, 11, 0.28) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .border-green-200,
+:root[data-theme="dark"] .admin-dashboard-shell .border-emerald-100,
+:root[data-theme="dark"] .admin-dashboard-shell .border-emerald-200 {
+  border-color: rgba(16, 185, 129, 0.28) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .text-rose-500,
+:root[data-theme="dark"] .admin-dashboard-shell .text-rose-600,
+:root[data-theme="dark"] .admin-dashboard-shell .text-rose-700,
+:root[data-theme="dark"] .admin-dashboard-shell .text-red-600,
+:root[data-theme="dark"] .admin-dashboard-shell .text-red-700 {
+  color: #fda4af !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .text-amber-600,
+:root[data-theme="dark"] .admin-dashboard-shell .text-amber-700,
+:root[data-theme="dark"] .admin-dashboard-shell .text-amber-800,
+:root[data-theme="dark"] .admin-dashboard-shell .text-yellow-800 {
+  color: #facc15 !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .text-green-700,
+:root[data-theme="dark"] .admin-dashboard-shell .text-emerald-700 {
+  color: #6ee7b7 !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .text-blue-600,
+:root[data-theme="dark"] .admin-dashboard-shell .text-blue-700 {
+  color: #93c5fd !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .hover\:bg-rose-50:hover,
+:root[data-theme="dark"] .admin-dashboard-shell .hover\:bg-rose-100:hover,
+:root[data-theme="dark"] .admin-dashboard-shell .hover\:bg-red-50:hover,
+:root[data-theme="dark"] .admin-dashboard-shell .hover\:bg-red-100:hover {
+  background-color: rgba(127, 29, 29, 0.34) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .hover\:bg-amber-50:hover {
+  background-color: rgba(113, 63, 18, 0.34) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .hover\:bg-green-50:hover,
+:root[data-theme="dark"] .admin-dashboard-shell .hover\:bg-emerald-50:hover {
+  background-color: rgba(6, 95, 70, 0.32) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .ring-red-100,
+:root[data-theme="dark"] .admin-dashboard-shell .ring-rose-100 {
+  --tw-ring-color: rgba(248, 113, 113, 0.26) !important;
+}
+
+:root[data-theme="dark"] .admin-dashboard-shell .ring-emerald-100 {
+  --tw-ring-color: rgba(16, 185, 129, 0.26) !important;
+}
+
+.vlu-map-surface {
+  position: relative;
+  isolation: isolate;
+  z-index: 0;
+  contain: paint;
+}
+
+.vlu-map-surface .leaflet-container {
+  position: relative;
+  height: 100%;
+  min-height: 18rem;
+  width: 100%;
+  overflow: hidden;
+  z-index: 0;
+  font: inherit;
+  background:
+    radial-gradient(circle at top left, rgba(213, 31, 53, 0.16) 0%, transparent 28%),
+    linear-gradient(180deg, #eaf0fa 0%, #dbe6f6 100%);
+}
+
+.vlu-map-surface .leaflet-pane,
+.vlu-map-surface .leaflet-tile-container,
+.vlu-map-surface .leaflet-control-container {
+  position: absolute;
+}
+
+.vlu-map-surface .leaflet-pane,
+.vlu-map-surface .leaflet-top,
+.vlu-map-surface .leaflet-bottom {
+  z-index: 400;
+}
+
+.vlu-map-surface .leaflet-container .leaflet-tile-pane img,
+.vlu-map-surface .leaflet-container img.leaflet-tile,
+.vlu-map-surface .leaflet-container .leaflet-marker-pane img,
+.vlu-map-surface .leaflet-container .leaflet-shadow-pane img {
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.vlu-map-surface .leaflet-container img.leaflet-tile {
+  mix-blend-mode: normal;
+}
+
+.vlu-map-surface .leaflet-control-zoom a {
+  color: #0f172a;
+}
+
+.vlu-map-surface .leaflet-control-attribution,
+.vlu-map-surface .leaflet-control-scale {
+  font-size: 10px;
+}
+
+.vlu-map-pin-wrapper {
+  background: transparent;
+  border: 0;
+}
+
+.vlu-map-pin {
+  position: relative;
+  display: block;
+  height: 24px;
+  width: 24px;
+  border-radius: 999px 999px 999px 0;
+  border: 2px solid #fff;
+  background: linear-gradient(180deg, #ea445a 0%, #d51f35 100%);
+  box-shadow: 0 10px 22px rgba(213, 31, 53, 0.32);
+  transform: rotate(-45deg);
+}
+
+.vlu-map-pin::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  height: 8px;
+  width: 8px;
+  border-radius: 999px;
+  background: #fff;
 }

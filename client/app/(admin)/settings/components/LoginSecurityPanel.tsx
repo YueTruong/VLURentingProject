@@ -1,16 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { getProviders, signIn, useSession } from "next-auth/react";
+import { getProviders, signIn, signOut, useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import {
   changePassword,
+  deactivateAccount,
   getSecurityOverview,
   type ChangePasswordInput,
-  unlinkSecurityProvider,
   type LinkedSecurityProviderItem,
   type SecurityOverview,
   type SecurityProvider,
+  unlinkSecurityProvider,
 } from "@/app/services/security";
 
 type SecurityTabKey = "login" | "access";
@@ -39,11 +40,21 @@ type PasswordFormState = {
   confirmPassword: string;
 };
 
+type DeactivateFormState = {
+  currentPassword: string;
+};
+
 function createEmptyPasswordForm(): PasswordFormState {
   return {
     currentPassword: "",
     newPassword: "",
     confirmPassword: "",
+  };
+}
+
+function createEmptyDeactivateForm(): DeactivateFormState {
+  return {
+    currentPassword: "",
   };
 }
 
@@ -236,7 +247,7 @@ function PasswordEditor({
           disabled={isSaving}
           className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Huy
+          Hủy
         </button>
         <button
           type="button"
@@ -262,18 +273,21 @@ const allProviders: SecurityProvider[] = ["google", "facebook", "apple"];
 const accessRows: RowItem[] = [
   {
     label: "Cộng tác viên quản lý tin đăng",
-    description: "Chưa có ai được cấp quyền.",
-    actionLabel: "Mời người dùng",
+    description: "Tính năng chia sẻ quyền truy cập chưa được hỗ trợ trên hệ thống hiện tại.",
+    actionLabel: "Sắp có",
+    disabled: true,
   },
   {
     label: "Quyền hiện tại",
     description: "Bạn đang là chủ sở hữu tài khoản với toàn quyền quản trị.",
-    actionLabel: "Xem quyền",
+    actionLabel: "Đang áp dụng",
+    disabled: true,
   },
   {
     label: "Nhật ký chia sẻ",
-    description: "Chưa có hoạt động.",
-    actionLabel: "Làm mới",
+    description: "Sẽ hiển thị khi hệ thống hỗ trợ cộng tác viên quản lý tin đăng.",
+    actionLabel: "Chưa có dữ liệu",
+    disabled: true,
   },
 ];
 
@@ -293,8 +307,13 @@ export default function LoginSecurityPanel() {
   const [passwordForm, setPasswordForm] = useState<PasswordFormState>(createEmptyPasswordForm);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
+  const [deactivateForm, setDeactivateForm] = useState<DeactivateFormState>(createEmptyDeactivateForm);
+  const [deactivateError, setDeactivateError] = useState<string | null>(null);
+  const [isDeactivating, setIsDeactivating] = useState(false);
 
   const accessToken = session?.user?.accessToken;
+
   const loadSecurityOverview = useCallback(async (token: string) => {
     try {
       const data = await getSecurityOverview(token);
@@ -369,6 +388,13 @@ export default function LoginSecurityPanel() {
       setPasswordError(null);
     }
   }, [showPasswordEditor]);
+
+  useEffect(() => {
+    if (!showDeactivateDialog) {
+      setDeactivateForm(createEmptyDeactivateForm());
+      setDeactivateError(null);
+    }
+  }, [showDeactivateDialog]);
 
   useEffect(() => {
     if (sessionStatus === "loading") return;
@@ -446,8 +472,9 @@ export default function LoginSecurityPanel() {
 
   const twoFactorRow: RowItem = {
     label: "Xác minh 2 bước",
-    description: "Chưa bật",
-    actionLabel: "Thiết lập",
+    description: "Tính năng xác minh 2 bước sẽ được hỗ trợ ở phiên bản tiếp theo.",
+    actionLabel: "Sắp có",
+    disabled: true,
   };
 
   const deviceRows = useMemo<DeviceRow[]>(() => {
@@ -456,14 +483,14 @@ export default function LoginSecurityPanel() {
         const deviceName = sessionItem.device || "Thiết bị không xác định";
         const isMobile = /(iphone|android|mobile|phone|ipad)/i.test(deviceName);
         const timeText = new Date(sessionItem.lastUsedAt).toLocaleString("vi-VN");
-        const ipText = sessionItem.ip ? ` · IP ${sessionItem.ip}` : "";
+        const ipText = sessionItem.ip ? ` • IP ${sessionItem.ip}` : "";
 
         return {
           rowKey: `${deviceName}-${sessionItem.lastUsedAt}-${sessionItem.ip ?? "na"}-${index}`,
           label: deviceName,
           description: `Đăng nhập: ${timeText}${ipText}`,
           actionLabel: sessionItem.current ? "Thiết bị này" : "Đăng xuất",
-          disabled: sessionItem.current,
+          disabled: true,
           badgeLabel: sessionItem.current ? "Phiên hiện tại" : undefined,
           leadingIcon: isMobile ? <DevicePhoneIcon /> : <DeviceDesktopIcon />,
         };
@@ -612,6 +639,50 @@ export default function LoginSecurityPanel() {
     }
   };
 
+  const handleDeactivate = async () => {
+    if (!accessToken) {
+      setDeactivateError("Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.");
+      return;
+    }
+
+    if (securityData?.hasPassword && !deactivateForm.currentPassword.trim()) {
+      setDeactivateError("Vui lòng nhập mật khẩu hiện tại để xác nhận.");
+      return;
+    }
+
+    setDeactivateError(null);
+    setActionError(null);
+    setSuccessText(null);
+    setIsDeactivating(true);
+
+    try {
+      const response = await deactivateAccount(
+        securityData?.hasPassword
+          ? { currentPassword: deactivateForm.currentPassword }
+          : {},
+        accessToken,
+      );
+      setSuccessText(
+        typeof response?.message === "string"
+          ? response.message
+          : "Tài khoản đã được vô hiệu hóa.",
+      );
+      setShowDeactivateDialog(false);
+      await signOut({ callbackUrl: "/homepage" });
+    } catch (error) {
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "response" in error &&
+        (error as { response?: { data?: { message?: string } } }).response?.data?.message
+          ? String((error as { response?: { data?: { message?: string } } }).response?.data?.message)
+          : "Không thể vô hiệu hóa tài khoản.";
+      setDeactivateError(message);
+    } finally {
+      setIsDeactivating(false);
+    }
+  };
+
   return (
     <>
       <header className="mb-6">
@@ -650,9 +721,11 @@ export default function LoginSecurityPanel() {
             <SettingsRow {...twoFactorRow} />
           </Section>
 
-          <section className="mt-8">
+          <Section title="Tài khoản mạng xã hội">
             <div className="mb-4 flex items-center justify-between gap-4">
-              <h2 className="text-lg font-semibold text-gray-900">Tài khoản mạng xã hội</h2>
+              <p className="text-sm text-gray-500">
+                Kết nối thêm tài khoản để đăng nhập nhanh và khôi phục tài khoản.
+              </p>
               {unlinkedProviders.length > 0 ? (
                 <button
                   type="button"
@@ -665,44 +738,29 @@ export default function LoginSecurityPanel() {
             </div>
 
             {socialRows.length > 0 ? (
-              <div>
-                {socialRows.map((row) => {
-                  const isActionLoading = actionKey === `${row.provider}:unlink`;
-                  return (
-                    <SettingsRow
-                      key={row.provider}
-                      label={row.label}
-                      description={row.description}
-                      actionLabel={isActionLoading ? "Đang ngắt..." : row.actionLabel}
-                      disabled={isActionLoading || isLoading}
-                      onAction={() => handleUnlink(row.provider)}
-                    />
-                  );
-                })}
-              </div>
+              socialRows.map((row) => {
+                const isActionLoading = actionKey === `${row.provider}:unlink`;
+                return (
+                  <SettingsRow
+                    key={row.provider}
+                    label={row.label}
+                    description={row.description}
+                    actionLabel={isActionLoading ? "Đang ngắt..." : row.actionLabel}
+                    disabled={isActionLoading || isLoading}
+                    onAction={() => handleUnlink(row.provider)}
+                  />
+                );
+              })
             ) : (
               <div className="border-b border-gray-200 py-5">
                 <p className="text-sm font-medium text-gray-900">
                   Bạn chưa kết nối tài khoản mạng xã hội nào.
                 </p>
-                <p className="mt-1 text-sm text-gray-500">
-                  Kết nối để đăng nhập nhanh và khôi phục tài khoản.
-                </p>
-                {unlinkedProviders.length > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowConnectProviders(true)}
-                    className="mt-3 text-sm text-gray-700 transition hover:underline"
-                  >
-                    Kết nối tài khoản
-                  </button>
-                ) : null}
               </div>
             )}
 
-            {showConnectProviders && unlinkedProviders.length > 0 ? (
-              <div className="mt-3">
-                {unlinkedProviders.map((provider) => {
+            {showConnectProviders && unlinkedProviders.length > 0
+              ? unlinkedProviders.map((provider) => {
                   const isProviderConfigured = Boolean(availableProviders[provider]);
                   const isActionLoading = actionKey === `${provider}:connect`;
                   return (
@@ -725,10 +783,9 @@ export default function LoginSecurityPanel() {
                       onAction={isProviderConfigured ? () => handleConnect(provider) : undefined}
                     />
                   );
-                })}
-              </div>
-            ) : null}
-          </section>
+                })
+              : null}
+          </Section>
 
           <Section title="Lịch sử thiết bị">
             {deviceRows.length > 0 ? (
@@ -741,7 +798,7 @@ export default function LoginSecurityPanel() {
           </Section>
 
           <Section title="Tài khoản">
-            <SettingsRow {...disableAccountRow} />
+            <SettingsRow {...disableAccountRow} onAction={() => setShowDeactivateDialog(true)} />
           </Section>
         </div>
       ) : (
@@ -750,9 +807,70 @@ export default function LoginSecurityPanel() {
             {accessRows.map((row) => (
               <SettingsRow key={row.label} {...row} />
             ))}
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-4 text-sm text-gray-600">
+              Hệ thống hiện chưa có backend để cấp quyền cộng tác viên. Tôi đã đổi phần này
+              sang trạng thái rõ ràng để tránh các nút bấm không hoạt động.
+            </div>
           </Section>
         </div>
       )}
+
+      {showDeactivateDialog ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => {
+            if (isDeactivating) return;
+            setShowDeactivateDialog(false);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900">Vô hiệu hóa tài khoản</h3>
+            <p className="mt-2 text-sm leading-6 text-gray-500">
+              Sau khi xác nhận, tài khoản sẽ bị khóa và bạn sẽ được đăng xuất khỏi hệ thống.
+            </p>
+
+            {securityData?.hasPassword ? (
+              <label className="mt-4 grid gap-2">
+                <span className="text-sm font-medium text-gray-700">Mật khẩu hiện tại</span>
+                <input
+                  type="password"
+                  value={deactivateForm.currentPassword}
+                  onChange={(event) =>
+                    setDeactivateForm({ currentPassword: event.target.value })
+                  }
+                  className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-900 outline-none transition focus:border-gray-900"
+                />
+              </label>
+            ) : null}
+
+            {deactivateError ? (
+              <p className="mt-3 text-sm text-red-600">{deactivateError}</p>
+            ) : null}
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDeactivateDialog(false)}
+                disabled={isDeactivating}
+                className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleDeactivate}
+                disabled={isDeactivating}
+                className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isDeactivating ? "Đang vô hiệu hóa..." : "Xác nhận vô hiệu hóa"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

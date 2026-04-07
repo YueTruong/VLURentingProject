@@ -1,8 +1,11 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { getRequiredConfig } from 'src/common/config/env.utils';
+import { UserEntity } from 'src/database/entities/user.entity';
+import { Repository } from 'typeorm';
 import {
   AuthenticatedRequestUser,
   JwtPayload,
@@ -10,7 +13,11 @@ import {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -31,6 +38,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException(
         'Token khong hop le (khong tim thay User ID)',
       );
+    }
+
+    const activeUser = await this.userRepository.findOne({
+      where: {
+        id: Number(userId),
+        is_active: true,
+      },
+      select: ['id'],
+    });
+
+    if (!activeUser) {
+      throw new UnauthorizedException('Tai khoan khong con hoat dong');
     }
 
     const normalizedRole =

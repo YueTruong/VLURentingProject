@@ -4,7 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import UserPageShell from "@/app/_shared/layout/UserPageShell";
 import ListingCard from "./components/ListingCard";
 import { getApprovedPosts, type Post } from "@/app/services/posts";
-import { askHousingAssistant } from "@/app/services/ai-assistant";
+import {
+  askHousingAssistant,
+  getHousingAssistantStatus,
+  type AiAssistantStatus,
+} from "@/app/services/ai-assistant";
 import {
   type Listing,
   formatArea,
@@ -786,7 +790,7 @@ const buildAssistantReply = (
     return "Mình chưa thấy tiêu chí rõ ràng. Bạn có thể nói cụ thể hơn về giá, khu vực, loại phòng, diện tích hoặc tiện ích.";
   }
 
-  const modeLabel = provider === "dialogflow" ? "Dialogflow + local" : provider && provider !== "fallback" ? "OpenAI + local" : "AI mô phỏng local";
+  const modeLabel = provider === "dialogflow" ? "Dialogflow" : provider && provider !== "fallback" ? "OpenAI" : "AI mô phỏng local";
   if (matchedCount === 0) {
     return `(${modeLabel}) Mình đã lọc theo ${summary.join(", ")} nhưng chưa thấy kết quả phù hợp trong ${totalCount} tin hiện có. Bạn thử nới giá/khu vực nhé.`;
   }
@@ -838,6 +842,7 @@ export default function ListingsPage() {
   const [assistantInput, setAssistantInput] = useState("");
   const [assistantThinking, setAssistantThinking] = useState(false);
   const [assistantCriteria, setAssistantCriteria] = useState<Criteria | null>(null);
+  const [assistantStatus, setAssistantStatus] = useState<AiAssistantStatus | null>(null);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "intro",
@@ -875,6 +880,25 @@ export default function ListingsPage() {
         if (!active) return;
         setRemoteLoaded(true);
       });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!CLOUD_AI_ENABLED) return;
+
+    let active = true;
+    getHousingAssistantStatus()
+      .then((status) => {
+        if (!active) return;
+        setAssistantStatus(status);
+      })
+      .catch(() => {
+        if (!active) return;
+        setAssistantStatus(null);
+      });
+
     return () => {
       active = false;
     };
@@ -1060,6 +1084,46 @@ export default function ListingsPage() {
     return buildSummary(assistantExtras);
   }, [assistantExtras]);
 
+  const assistantStatusText = useMemo(() => {
+    if (!CLOUD_AI_ENABLED) {
+      return "AI local đang bật. Bạn có thể dùng chatbot ngay mà không cần API key.";
+    }
+
+    if (!assistantStatus) {
+      return "Đang kiểm tra cấu hình AI cloud trên server.";
+    }
+
+    return assistantStatus.message;
+  }, [assistantStatus]);
+
+  const assistantModeBadge = useMemo(() => {
+    if (!CLOUD_AI_ENABLED) {
+      return {
+        label: "Local",
+        className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+      };
+    }
+
+    if (assistantStatus?.cloudAvailable) {
+      return {
+        label: "Cloud",
+        className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+      };
+    }
+
+    if (assistantStatus) {
+      return {
+        label: "Fallback",
+        className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+      };
+    }
+
+    return {
+      label: "Checking",
+      className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    };
+  }, [assistantStatus]);
+
   const handleSend = async (value: string) => {
     const trimmed = value.trim();
     if (!trimmed) return;
@@ -1138,8 +1202,10 @@ export default function ListingsPage() {
     }
 
     const matched = summary.length > 0 ? sourceListings.filter((item) => matchesCriteria(item, parsed)) : [];
-    assistantText = cloudReply && cloudProvider !== "fallback"
-      ? `${cloudReply}
+    assistantText = cloudReply
+      ? summary.length === 0
+        ? cloudReply
+        : `${cloudReply}
 ${buildAssistantReply(parsed, matched.length, sourceListings.length, cloudProvider)}`
       : buildAssistantReply(parsed, matched.length, sourceListings.length, cloudProvider);
 
@@ -1217,20 +1283,12 @@ ${buildAssistantReply(parsed, matched.length, sourceListings.length, cloudProvid
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Trợ lý AI</h2>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {CLOUD_AI_ENABLED
-                        ? "Cloud AI đang bật (ưu tiên Dialogflow, fallback OpenAI/local parser)."
-                        : "Mô phỏng AI local đang bật (không tốn phí API). Có thể bật Dialogflow/OpenAI qua API gateway."}
+                      {assistantStatusText}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                        CLOUD_AI_ENABLED
-                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                          : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                      }`}
-                    >
-                      {CLOUD_AI_ENABLED ? "Cloud" : "Local"}
+                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${assistantModeBadge.className}`}>
+                      {assistantModeBadge.label}
                     </span>
                     <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                       Online

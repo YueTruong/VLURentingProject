@@ -97,6 +97,43 @@ npm run build
 - Configure backend environment variables before running in development.
 - Make sure the frontend points to the correct backend API URL.
 
+## AI assistant setup
+
+The rental chatbot now uses the backend as the only place that knows the OpenAI key.
+
+1. Copy `server/.env.example` to `server/.env`
+2. Set `OPENAI_API_KEY=...`
+3. Keep `AI_PROVIDER=openai`
+4. Keep `NEXT_PUBLIC_ENABLE_CLOUD_AI=true` in `client/.env.local`
+5. Restart both server and client
+
+If `OPENAI_API_KEY` is missing, the UI falls back to the local parser so the search assistant still works.
+
+### Free local AI option with Ollama
+
+If you want the chatbot to feel more like ChatGPT without using OpenAI credits, you can run a local model with Ollama:
+
+1. Install Ollama
+2. Pull a model such as `qwen2.5:7b` or `llama3.1:8b`
+3. Set these values in `server/.env`
+
+```env
+AI_PROVIDER=ollama
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen2.5:7b
+```
+
+4. Restart the server
+
+When Ollama is available, the chatbot uses a real local LLM instead of the scripted fallback.
+
+For this project, "train the chatbot" is optional. The current setup works well by combining:
+
+- prompt instructions
+- live listing context from the database
+- local fallback parsing
+
+Use fine-tuning only after you have enough real chat examples and evals.
 
 ## AI fine-tuning scaffold
 

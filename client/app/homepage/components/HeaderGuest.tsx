@@ -2,13 +2,29 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { PersonIcon } from "@radix-ui/react-icons";
 import ThemeToggleButton from "@/app/theme/ThemeToggleButton";
 
 // 2. Sub-component: TopHeader
 function TopHeader() {
+  const [isCompact, setIsCompact] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsCompact(window.scrollY > 24);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
   return (
-    <header className="relative z-50 w-full border-b border-(--surface-navy-border) text-white shadow-lg">
+    <header className="sticky top-0 z-50 w-full border-b border-(--surface-navy-border) text-white shadow-lg">
       {/* Background Gradient */}
       <div
         className="pointer-events-none absolute inset-0"
@@ -18,7 +34,11 @@ function TopHeader() {
       />
 
       {/* Container: w-full để tràn màn hình, px-6 để đẩy sát biên hơn */}
-      <div className="relative w-full flex h-[100px] items-center justify-between px-6 md:px-10 2xl:px-16">
+      <div
+        className={`relative flex w-full items-center justify-between px-6 transition-all duration-300 md:px-10 2xl:px-16 ${
+          isCompact ? "h-[76px]" : "h-[100px]"
+        }`}
+      >
         
         {/* === LEFT: LOGO === */}
         <Link href="/" className="shrink-0 transition-transform hover:scale-105 duration-300 z-10">
@@ -27,7 +47,9 @@ function TopHeader() {
             alt="VLU Renting"
             width={160}
             height={64}
-            className="object-contain w-auto h-[50px] sm:h-[60px] md:h-[70px]"
+            className={`w-auto object-contain transition-all duration-300 ${
+              isCompact ? "h-[42px] sm:h-[48px] md:h-[54px]" : "h-[50px] sm:h-[60px] md:h-[70px]"
+            }`}
             priority
           />
         </Link>
@@ -39,12 +61,20 @@ function TopHeader() {
             - hidden: Ẩn trên tablet/mobile.
         */}
         <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 text-center xl:block z-0 pointer-events-none">
-          <h1 className="text-[36px] 2xl:text-[42px] font-extrabold leading-none tracking-tight drop-shadow-lg whitespace-nowrap">
+          <h1
+            className={`whitespace-nowrap font-extrabold leading-none tracking-tight drop-shadow-lg transition-all duration-300 ${
+              isCompact ? "text-[30px] 2xl:text-[34px]" : "text-[36px] 2xl:text-[42px]"
+            }`}
+          >
             <span className="text-(--brand-accent)">VLU</span>
             <span className="text-white">RENTING</span>
           </h1>
           {/* Dòng slogan dài: Chỉ hiện trên màn hình > 1280px, chỉnh font nhỏ lại chút để vừa vặn */}
-          <p className="mt-2 text-[12px] 2xl:text-[14px] font-medium text-gray-300 tracking-wide opacity-90 whitespace-nowrap">
+          <p
+            className={`whitespace-nowrap font-medium tracking-wide text-gray-300 opacity-90 transition-all duration-300 ${
+              isCompact ? "mt-1 text-[11px] 2xl:text-[12px]" : "mt-2 text-[12px] 2xl:text-[14px]"
+            }`}
+          >
             Trang web giúp sinh viên Văn Lang tìm kiếm nhà trọ phù hợp
           </p>
         </div>
@@ -98,9 +128,11 @@ function SearchBar() {
 // 4. Header chính
 export default function Header() {
   return (
-    <div className="flex flex-col w-full shadow-2xl">
+    <>
       <TopHeader />
-      <SearchBar />
-    </div>
+      <div className="flex w-full flex-col shadow-2xl">
+        <SearchBar />
+      </div>
+    </>
   );
 }

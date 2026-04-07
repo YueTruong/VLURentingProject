@@ -29,9 +29,9 @@ export default function Footer() {
           <Link href="/user-policy" className="transition hover:text-[color:var(--brand-accent)]">
             Chính sách người dùng
           </Link>
-          <Link href="/feedback" className="transition hover:text-[color:var(--brand-accent)]">
+          <a href="mailto:support@vlu-renting.vn" className="transition hover:text-[color:var(--brand-accent)]">
             Liên hệ
-          </Link>
+          </a>
         </div>
       </div>
     </footer>

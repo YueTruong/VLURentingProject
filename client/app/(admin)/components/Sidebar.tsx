@@ -38,7 +38,12 @@ function NavLink({ href, label, icon, active }: NavItem & { active: boolean }) {
           : "text-gray-700 hover:bg-gray-100",
       ].join(" ")}
     >
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-gray-700">
+      <span
+        className={[
+          "flex h-8 w-8 items-center justify-center rounded-lg",
+          active ? "bg-white/15 text-white" : "bg-gray-100 text-gray-700",
+        ].join(" ")}
+      >
         {icon}
       </span>
       <span className="truncate">{label}</span>
@@ -60,7 +65,7 @@ export default function Sidebar() {
     }, null) ?? "";
 
   return (
-    <aside className="sticky top-0 h-screen w-[260px] border-r border-gray-200 bg-white">
+    <aside className="sticky top-[100px] h-[calc(100vh-100px)] w-[260px] border-r border-gray-200 bg-white">
       <div className="flex h-full flex-col p-5">
         <div className="rounded-2xl bg-gray-900 px-4 py-3 text-white shadow-sm">
           <div className="text-xs uppercase tracking-wide text-gray-200/80">Admin Panel</div>

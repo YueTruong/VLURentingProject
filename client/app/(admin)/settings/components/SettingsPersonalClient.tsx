@@ -4,32 +4,28 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
-import {
-  getIdentityVerificationOverview,
-  type IdentityVerificationStatus,
-} from "@/app/services/security";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import LanguageCurrencySettingsPanel from "./LanguageCurrencySettingsPanel";
 import LoginSecurityPanel from "./LoginSecurityPanel";
 import NotificationsSettingsPanel from "./NotificationsSettingsPanel";
 import PrivacySettingsPanel from "./PrivacySettingsPanel";
+import {
+  getSettingsOverview,
+  updateSettingsPersonal,
+  type SettingsOverview,
+  type UpdateSettingsPersonalInput,
+} from "@/app/services/security";
 
 type Props = {
-  legalName: string;
-  email: string;
   initialPanel?: "personal" | "login_security" | "privacy" | "notifications" | "language_currency";
 };
 
-type MenuItem = {
-  label: string;
-  icon: ReactNode;
-  href?: string;
-  active?: boolean;
-  panelKey?: SettingsPanelKey;
-};
-
-type SettingsPanelKey = "personal" | "login_security" | "privacy" | "notifications" | "language_currency";
+type SettingsPanelKey =
+  | "personal"
+  | "login_security"
+  | "privacy"
+  | "notifications"
+  | "language_currency";
 
 type InfoKey =
   | "legal_name"
@@ -41,39 +37,41 @@ type InfoKey =
   | "mailing"
   | "emergency";
 
-type InfoRow = {
-  key: InfoKey;
-  title: string;
-  value: string;
-  action: string;
+type PersonalDraft = {
+  legalName: string;
+  preferredName: string;
+  email: string;
+  phoneNumber: string;
+  residenceAddress: string;
+  mailingAddress: string;
+  emergencyName: string;
+  emergencyRelationship: string;
+  emergencyEmail: string;
+  emergencyPhone: string;
 };
 
-type HelpItem = {
-  title: string;
-  description: string;
+type FeedbackState = {
+  tone: "success" | "error";
+  text: string;
+} | null;
+
+type MenuItem = {
+  label: string;
+  icon: ReactNode;
+  panelKey: SettingsPanelKey;
 };
 
-const MISSING_VALUE = "Chưa được cung cấp";
-const IDENTITY_NAVIGATION_DELAY_MS = 1000;
+const MISSING_VALUE = "Chưa cập nhật";
 
-function MenuIcon({ children }: { children: ReactNode }) {
-  return <span className="settings-muted-icon inline-flex h-5 w-5 items-center justify-center text-gray-500 dark:text-slate-400">{children}</span>;
+function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(" ");
 }
 
-function HelpCardItem({ title, description }: HelpItem) {
+function MenuIcon({ children }: { children: ReactNode }) {
   return (
-    <div className="settings-help-item flex gap-3 border-b border-[#e5e7eb] py-4 last:border-b-0 dark:border-white/12">
-      <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#f43f5e] text-[#f43f5e]">
-        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="9" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v5m0 3h.01" />
-        </svg>
-      </span>
-      <div>
-        <p className="text-[16px] font-semibold text-[#111827] dark:text-slate-100">{title}</p>
-        <p className="mt-1 text-[13px] leading-5 text-[#6b7280] dark:text-slate-300">{description}</p>
-      </div>
-    </div>
+    <span className="inline-flex h-5 w-5 items-center justify-center text-gray-500 dark:text-slate-400">
+      {children}
+    </span>
   );
 }
 
@@ -91,16 +89,18 @@ function RowDisplay({
   disabled?: boolean;
 }) {
   return (
-    <div className="settings-row flex items-start justify-between gap-5 border-b border-[#e5e7eb] py-5 dark:border-white/12">
+    <div className="flex items-start justify-between gap-5 border-b border-[#e5e7eb] py-5 dark:border-white/12">
       <div className="min-w-0 flex-1 pr-3">
-        <p className="text-[17px] font-semibold leading-6 text-[#111827] dark:text-slate-100">{title}</p>
+        <p className="text-[17px] font-semibold leading-6 text-[#111827] dark:text-slate-100">
+          {title}
+        </p>
         <p className="mt-1 text-[14px] leading-6 text-[#6b7280] dark:text-slate-300">{value}</p>
       </div>
       <button
         type="button"
         onClick={onAction}
         disabled={disabled}
-        className="settings-row-action shrink-0 pt-1 text-[14px] font-semibold text-[#374151] underline underline-offset-4 hover:text-[#111827] disabled:cursor-not-allowed disabled:text-[#9ca3af] disabled:no-underline dark:text-slate-200 dark:hover:text-white dark:disabled:text-slate-500"
+        className="shrink-0 pt-1 text-[14px] font-semibold text-[#374151] underline underline-offset-4 hover:text-[#111827] disabled:cursor-not-allowed disabled:text-[#9ca3af] disabled:no-underline dark:text-slate-200 dark:hover:text-white dark:disabled:text-slate-500"
       >
         {action}
       </button>
@@ -108,16 +108,120 @@ function RowDisplay({
   );
 }
 
-export default function SettingsPersonalClient({ legalName, email, initialPanel = "personal" }: Props) {
+function InputField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  placeholder?: string;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-medium text-gray-700 dark:text-slate-200">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-900 outline-none transition focus:border-gray-900 dark:border-white/12 dark:bg-slate-950 dark:text-slate-100"
+      />
+    </label>
+  );
+}
+
+function TextareaField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-medium text-gray-700 dark:text-slate-200">{label}</span>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        rows={4}
+        className="min-h-[112px] rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-900 dark:border-white/12 dark:bg-slate-950 dark:text-slate-100"
+      />
+    </label>
+  );
+}
+
+function extractErrorMessage(error: unknown, fallback: string) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    (error as { response?: { data?: { message?: string | string[] } } }).response?.data?.message
+  ) {
+    const message = (error as { response?: { data?: { message?: string | string[] } } }).response
+      ?.data?.message;
+    return Array.isArray(message) ? message.join(", ") : String(message);
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
+function maskEmail(email: string) {
+  if (!email || !email.includes("@")) return email || MISSING_VALUE;
+  const [localPart, domain] = email.split("@");
+  if (!localPart || !domain) return email;
+  return `${localPart.slice(0, 2)}***@${domain}`;
+}
+
+function formatIdentityStatus(status?: SettingsOverview["identity"]["status"]) {
+  if (status === "verified") return "Đã xác minh";
+  if (status === "pending") return "Đang chờ duyệt";
+  if (status === "rejected") return "Đã bị từ chối, cần bổ sung lại";
+  return "Chưa bắt đầu";
+}
+
+function buildDraft(settings: SettingsOverview | null): PersonalDraft {
+  return {
+    legalName: settings?.personal.legalName ?? "",
+    preferredName: settings?.personal.preferredName ?? "",
+    email: settings?.personal.email ?? "",
+    phoneNumber: settings?.personal.phoneNumber ?? "",
+    residenceAddress: settings?.personal.residenceAddress ?? "",
+    mailingAddress: settings?.personal.mailingAddress ?? "",
+    emergencyName: settings?.personal.emergencyContact.name ?? "",
+    emergencyRelationship: settings?.personal.emergencyContact.relationship ?? "",
+    emergencyEmail: settings?.personal.emergencyContact.email ?? "",
+    emergencyPhone: settings?.personal.emergencyContact.phone ?? "",
+  };
+}
+
+export default function SettingsPersonalClient({
+  initialPanel = "personal",
+}: Props) {
   const { data: session, status: sessionStatus } = useSession();
   const router = useRouter();
   const [activePanel, setActivePanel] = useState<SettingsPanelKey>(initialPanel);
+  const [settings, setSettings] = useState<SettingsOverview | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [editingKey, setEditingKey] = useState<InfoKey | null>(null);
-  const [preferredName, setPreferredName] = useState("");
-  const [editingEmail, setEditingEmail] = useState("");
-  const [isIdentityNavigating, setIsIdentityNavigating] = useState(false);
-  const [identityStatus, setIdentityStatus] = useState<IdentityVerificationStatus>("unverified");
-  const [identityStatusLoading, setIdentityStatusLoading] = useState(true);
+  const [draft, setDraft] = useState<PersonalDraft>(buildDraft(null));
+  const [feedback, setFeedback] = useState<FeedbackState>(null);
+
+  const accessToken = session?.user?.accessToken;
 
   useEffect(() => {
     setActivePanel(initialPanel);
@@ -126,60 +230,41 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
   useEffect(() => {
     if (sessionStatus === "loading") return;
 
-    const accessToken = session?.user?.accessToken;
     if (!accessToken) {
-      setIdentityStatus("unverified");
-      setIdentityStatusLoading(false);
+      setIsLoading(false);
+      setFeedback({
+        tone: "error",
+        text: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để cập nhật cài đặt.",
+      });
       return;
     }
 
     let active = true;
-    setIdentityStatusLoading(true);
-    getIdentityVerificationOverview(accessToken)
+    setIsLoading(true);
+
+    getSettingsOverview(accessToken)
       .then((data) => {
         if (!active) return;
-        setIdentityStatus(data.status);
+        setSettings(data);
+        setDraft(buildDraft(data));
+        setFeedback(null);
       })
-      .catch(() => {
+      .catch((error) => {
         if (!active) return;
-        setIdentityStatus("unverified");
+        setFeedback({
+          tone: "error",
+          text: extractErrorMessage(error, "Không thể tải cài đặt tài khoản."),
+        });
       })
       .finally(() => {
         if (!active) return;
-        setIdentityStatusLoading(false);
+        setIsLoading(false);
       });
 
     return () => {
       active = false;
     };
-  }, [session?.user?.accessToken, sessionStatus]);
-
-  const maskedEmail = useMemo(() => {
-    if (!email || email === MISSING_VALUE || !email.includes("@")) return email;
-    const [localPart, domain] = email.split("@");
-    if (!localPart || !domain) return email;
-    const first = localPart[0] ?? "";
-    return `${first}***@${domain}`;
-  }, [email]);
-
-  const [firstName, lastName] = useMemo(() => {
-    const cleaned = legalName.trim();
-    if (!cleaned || cleaned === MISSING_VALUE) return ["", ""];
-
-    const parts = cleaned.split(/\s+/);
-    if (parts.length === 1) return [parts[0], ""];
-
-    return [parts.slice(0, -1).join(" "), parts[parts.length - 1]];
-  }, [legalName]);
-
-  const identityRowValue = useMemo(() => {
-    if (identityStatusLoading) return "Đang tải trạng thái xác minh";
-    if (identityStatus === "verified") return "Đã xác minh";
-    if (identityStatus === "pending") return "Đang chờ duyệt";
-    return "Chưa bắt đầu";
-  }, [identityStatus, identityStatusLoading]);
-
-  const identityActionLabel = identityStatus === "verified" ? "Xem" : "Bắt đầu";
+  }, [accessToken, sessionStatus]);
 
   const menuItems: MenuItem[] = [
     {
@@ -229,455 +314,308 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
         </MenuIcon>
       ),
     },
-  ];
-
-  const infoRows: InfoRow[] = [
-    { key: "legal_name", title: "Tên pháp lý", value: legalName, action: "Chỉnh sửa" },
-    { key: "preferred_name", title: "Tên ưa dùng", value: preferredName || MISSING_VALUE, action: "Thêm" },
-    { key: "email", title: "Địa chỉ email", value: maskedEmail, action: "Chỉnh sửa" },
     {
-      key: "phone",
-      title: "Số điện thoại",
-      value:
-        "Thêm số điện thoại để khách đã xác nhận và Airbnb có thể liên hệ với bạn. Bạn có thể thêm các số điện thoại khác và chọn mục đích sử dụng tương ứng.",
-      action: "Thêm",
-    },
-    { key: "identity", title: "Xác minh danh tính", value: identityRowValue, action: identityActionLabel },
-    { key: "residence", title: "Địa chỉ cư trú", value: MISSING_VALUE, action: "Thêm" },
-    { key: "mailing", title: "Địa chỉ gửi thư", value: MISSING_VALUE, action: "Thêm" },
-    { key: "emergency", title: "Liên hệ trong trường hợp khẩn cấp", value: MISSING_VALUE, action: "Thêm" },
-  ];
-
-  const helpItems: HelpItem[] = [
-    {
-      title: "Tại sao thông tin của tôi không được hiển thị ở đây?",
-      description: "Một số thông tin tài khoản được ẩn để bảo vệ danh tính của bạn.",
-    },
-    {
-      title: "Bạn có thể chỉnh sửa những thông tin nào?",
-      description:
-        "Bạn có thể chỉnh sửa thông tin liên hệ và thông tin cá nhân. Khi dùng để xác minh danh tính, bạn có thể cần xác minh lại.",
-    },
-    {
-      title: "Thông tin nào được chia sẻ với người khác?",
-      description: "Một số thông tin liên lạc có thể được chia sẻ cho chủ nhà và khách sau khi đặt chỗ được xác nhận.",
+      label: "Ngôn ngữ và tiền tệ",
+      panelKey: "language_currency",
+      icon: (
+        <MenuIcon>
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 5h16M9 5v2a7 7 0 01-2.1 5L4 15m6-3 6 7m-3-7a26.1 26.1 0 003-7" />
+          </svg>
+        </MenuIcon>
+      ),
     },
   ];
 
-  const isEditing = editingKey !== null;
-  const isLoginSecurityPanel = activePanel === "login_security";
+  const personalRows = useMemo(() => {
+    const personal = settings?.personal;
+    return [
+      {
+        key: "legal_name" as const,
+        title: "Tên pháp lý",
+        value: personal?.legalName?.trim() || MISSING_VALUE,
+        action: personal?.legalName?.trim() ? "Chỉnh sửa" : "Thêm",
+      },
+      {
+        key: "preferred_name" as const,
+        title: "Tên ưa dùng",
+        value: personal?.preferredName?.trim() || MISSING_VALUE,
+        action: personal?.preferredName?.trim() ? "Chỉnh sửa" : "Thêm",
+      },
+      {
+        key: "email" as const,
+        title: "Địa chỉ email",
+        value: personal?.email ? maskEmail(personal.email) : MISSING_VALUE,
+        action: "Chỉnh sửa",
+      },
+      {
+        key: "phone" as const,
+        title: "Số điện thoại",
+        value: personal?.phoneNumber?.trim() || MISSING_VALUE,
+        action: personal?.phoneNumber?.trim() ? "Chỉnh sửa" : "Thêm",
+      },
+      {
+        key: "identity" as const,
+        title: "Xác minh danh tính",
+        value: formatIdentityStatus(settings?.identity.status),
+        action: settings?.identity.isVerified ? "Xem" : "Bắt đầu",
+      },
+      {
+        key: "residence" as const,
+        title: "Địa chỉ cư trú",
+        value: personal?.residenceAddress?.trim() || MISSING_VALUE,
+        action: personal?.residenceAddress?.trim() ? "Chỉnh sửa" : "Thêm",
+      },
+      {
+        key: "mailing" as const,
+        title: "Địa chỉ gửi thư",
+        value: personal?.mailingAddress?.trim() || MISSING_VALUE,
+        action: personal?.mailingAddress?.trim() ? "Chỉnh sửa" : "Thêm",
+      },
+      {
+        key: "emergency" as const,
+        title: "Liên hệ trong trường hợp khẩn cấp",
+        value:
+          settings?.personal.emergencyContact.name?.trim()
+            ? [
+                settings.personal.emergencyContact.name.trim(),
+                settings.personal.emergencyContact.relationship.trim(),
+                settings.personal.emergencyContact.phone.trim(),
+              ]
+                .filter(Boolean)
+                .join(" • ")
+            : MISSING_VALUE,
+        action: settings?.personal.emergencyContact.name?.trim() ? "Chỉnh sửa" : "Thêm",
+      },
+    ];
+  }, [settings]);
 
-  const renderEditingRow = (row: InfoRow) => {
-    if (row.key === "legal_name") {
-      return (
-        <div className="border-b border-[#e5e7eb] py-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[17px] font-semibold text-[#111827]">Tên pháp lý</p>
-              <p className="mt-1 text-[14px] text-[#4b5563]">Đảm bảo tên nhập khớp với tên trên giấy tờ tùy thân do chính phủ cấp.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setEditingKey(null)}
-              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
-            >
-              Hủy
-            </button>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <label className="rounded-2xl border border-gray-300 bg-white p-4">
-              <span className="text-[12px] text-gray-500">Tên trên giấy tờ tùy thân</span>
-              <div className="mt-1 rounded-xl border border-gray-300 bg-white px-4 py-3 focus-within:ring-2 focus-within:ring-black/20">
-                <input
-                  defaultValue={firstName}
-                  className="w-full bg-transparent text-gray-900 outline-none"
-                />
-              </div>
-            </label>
-            <label className="rounded-2xl border border-gray-300 bg-white p-4">
-              <span className="text-[12px] text-gray-500">Họ trên giấy tờ tùy thân</span>
-              <div className="mt-1 rounded-xl border border-gray-300 bg-white px-4 py-3 focus-within:ring-2 focus-within:ring-black/20">
-                <input
-                  defaultValue={lastName}
-                  className="w-full bg-transparent text-gray-900 outline-none"
-                />
-              </div>
-            </label>
-          </div>
-          <button
-            type="button"
-            onClick={() => setEditingKey(null)}
-            className="settings-primary-button mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
-          >
-            Lưu
-          </button>
-        </div>
-      );
+  function openEditor(key: InfoKey) {
+    if (key === "identity") {
+      router.push("/settings/identity");
+      return;
     }
 
-    if (row.key === "preferred_name") {
-      return (
-        <div className="border-b border-[#e5e7eb] py-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[17px] font-semibold text-[#111827]">Tên ưa dùng</p>
-              <p className="mt-1 text-[14px] text-[#4b5563]">Tên này sẽ hiển thị cho host và khách.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setEditingKey(null)}
-              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
-            >
-              Hủy
-            </button>
-          </div>
-          <input
-            value={preferredName}
-            onChange={(e) => setPreferredName(e.target.value)}
-            placeholder="Tên ưa dùng (không bắt buộc)"
-            className="mt-4 w-full rounded-2xl border border-[#9ca3af] px-4 py-3 text-[18px] outline-none"
-          />
-          <button
-            type="button"
-            onClick={() => setEditingKey(null)}
-            className="settings-primary-button mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
-          >
-            Lưu
-          </button>
-        </div>
-      );
+    setFeedback(null);
+    setDraft(buildDraft(settings));
+    setEditingKey(key);
+  }
+
+  function closeEditor() {
+    setEditingKey(null);
+    setDraft(buildDraft(settings));
+  }
+
+  async function handleSave() {
+    if (!editingKey || !accessToken || isSaving) return;
+
+    let payload: UpdateSettingsPersonalInput = {};
+    if (editingKey === "legal_name") {
+      payload = { legalName: draft.legalName };
+    } else if (editingKey === "preferred_name") {
+      payload = { preferredName: draft.preferredName };
+    } else if (editingKey === "email") {
+      payload = { email: draft.email };
+    } else if (editingKey === "phone") {
+      payload = { phoneNumber: draft.phoneNumber };
+    } else if (editingKey === "residence") {
+      payload = { residenceAddress: draft.residenceAddress };
+    } else if (editingKey === "mailing") {
+      payload = { mailingAddress: draft.mailingAddress };
+    } else if (editingKey === "emergency") {
+      payload = {
+        emergencyName: draft.emergencyName,
+        emergencyRelationship: draft.emergencyRelationship,
+        emergencyEmail: draft.emergencyEmail,
+        emergencyPhone: draft.emergencyPhone,
+      };
     }
 
-    if (row.key === "email") {
-      return (
-        <div className="border-b border-[#e5e7eb] py-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[17px] font-semibold text-[#111827]">Địa chỉ email</p>
-              <p className="mt-1 text-[14px] text-[#4b5563]">Sử dụng địa chỉ email mà bạn luôn có quyền truy cập.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setEditingKey(null)}
-              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
-            >
-              Hủy
-            </button>
-          </div>
-          <input
-            value={editingEmail}
-            onChange={(e) => setEditingEmail(e.target.value)}
-            placeholder="Nhập địa chỉ email mới"
-            className="mt-4 w-full rounded-2xl border border-[#9ca3af] px-4 py-3 text-[18px] outline-none"
-          />
-          <button
-            type="button"
-            onClick={() => setEditingKey(null)}
-            className="settings-primary-button mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
-          >
-            Lưu
-          </button>
-        </div>
-      );
+    setIsSaving(true);
+    try {
+      const nextSettings = await updateSettingsPersonal(payload, accessToken);
+      setSettings(nextSettings);
+      setDraft(buildDraft(nextSettings));
+      setEditingKey(null);
+      setFeedback({
+        tone: "success",
+        text: "Đã cập nhật thông tin tài khoản.",
+      });
+    } catch (error) {
+      setFeedback({
+        tone: "error",
+        text: extractErrorMessage(error, "Không thể lưu thay đổi. Vui lòng thử lại."),
+      });
+    } finally {
+      setIsSaving(false);
     }
+  }
 
-    if (row.key === "phone") {
-      return (
-        <div className="border-b border-[#e5e7eb] py-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[17px] font-semibold text-[#111827]">Số điện thoại</p>
-              <p className="mt-1 text-[14px] leading-6 text-[#4b5563]">
-                Thêm số điện thoại để khách đã xác nhận và Airbnb có thể liên hệ với bạn. Bạn có thể thêm các số điện thoại khác và chọn mục đích sử dụng tương ứng.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setEditingKey(null)}
-              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
-            >
-              Đóng
-            </button>
-          </div>
-
-          <div className="mt-6 flex items-center justify-between gap-3">
-            <p className="text-[20px] font-medium">Nhập số điện thoại mới</p>
-            <button
-              type="button"
-              onClick={() => setEditingKey(null)}
-              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
-            >
-              Hủy
-            </button>
-          </div>
-
-          <div className="mt-3 rounded-2xl border border-[#9ca3af] px-4 py-3">
-            <p className="text-[12px] text-[#6b7280]">Quốc gia/Khu vực</p>
-            <div className="mt-1 flex items-center justify-between">
-              <span className="text-[18px]">Việt Nam (+84)</span>
-              <svg viewBox="0 0 24 24" className="h-5 w-5 text-[#111827]" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-              </svg>
-            </div>
-          </div>
-
-          <label className="mt-2 block rounded-2xl border border-[#111827] px-4 py-3">
-            <span className="text-[12px] text-[#6b7280]">Số điện thoại</span>
-            <input defaultValue="+84" className="mt-1 w-full bg-transparent text-[18px] outline-none" />
-          </label>
-
-          <p className="mt-2 text-[14px] leading-6 text-[#4b5563]">Chúng tôi sẽ gửi mã qua để xác minh số điện thoại. Có thể áp dụng cước nhắn tin và dữ liệu.</p>
-
-          <button
-            type="button"
-            onClick={() => setEditingKey(null)}
-            className="settings-primary-button mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
-          >
-            Xác minh
-          </button>
-        </div>
-      );
-    }
-
-    if (row.key === "identity") {
-      return (
-        <div className="border-b border-[#e5e7eb] py-6">
-          <div className="grid gap-6 md:grid-cols-[1fr_300px]">
-            <div>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[30px] font-semibold leading-[1.15] text-[#111827]">Hãy thêm giấy tờ tùy thân do chính phủ cấp</p>
-                  <p className="mt-3 text-[14px] leading-7 text-[#4b5563]">
-                    Chúng tôi cần bạn bổ sung giấy tờ tùy thân chính thức do chính phủ cấp. Bước này giúp xác minh danh tính của bạn.
-                  </p>
-                  <p className="mt-3 text-[14px] leading-7 text-[#4b5563]">
-                    Bạn có thể thêm bằng lái xe, hộ chiếu hoặc chứng minh nhân dân/thẻ căn cước công dân tùy thuộc vào quốc gia quê quán của mình.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setEditingKey(null)}
-                  className="settings-inline-action shrink-0 text-[14px] font-semibold underline underline-offset-4"
-                >
-                  Hủy
-                </button>
-              </div>
-
-              <div className="mt-8 border-t border-[#d1d5db] pt-4">
-                <button
-                  type="button"
-                  onClick={() => setEditingKey(null)}
-                  className="settings-primary-button rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
-                >
-                  Thêm giấy tờ tùy thân
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-[#d1d5db] px-5 py-5">
-              <p className="text-[32px] font-semibold text-[#111827]">Quyền riêng tư của bạn</p>
-              <p className="mt-3 text-[14px] leading-7 text-[#4b5563]">
-                Chúng tôi muốn đảm bảo sự riêng tư, an toàn và bảo mật cho dữ liệu bạn chia sẻ trong quá trình này. Tìm hiểu thêm trong Chính sách
-                quyền riêng tư của chúng tôi.
-              </p>
-              <button type="button" className="settings-inline-action mt-4 text-left text-[16px] font-semibold text-[#111827] underline underline-offset-4">
-                Quy trình xác minh danh tính
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    if (row.key === "residence") {
-      return (
-        <div className="border-b border-[#e5e7eb] py-5">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-[17px] font-semibold text-[#111827]">Địa chỉ cư trú</p>
-            <button
-              type="button"
-              onClick={() => setEditingKey(null)}
-              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
-            >
-              Hủy
-            </button>
-          </div>
-
-          <button type="button" className="mt-4 flex w-full items-center justify-between rounded-2xl border border-[#9ca3af] px-4 py-3 text-left">
-            <div>
-              <p className="text-[14px] text-[#6b7280]">Quốc gia/khu vực</p>
-              <p className="mt-0.5 text-[18px] text-[#111827]">Việt Nam</p>
-            </div>
-            <svg viewBox="0 0 24 24" className="h-5 w-5 text-[#111827]" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-            </svg>
-          </button>
-
-          <div className="mt-4 overflow-hidden rounded-2xl border border-[#9ca3af]">
-            <input placeholder="Căn hộ, tầng, v.v. (nếu có)" className="w-full border-b border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
-            <input placeholder="Tên tòa nhà (nếu có)" className="w-full border-b border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
-            <input placeholder="Địa chỉ đường/phố" className="w-full border-b border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
-            <input placeholder="Thành phố/quận/thị xã" className="w-full border-b border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
-            <input placeholder="Đô thị/tỉnh" className="w-full border-b border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
-            <input placeholder="Mã bưu điện (nếu có)" className="w-full bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
-          </div>
-
-          <button type="button" disabled className="mt-4 rounded-xl bg-[#d1d5db] px-6 py-3 text-[16px] font-semibold text-white">
-            Lưu
-          </button>
-        </div>
-      );
-    }
-
-    if (row.key === "mailing") {
-      return (
-        <div className="border-b border-[#e5e7eb] py-5">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-[17px] font-semibold text-[#111827]">Địa chỉ gửi thư</p>
-            <button
-              type="button"
-              onClick={() => setEditingKey(null)}
-              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
-            >
-              Hủy
-            </button>
-          </div>
-
-          <button
-            type="button"
-            className="mt-4 flex w-full max-w-[340px] items-center justify-between rounded-2xl border border-[#9ca3af] px-4 py-3 text-left"
-          >
-            <div>
-              <p className="text-[14px] text-[#6b7280]">Quốc gia/khu vực</p>
-              <p className="mt-0.5 text-[18px] text-[#111827]">Việt Nam</p>
-            </div>
-            <svg viewBox="0 0 24 24" className="h-5 w-5 text-[#111827]" fill="none" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-            </svg>
-          </button>
-
-          <div className="mt-4 space-y-3">
-            <input placeholder="Địa chỉ đường/phố" className="w-full rounded-2xl border border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
-            <input placeholder="Căn hộ, phòng (không bắt buộc)" className="w-full rounded-2xl border border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input placeholder="Thành phố" className="w-full rounded-2xl border border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
-              <input placeholder="Bang / Tỉnh / Quận / Khu vực" className="w-full rounded-2xl border border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
-            </div>
-            <input placeholder="Mã bưu chính" className="w-full max-w-[340px] rounded-2xl border border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setEditingKey(null)}
-            className="settings-primary-button mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
-          >
-            Lưu
-          </button>
-        </div>
-      );
-    }
-
-    if (row.key === "emergency") {
-      return (
-        <div className="border-b border-[#e5e7eb] py-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[17px] font-semibold text-[#111827]">Liên hệ trong trường hợp khẩn cấp</p>
-              <p className="mt-1 text-[14px] text-[#4b5563]">Một người liên hệ đáng tin cậy mà chúng tôi có thể thông báo trong tình huống khẩn cấp.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setEditingKey(null)}
-              className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
-            >
-              Hủy
-            </button>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            <input placeholder="Tên" className="w-full rounded-2xl border border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
-            <input placeholder="Mối quan hệ" className="w-full rounded-2xl border border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
-
-            <button type="button" className="flex w-full items-center justify-between rounded-2xl border border-[#9ca3af] px-4 py-4 text-left">
-              <span className="text-[18px] text-[#4b5563]">Ngôn ngữ ưa thích</span>
-              <svg viewBox="0 0 24 24" className="h-5 w-5 text-[#111827]" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-              </svg>
-            </button>
-
-            <input placeholder="Email" className="w-full rounded-2xl border border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
-
-            <div className="grid gap-3 sm:grid-cols-[220px_1fr]">
-              <button type="button" className="flex w-full items-center justify-between rounded-2xl border border-[#9ca3af] px-4 py-4 text-left">
-                <span className="text-[18px] text-[#4b5563]">Mã quốc gia</span>
-                <svg viewBox="0 0 24 24" className="h-5 w-5 text-[#111827]" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
-                </svg>
-              </button>
-              <input placeholder="Số điện thoại" className="w-full rounded-2xl border border-[#9ca3af] bg-transparent px-4 py-4 text-[18px] text-[#111827] outline-none placeholder:text-[#4b5563]" />
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setEditingKey(null)}
-            className="settings-primary-button mt-4 rounded-xl bg-[#111827] px-6 py-3 text-[16px] font-semibold text-white"
-          >
-            Lưu
-          </button>
-        </div>
-      );
-    }
+  function renderEditor() {
+    if (!editingKey) return null;
 
     return (
-      <div className="border-b border-[#e5e7eb] py-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[17px] font-semibold text-[#111827]">{row.title}</p>
-            <p className="mt-1 text-[14px] leading-6 text-[#4b5563]">{row.value}</p>
-          </div>
+      <div className="rounded-2xl border border-[#d1d5db] bg-white p-5 shadow-sm dark:border-white/12 dark:bg-slate-950">
+        <div className="grid gap-4">
+          {editingKey === "legal_name" ? (
+            <InputField
+              label="Tên pháp lý"
+              value={draft.legalName}
+              onChange={(value) => setDraft((current) => ({ ...current, legalName: value }))}
+              placeholder="Nhập họ và tên trên giấy tờ"
+            />
+          ) : null}
+
+          {editingKey === "preferred_name" ? (
+            <InputField
+              label="Tên ưa dùng"
+              value={draft.preferredName}
+              onChange={(value) =>
+                setDraft((current) => ({ ...current, preferredName: value }))
+              }
+              placeholder="Tên hiển thị cho người dùng khác"
+            />
+          ) : null}
+
+          {editingKey === "email" ? (
+            <InputField
+              label="Địa chỉ email"
+              type="email"
+              value={draft.email}
+              onChange={(value) => setDraft((current) => ({ ...current, email: value }))}
+              placeholder="you@example.com"
+            />
+          ) : null}
+
+          {editingKey === "phone" ? (
+            <InputField
+              label="Số điện thoại"
+              type="tel"
+              value={draft.phoneNumber}
+              onChange={(value) =>
+                setDraft((current) => ({ ...current, phoneNumber: value }))
+              }
+              placeholder="Nhập số điện thoại"
+            />
+          ) : null}
+
+          {editingKey === "residence" ? (
+            <TextareaField
+              label="Địa chỉ cư trú"
+              value={draft.residenceAddress}
+              onChange={(value) =>
+                setDraft((current) => ({ ...current, residenceAddress: value }))
+              }
+              placeholder="Nhập địa chỉ cư trú hiện tại"
+            />
+          ) : null}
+
+          {editingKey === "mailing" ? (
+            <TextareaField
+              label="Địa chỉ gửi thư"
+              value={draft.mailingAddress}
+              onChange={(value) =>
+                setDraft((current) => ({ ...current, mailingAddress: value }))
+              }
+              placeholder="Nhập địa chỉ nhận thư"
+            />
+          ) : null}
+
+          {editingKey === "emergency" ? (
+            <div className="grid gap-4">
+              <InputField
+                label="Tên người liên hệ"
+                value={draft.emergencyName}
+                onChange={(value) =>
+                  setDraft((current) => ({ ...current, emergencyName: value }))
+                }
+              />
+              <InputField
+                label="Mối quan hệ"
+                value={draft.emergencyRelationship}
+                onChange={(value) =>
+                  setDraft((current) => ({ ...current, emergencyRelationship: value }))
+                }
+              />
+              <InputField
+                label="Email"
+                type="email"
+                value={draft.emergencyEmail}
+                onChange={(value) =>
+                  setDraft((current) => ({ ...current, emergencyEmail: value }))
+                }
+              />
+              <InputField
+                label="Số điện thoại"
+                type="tel"
+                value={draft.emergencyPhone}
+                onChange={(value) =>
+                  setDraft((current) => ({ ...current, emergencyPhone: value }))
+                }
+              />
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
           <button
             type="button"
-            onClick={() => setEditingKey(null)}
-            className="settings-inline-action text-[14px] font-semibold underline underline-offset-4"
+            onClick={closeEditor}
+            disabled={isSaving}
+            className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/12 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
           >
-            Đóng
+            Hủy
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="rounded-xl bg-[#111827] px-4 py-2 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
           </button>
         </div>
-        <p className="settings-note-surface mt-4 rounded-2xl border border-[#d1d5db] bg-[#f9fafb] px-4 py-3 text-[14px] text-[#4b5563]">
-          Đang chỉnh sửa ngay tại mục này. Bạn có thể cập nhật nội dung cho {row.title.toLowerCase()} ở đây.
-        </p>
-        <button
-          type="button"
-          onClick={() => setEditingKey(null)}
-          className="settings-ghost-button mt-4 rounded-xl border border-[#111827] px-6 py-3 text-[16px] font-semibold text-[#111827]"
-        >
-          Hoàn tất
-        </button>
       </div>
     );
-  };
+  }
+
+  function navigateToPanel(panelKey: SettingsPanelKey) {
+    setEditingKey(null);
+    setFeedback(null);
+    setActivePanel(panelKey);
+
+    const nextUrl =
+      panelKey === "login_security"
+        ? "/settings?tab=login-security"
+        : panelKey === "privacy"
+          ? "/settings?tab=privacy"
+          : panelKey === "notifications"
+            ? "/settings?tab=notifications"
+            : panelKey === "language_currency"
+              ? "/settings?tab=language-currency"
+              : "/settings";
+
+    router.replace(nextUrl);
+  }
 
   return (
-    <div className="settings-shell min-h-screen bg-white text-[#222222] dark:text-slate-100">
-      {isEditing ? (
-        <button
-          type="button"
-          aria-label="Đóng chế độ chỉnh sửa"
-          onClick={() => setEditingKey(null)}
-          className="settings-overlay fixed inset-0 z-10 cursor-default bg-white/70 backdrop-blur-[1px]"
-        />
-      ) : null}
-
-      <header className="settings-header border-b border-[#e5e7eb] dark:border-white/12">
+    <div className="min-h-screen bg-white text-[#222222] dark:text-slate-100">
+      <header className="border-b border-[#e5e7eb] dark:border-white/12">
         <div className="mx-auto flex h-[88px] w-full items-center justify-between px-6 lg:px-16">
           <Link href="/" className="inline-flex items-center text-[#222222] dark:text-slate-100">
-            <Image src="/images/VLU-Renting-Logo.svg" alt="VLU Renting" width={140} height={52} className="object-contain" priority />
+            <Image
+              src="/images/VLU-Renting-Logo.svg"
+              alt="VLU Renting"
+              width={140}
+              height={52}
+              className="object-contain"
+              priority
+            />
           </Link>
           <button
             type="button"
             onClick={() => router.push("/")}
-            className="settings-secondary-button rounded-full border border-[#e5e7eb] bg-white px-5 py-2 text-[14px] font-semibold text-[#222222] transition hover:bg-[#f7f7f7] dark:border-white/15 dark:bg-white/5 dark:text-slate-100 dark:hover:bg-white/10"
+            className="rounded-full border border-[#e5e7eb] bg-white px-5 py-2 text-[14px] font-semibold text-[#222222] transition hover:bg-[#f7f7f7] dark:border-white/15 dark:bg-white/5 dark:text-slate-100 dark:hover:bg-white/10"
           >
             Hoàn tất
           </button>
@@ -685,39 +623,23 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
       </header>
 
       <main className="grid min-h-[calc(100vh-88px)] grid-cols-1 lg:grid-cols-[296px_minmax(0,1fr)]">
-        <aside className="settings-sidebar border-r border-[#e5e7eb] px-6 py-8 lg:px-8 dark:border-white/12">
-          <h1 className="text-xl font-semibold leading-tight text-[#111827] dark:text-slate-50">Cài đặt tài khoản</h1>
+        <aside className="border-r border-[#e5e7eb] px-6 py-8 lg:px-8 dark:border-white/12">
+          <h1 className="text-xl font-semibold leading-tight text-[#111827] dark:text-slate-50">
+            Cài đặt tài khoản
+          </h1>
 
           <div className="mt-6 space-y-1">
             {menuItems.map((item) => (
               <button
                 key={item.label}
                 type="button"
-                onClick={() => {
-                  if (item.panelKey) {
-                    setEditingKey(null);
-                    setIsIdentityNavigating(false);
-                    setActivePanel(item.panelKey);
-                    const nextUrl =
-                      item.panelKey === "login_security"
-                        ? "/settings?tab=login-security"
-                        : item.panelKey === "privacy"
-                          ? "/settings?tab=privacy"
-                          : item.panelKey === "notifications"
-                            ? "/settings?tab=notifications"
-                            : item.panelKey === "language_currency"
-                              ? "/settings?tab=language-currency"
-                          : "/settings";
-                    router.replace(nextUrl);
-                    return;
-                  }
-                  if (item.href) router.push(item.href);
-                }}
-                className={`settings-menu-item flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[15px] leading-6 text-[#4b5563] transition dark:text-slate-300 ${
-                  (item.panelKey ? item.panelKey === activePanel : item.active)
-                    ? "settings-menu-item-active bg-gray-100 font-medium text-[#111827] dark:bg-white/10 dark:text-white"
-                    : "hover:bg-[#f7f7f7] dark:hover:bg-white/5"
-                }`}
+                onClick={() => navigateToPanel(item.panelKey)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[15px] leading-6 text-[#4b5563] transition dark:text-slate-300",
+                  item.panelKey === activePanel
+                    ? "bg-gray-100 font-medium text-[#111827] dark:bg-white/10 dark:text-white"
+                    : "hover:bg-[#f7f7f7] dark:hover:bg-white/5",
+                )}
               >
                 {item.icon}
                 <span>{item.label}</span>
@@ -727,53 +649,73 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
         </aside>
 
         <section
-          className={`settings-content-panel px-6 py-8 lg:px-14 ${isLoginSecurityPanel ? "lg:flex lg:flex-col lg:justify-center" : ""}`}
+          className={cn(
+            "px-6 py-8 lg:px-14",
+            activePanel === "login_security" ? "lg:flex lg:flex-col lg:justify-center" : "",
+          )}
         >
-          <div className={`mx-auto w-full ${isLoginSecurityPanel ? "max-w-[720px]" : "max-w-[680px]"}`}>
+          <div className={cn("mx-auto w-full", activePanel === "login_security" ? "max-w-[720px]" : "max-w-[680px]")}>
             {activePanel === "personal" ? (
               <>
-            <h2 className="text-[40px] font-semibold leading-[1.1] dark:text-slate-50">Thông tin cá nhân</h2>
+                <div className="space-y-2">
+                  <h2 className="text-[40px] font-semibold leading-[1.1] dark:text-slate-50">
+                    Thông tin cá nhân
+                  </h2>
+                  <p className="text-[15px] leading-7 text-[#6b7280] dark:text-slate-300">
+                    Quản lý thông tin liên hệ và dữ liệu cá nhân đang được dùng cho tài khoản
+                    của bạn.
+                  </p>
+                </div>
 
-            <div className="mt-3 border-b border-[#e5e7eb] dark:border-white/12">
-              {infoRows.map((row) => {
-                const rowIsEditing = editingKey === row.key;
-
-                return (
-                  <div key={row.key} className={rowIsEditing ? "relative z-20" : ""}>
-                    {rowIsEditing ? (
-                      renderEditingRow(row)
-                    ) : (
-                      <RowDisplay
-                        title={row.title}
-                        value={row.value}
-                        action={row.action}
-                        onAction={() => {
-                          if (isIdentityNavigating) return;
-                          if (row.key === "identity") {
-                            setIsIdentityNavigating(true);
-                            window.setTimeout(() => {
-                              router.push("/settings/identity");
-                            }, IDENTITY_NAVIGATION_DELAY_MS);
-                            return;
-                          }
-                          if (row.key === "email") {
-                            setEditingEmail("");
-                          }
-                          setEditingKey(row.key);
-                        }}
-                        disabled={isIdentityNavigating}
-                      />
+                {feedback ? (
+                  <div
+                    className={cn(
+                      "mt-5 rounded-xl border px-4 py-3 text-sm",
+                      feedback.tone === "success"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-rose-200 bg-rose-50 text-rose-700",
                     )}
+                  >
+                    {feedback.text}
                   </div>
-                );
-              })}
-            </div>
+                ) : null}
 
-            <div className={`settings-help-card mt-6 rounded-2xl border border-[#d1d5db] px-5 py-2 dark:border-white/12 dark:bg-white/5 ${isEditing ? "opacity-40" : ""}`}>
-              {helpItems.map((item) => (
-                <HelpCardItem key={item.title} {...item} />
-              ))}
-            </div>
+                {isLoading ? (
+                  <div className="mt-6 rounded-2xl border border-[#d1d5db] bg-[#f9fafb] px-5 py-4 text-sm text-[#4b5563] dark:border-white/12 dark:bg-white/5 dark:text-slate-300">
+                    Đang tải thông tin tài khoản...
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-6 border-b border-[#e5e7eb] dark:border-white/12">
+                      {personalRows.map((row) => (
+                        <div key={row.key}>
+                          {editingKey === row.key ? (
+                            <div className="py-5">{renderEditor()}</div>
+                          ) : (
+                            <RowDisplay
+                              title={row.title}
+                              value={row.value}
+                              action={row.action}
+                              onAction={() => openEditor(row.key)}
+                              disabled={isSaving}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-6 rounded-2xl border border-[#d1d5db] px-5 py-4 dark:border-white/12 dark:bg-white/5">
+                      <p className="text-sm font-semibold text-[#111827] dark:text-slate-100">
+                        Vai trò tài khoản
+                      </p>
+                      <p className="mt-1 text-sm text-[#6b7280] dark:text-slate-300">
+                        {settings?.account.role
+                          ? settings.account.role.replace(/^\w/, (char) => char.toUpperCase())
+                          : MISSING_VALUE}
+                      </p>
+                    </div>
+                  </>
+                )}
               </>
             ) : activePanel === "login_security" ? (
               <LoginSecurityPanel />
@@ -787,28 +729,6 @@ export default function SettingsPersonalClient({ legalName, email, initialPanel 
           </div>
         </section>
       </main>
-
-      {isIdentityNavigating ? (
-        <div
-          className="settings-overlay fixed inset-0 z-40 flex items-center justify-center bg-white/80 backdrop-blur-[1px]"
-          role="status"
-          aria-live="polite"
-          aria-label="Đang tải trang xác minh danh tính"
-        >
-          <div className="flex items-center gap-2" aria-hidden>
-            {[0, 120, 240].map((delay) => (
-              <span
-                key={delay}
-                className="settings-spinner-dot h-3 w-3 rounded-full bg-[#111827] animate-bounce"
-                style={{ animationDelay: `${delay}ms` }}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
-
-
-

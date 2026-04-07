@@ -33,6 +33,14 @@ import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
+  @Get('/dashboard/overview')
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiOperation({ summary: 'Lay tong quan thong ke dong cho admin dashboard' })
+  async getDashboardOverview() {
+    return this.adminService.getDashboardOverview();
+  }
+
   @Get('/posts')
   @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)

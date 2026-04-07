@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { UpdateSettingsPersonalDto } from './dto/update-settings-personal.dto';
 import { UpdateSettingsPreferencesDto } from './dto/update-settings-preferences.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { DeactivateAccountDto } from './dto/deactivate-account.dto';
 import { SubmitIdentityVerificationDto } from './dto/submit-identity-verification.dto';
 
 type AuthenticatedRequest = Request & {
@@ -63,6 +64,16 @@ export class MeController {
   ) {
     const userId = req.user?.userId;
     return this.authService.changePassword(userId, dto);
+  }
+
+  @Patch('account/deactivate')
+  @ApiOperation({ summary: 'Deactivate current account' })
+  async deactivateAccount(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: DeactivateAccountDto,
+  ) {
+    const userId = req.user?.userId;
+    return this.authService.deactivateAccount(userId, dto);
   }
 
   @Get('verification')
